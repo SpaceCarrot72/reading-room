@@ -5,6 +5,11 @@ on:
     # Mondays at 10:43 UTC (5:43 in Toronto in winter, 6:43 in summer)
     - cron: "43 10 * * 1"
   workflow_dispatch:
+    inputs:
+      desk:
+        description: "Run the desk after the check"
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -13,23 +18,34 @@ concurrency:
   group: weekly-check
   cancel-in-progress: false
 
+env:
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  NOTES_TOKEN: ${{ secrets.NOTES_TOKEN }}
+  NOTES_REPO: ${{ vars.NOTES_REPO || format('{0}-notes', github.repository) }}
+  READING_ROOM_MODEL: ${{ vars.READING_ROOM_MODEL }}
+  READING_ROOM_CLASSICS: ${{ vars.READING_ROOM_CLASSICS }}
+  READING_ROOM_DESK_MODEL: ${{ vars.READING_ROOM_DESK_MODEL }}
+  READING_ROOM_DESK_MAX: ${{ vars.READING_ROOM_DESK_MAX }}
+  READING_ROOM_DESK_TOKENS: ${{ vars.READING_ROOM_DESK_TOKENS }}
+  CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
+  CROSSREF_MAILTO: ${{ vars.CONTACT_EMAIL }}
+
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
       - name: Check the journals
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          NOTES_TOKEN: ${{ secrets.NOTES_TOKEN }}
-          NOTES_REPO: ${{ vars.NOTES_REPO || format('{0}-notes', github.repository) }}
-          READING_ROOM_MODEL: ${{ vars.READING_ROOM_MODEL }}
-          CROSSREF_MAILTO: ${{ vars.CROSSREF_MAILTO }}
         run: python3 scripts/check.py
 
+      - name: Review for the desk
+        if: ${{ !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.desk) }}
+        run: python3 scripts/desk.py
+
       - name: Publish the results
+        if: ${{ !cancelled() }}
         run: |
           git config user.name "reading-room-check"
           git config user.email "reading-room-check@users.noreply.github.com"

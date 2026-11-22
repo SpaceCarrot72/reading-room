@@ -76,6 +76,12 @@ def clean(text):
     return re.sub(r"\s+", " ", html.unescape(text)).strip()
 
 
+def tidy_title(text):
+    """A Crossref title as a reader would write it: no series numeral, no space before a colon."""
+    text = re.sub(r"^[IVXL]+\*?\s*[—–]\s*", "", clean(text))
+    return re.sub(r"\s+([:;,])", r"\1", text)
+
+
 def norm(text):
     return re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).strip()
 
@@ -127,7 +133,7 @@ def names(item):
 def record(item, venue):
     """A Crossref item as a candidate, or None for notices and front matter."""
     doi = (item.get("DOI") or "").strip()
-    title = " ".join(clean(t) for t in (item.get("title") or []) if t)
+    title = tidy_title(" ".join(t for t in (item.get("title") or []) if t))
     title = re.sub(r"\s+in advance$", "", title).strip()
     if not doi or not title or SKIP_TITLE.match(title):
         return None
@@ -159,15 +165,36 @@ def notes_state():
         return None, f"The notes repository could not be read ({e}), so the public default profile was used."
 
 
+def reader_state(public):
+    """Board, dismissals, areas and threads: from the private notes when readable, else the public profile."""
+    user, msg = notes_state()
+    user = user if isinstance(user, dict) else {}
+    board = user.get("board") if isinstance(user.get("board"), dict) else {}
+    dismissed = {k for k, v in (user.get("dismissed") or {}).items() if isinstance(v, dict) and v.get("v")}
+    areas = [a for a in (user.get("areas") or public.get("areas") or []) if isinstance(a, str) and a]
+    threads = user.get("threads") if isinstance(user.get("threads"), str) else public.get("threads") or ""
+    return board, dismissed, areas, threads, msg
+
+
 # ---------- Claude ----------
 
-def claude(system, user, max_tokens=8000):
+USAGE = {"requests": 0, "input": 0, "output": 0, "cache_write": 0, "cache_read": 0}
+
+
+def claude(system, user, max_tokens=8000, model=None):
+    """One Messages request. `user` is a string or a list of content blocks. Returns the reply text."""
     out = http("https://api.anthropic.com/v1/messages",
                headers={"x-api-key": API_KEY, "anthropic-version": API_VERSION,
                         "content-type": "application/json"},
-               body={"model": MODEL, "max_tokens": max_tokens, "system": system,
+               body={"model": model or MODEL, "max_tokens": max_tokens, "system": system,
                      "messages": [{"role": "user", "content": user}]},
                timeout=600)
+    usage = out.get("usage") or {}
+    USAGE["requests"] += 1
+    USAGE["input"] += int(usage.get("input_tokens") or 0)
+    USAGE["output"] += int(usage.get("output_tokens") or 0)
+    USAGE["cache_write"] += int(usage.get("cache_creation_input_tokens") or 0)
+    USAGE["cache_read"] += int(usage.get("cache_read_input_tokens") or 0)
     return "".join(b.get("text", "") for b in out.get("content") or [] if b.get("type") == "text")
 
 
@@ -195,7 +222,7 @@ There is no quota. Passing every candidate is an acceptable result.
 
 For "new" and "reserve" also give:
 - "area": exactly one of the area names, spelled as given.
-- "why": one or two plain sentences, at most 40 words, in your own words, saying what the paper claims and, where true, which thread it bears on. Never reuse wording from an abstract. No praise, no filler, no em dashes, and do not address the reader's qualities.
+- "why": one or two plain sentences, at most 40 words, in your own words, saying what the paper claims and, where true, which thread it bears on. Never reuse wording from an abstract. No praise, no filler, no em dashes. Do not address the reader: never write "you" or "your"; name the thread instead.
 - "basis": "abstract" if the record has an abstract, otherwise "title". With "title", say only what the title supports.
 
 Reply with only a JSON array holding one object per candidate, best fit first:
@@ -208,7 +235,7 @@ You are given the reader's areas, the threads they are working on, their notes o
 
 Only suggest papers you are confident exist as described. Each suggestion is checked against Crossref and dropped if it is not found. Do not suggest anything already on the list.
 
-For each suggestion give "why": one or two plain sentences, at most 40 words, saying what the paper does and which thread it serves. No praise, no filler, no em dashes.
+For each suggestion give "why": one or two plain sentences, at most 40 words, saying what the paper does and which thread it serves. No praise, no filler, no em dashes. Do not address the reader: never write "you" or "your"; name the thread instead.
 
 Reply with only a JSON array: {"area": "...", "authors": "...", "title": "...", "year": 1970, "why": "..."}"""
 
@@ -263,7 +290,7 @@ def find_classic(sugg):
     for it in items:
         if it.get("type") != "journal-article":
             continue
-        title = clean(" ".join(it.get("title") or []))
+        title = tidy_title(" ".join(it.get("title") or []))
         if difflib.SequenceMatcher(None, want, norm(title)).ratio() < 0.9:
             continue
         families = {norm(a.get("family")) for a in it.get("author") or [] if a.get("family")}
@@ -297,14 +324,9 @@ def main():
         sys.exit("data/journals.json lists no journals.")
 
     notes = []
-    user, msg = notes_state()
+    board, dismissed, areas, threads, msg = reader_state(public)
     if msg:
         notes.append(msg)
-    user = user if isinstance(user, dict) else {}
-    board = user.get("board") if isinstance(user.get("board"), dict) else {}
-    dismissed = {k for k, v in (user.get("dismissed") or {}).items() if isinstance(v, dict) and v.get("v")}
-    areas = [a for a in (user.get("areas") or public.get("areas") or []) if isinstance(a, str) and a]
-    threads = user.get("threads") if isinstance(user.get("threads"), str) else public.get("threads") or ""
     if not areas:
         sys.exit("No areas are set in the profile.")
 
@@ -436,7 +458,7 @@ def main():
     papers.extend(added + classics)
     runs.append({"id": run_id, "at": today.isoformat(), "kind": "Weekly check", "since": since,
                  "journals": len(journals) - len(failed), "checked": checked, "kept": kept,
-                 "reserve": reserve_kept, "classics": len(classics), "model": MODEL,
+                 "reserve": reserve_kept, "classics": len(classics), "model": MODEL, "tokens": dict(USAGE),
                  "passed": sorted(passed),
                  "carry": [{k: c[k] for k in ("id", "title", "authors", "venue", "date", "url", "abstract")} for c in carry],
                  "note": " ".join(notes) or "No problems."})

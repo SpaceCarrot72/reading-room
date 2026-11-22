@@ -181,6 +181,9 @@ a.btn{text-decoration:none;display:inline-block}
 }
 .stack{display:grid;gap:40px;align-content:start;min-width:0}
 .block a,.area-sub a{color:var(--desk);text-underline-offset:3px}
+.open{margin:6px 0 0;font-size:13px;color:var(--ink-soft)}
+.open a{color:var(--desk);text-underline-offset:3px}
+.runs td:first-child{white-space:nowrap}
 </style>
 </head>
 <body>
@@ -206,7 +209,7 @@ var MONTHS=['January','February','March','April','May','June','July','August','S
 var ONES=['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
 var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
 
-var S={ready:false,failed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,
+var S={ready:false,failed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
   form:blankForm(),threads:null,raf:0,stale:false,sheet:null};
 var U=blankUser();
@@ -449,7 +452,9 @@ function citeLine(p){
   return str(p.venue)+(p.date?', registered '+fmtDate(p.date,true):'');
 }
 function entry(p,num,kind,showArea){
+  var oa=obj(S.full[p.id]),oaUrl=safeUrl(oa.url);
   var text=h('div',null,titleEl(p),h('p',{class:'byline'},str(p.authors)),h('p',{class:'cite'},citeLine(p)),
+    oaUrl?h('p',{class:'open'},h('a',{href:oaUrl,target:'_blank',rel:'noopener'},'Open copy'),oa.version?' ('+str(oa.version)+')':''):null,
     showArea&&p.area?h('span',{class:'tag'},str(p.area)):null);
   var gloss=h('aside',{class:'gloss'},h('p',null,str(p.why)));
   if(p.basis==='title')gloss.append(h('span',{class:'basis'},'Judged on the title; no abstract was deposited'));
@@ -625,7 +630,7 @@ function viewBoard(){
   var v=h('div');if(waiting(v))return v;
   var all=boardList(),n=all.length,withNotes=all.filter(function(b){return str(b.note).trim();}).length;
   var head=lede(n?count(n,'paper','papers')+' on your board.':'Your board is empty.',
-    n?(withNotes?count(withNotes,'has','have')+' notes. ':'No notes yet. ')+'Open a paper to write in its margin, and move it between columns as you read.'
+    n?(withNotes?count(withNotes,'has','have')+' notes. ':'No notes yet. ')+'Open a paper to write in its margin, and move it between columns as you read. Unfinished papers here are first in line for a desk review when an open copy exists.'
      :'Save a paper from New, Desk or Reserve, or add one yourself.');
   if(!S.adding)head.append(h('div',{class:'lede-row'},h('button',{class:'btn solid',type:'button',onclick:function(){S.adding=true;render(true);}},'Add a paper')));
   v.append(head);
@@ -719,6 +724,23 @@ function viewLedger(){
       h('thead',null,h('tr',null,h('th',null,'Date'),h('th',null,'How'),h('th',{class:'r'},'Checked'),h('th',{class:'r'},'Kept'),h('th',{class:'r'},'Reserve'),h('th',null,'Notes'))),tb)));
   }
   grid.append(b3);
+
+  var dlog=S.desklog.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at))||str(b.id).localeCompare(str(a.id));});
+  var b4=h('section',{class:'block wide'},h('h2',null,'Desk runs'),
+    h('p',{class:'area-sub'},'After each check the desk picks at most two papers per area that have an open copy, reads them in full and reviews them twice.'));
+  if(!dlog.length)b4.append(h('p',{class:'none'},'The desk has not run yet.'));
+  else{
+    var tb2=h('tbody');
+    dlog.forEach(function(r){
+      var t=obj(r.tokens),read=(Number(t.input)||0)+(Number(t.cache_write)||0)+(Number(t.cache_read)||0);
+      tb2.append(h('tr',null,
+        h('td',null,fmtDate(r.at,true)),h('td',{class:'r'},str(r.selected)),h('td',{class:'r'},str(r.reviewed)),
+        h('td',{class:'r'},read?read.toLocaleString('en-US'):''),h('td',{class:'r'},t.output?Number(t.output).toLocaleString('en-US'):''),
+        h('td',{class:'note'},str(r.note))));});
+    b4.append(h('div',{class:'tablewrap'},h('table',{class:'runs'},
+      h('thead',null,h('tr',null,h('th',null,'Date'),h('th',{class:'r'},'Chosen'),h('th',{class:'r'},'Reviewed'),h('th',{class:'r'},'Tokens read'),h('th',{class:'r'},'Tokens written'),h('th',null,'Notes'))),tb2)));
+  }
+  grid.append(b4);
   v.append(grid);
   return v;
 }
@@ -821,9 +843,10 @@ function boot(){
   try{local=JSON.parse(lsGet('rr.user')||'null');}catch(e){}
   if(saved&&saved.repo&&saved.token){Sync.repo=str(saved.repo);Sync.token=str(saved.token);}
   else Sync.repo=SITE.notes;
-  Promise.all(['papers','desk','issues','runs','journals','profile','user-seed'].map(loadJSON)).then(function(d){
+  Promise.all(['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log'].map(loadJSON)).then(function(d){
     if(d[0]==null){S.failed=true;render(true);return;}
     S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.profile=d[5];
+    S.full=obj(d[7]);S.desklog=arr(d[8]);
     U=normUser(local||d[6]);
     if(!local)cacheUser();
     S.ready=true;render(true);
