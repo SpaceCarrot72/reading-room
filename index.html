@@ -223,6 +223,8 @@ body[data-view="new"] #main{padding-top:22px}
 .jlist .jmark[data-len="4"]{font-size:8.5px}
 .aff{color:var(--ink-soft);font-weight:400}
 .jlogo{flex:none;display:block;height:46px;width:auto;max-width:112px;object-fit:contain;object-position:left bottom;margin-bottom:7px}
+.jlogo.compact{display:inline-block;max-width:64px;height:24px;margin:0 7px 0 0;vertical-align:middle;object-position:left center}
+.slip .jlogo.compact{display:block;margin:0 0 6px}
 .jlist .jlogo{height:36px;max-width:64px;margin:0;object-position:left center}
 .paper-venue{position:relative}
 .paper-venue.wordmark>span:last-child{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
@@ -280,7 +282,7 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 'use strict';
 
 var AREAS=[];
-var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log'];
+var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog'];
 var COLS=[['queue','To read'],['reading','Reading'],['done','Finished']];
 var VIEWS=[['new','New'],['desk','Desk'],['reserve','Reserve'],['board','Board'],['ledger','Ledger']];
 var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -291,6 +293,7 @@ var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
   form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},layout:'sheets'};
 var U=blankUser();
+var artworkIndex=buildArtworkIndex([]),artworkBySha=new Map();
 var Sync={repo:'',token:'',sha:null,state:'local',msg:'',timer:0,busy:false,again:false,pulled:0};
 
 function blankForm(){return {cite:'',title:'',authors:'',venue:'',year:'',url:''};}
@@ -482,7 +485,7 @@ function syncLabel(){
 
 /* actions */
 function boardDoc(p,from){
-  return {title:str(p.title),authors:str(p.authors),venue:str(p.venue),cite:str(p.cite),
+  return {title:str(p.title),authors:str(p.authors),venue:str(p.venue),issns:paperSerials(p),cite:str(p.cite),
     year:p.year||str(p.date).slice(0,4)||'',url:safeUrl(p.url),column:'queue',note:'',
     order:Date.now(),addedAt:now(),updatedAt:now(),from:from};
 }
@@ -616,29 +619,106 @@ function initials(v){
   if(w.length===1)return w[0].charAt(0).toUpperCase()+w[0].slice(1,3).toLowerCase();
   return w.slice(0,4).map(function(x){return x.charAt(0).toUpperCase();}).join('');
 }
-function journalOf(venue){
-  if(!S.jmap){S.jmap={};arr(S.journals&&S.journals.list).concat(arr(S.journals&&S.journals.other)).forEach(function(j){S.jmap[venueKey(j.name)]=j;});}
-  var j=obj(S.jmap[venueKey(venue)]);
-  var own=/^#[0-9a-f]{6}$/i.test(str(j.color))?str(j.color):'';
-  return {abbr:str(j.abbr).slice(0,4)||initials(venue),color:S.logoColor[venueKey(venue)]||own};
+function publicationTitle(title){
+  return str(title).normalize('NFKD').toLowerCase().replace(/[\u0300-\u036f]/g,'')
+    .replace(/['’]/g,'').replace(/&/g,' and ').replace(/[^\p{L}\p{N}]+/gu,' ').trim().replace(/^the /,'');
 }
-function jmark(venue,swatch){
-  var j=journalOf(venue),logo=!swatch&&S.logos[venueKey(venue)];
-  if(logo)return h('img',{class:'jlogo',src:logo,alt:'',title:str(venue)});
+function serialKey(id){return str(id).toUpperCase().replace(/^ISSN\s*/,'').replace(/[-\s]/g,'');}
+function paperSerials(p){
+  if(arr(p.issns).length)return p.issns;
+  // Older weekly-check records already have the exact venue assigned by the watched ISSN.
+  if(p.lane==='new'||p.lane==='reserve'){
+    var watched=arr(S.journals&&S.journals.list).find(function(j){return j.name===p.venue;});
+    if(watched&&watched.issn)return [watched.issn];
+  }
+  return [];
+}
+function buildArtworkIndex(rows){
+  var titles=new Map(),serials=new Map(),ambiguous=new Set();
+  function add(map,key,row){
+    if(!key)return;
+    if(!map.has(key))map.set(key,new Set());
+    map.get(key).add(row);
+  }
+  arr(rows).forEach(function(row){
+    if(!row||!row.title)return;
+    [row.title].concat(arr(row.aliases)).forEach(function(s){add(titles,publicationTitle(s),row);});
+    arr(row.issns).forEach(function(s){add(serials,serialKey(s),row);});
+    arr(row.ambiguous).forEach(function(s){ambiguous.add(publicationTitle(s));});
+  });
+  return {titles:titles,serials:serials,ambiguous:ambiguous,available:arr(rows).filter(function(r){return r&&r.file;}).length};
+}
+function matchArtwork(title,issns){
+  var key=publicationTitle(title),byTitle=artworkIndex.titles.get(key),byId=new Set();
+  var ids=arr(issns).map(serialKey).filter(function(id){return /^\d{7}[\dX]$/.test(id);});
+  ids.forEach(function(id){var rows=artworkIndex.serials.get(id);if(rows)rows.forEach(function(r){byId.add(r);});});
+  if(byId.size===1)return byId.values().next().value;
+  if(!byTitle)return byId.size?false:null;
+  var options=Array.from(byTitle);
+  if(byId.size){
+    options=options.filter(function(r){return byId.has(r);});
+  }else if(artworkIndex.ambiguous.has(key)||options.length!==1||(ids.length&&arr(options[0].issns).length)){
+    return false;
+  }
+  return options.length===1?options[0]:false;
+}
+function collectionArtwork(row){
+  if(!row||!row.file||!/^[-a-z0-9]+\.webp$/.test(row.file)||!/^[a-f0-9]{40}$/.test(row.sha))return {};
+  var prior=artworkBySha.get(row.sha);
+  if(prior&&(!prior.retryAt||Date.now()<prior.retryAt))return prior;
+  var art={};artworkBySha.set(row.sha,art);
+  function decode(blob){
+    if(!blob.size||blob.size>LOGO_MAX)throw Error('Invalid image size');
+    var src=URL.createObjectURL(blob);
+    return inspectLogo(src).then(function(info){
+      if(info.invalid){URL.revokeObjectURL(src);throw Error('Invalid journal image');}
+      art.url=src;art.color=info.color;art.wide=info.wide;
+      schedule();
+    });
+  }
+  logoCache().then(function(cache){
+    var url=logoKey(row.sha);
+    function fromRepository(){
+      return ghRaw('logos/library/'+encodeURIComponent(row.file)).then(function(r){
+        if(!r.ok)throw Error('Image unavailable');
+        return r.blob();
+      }).then(function(blob){
+        return decode(blob).then(function(){
+          if(cache)cache.put(url,new Response(blob)).catch(function(){});
+        });
+      });
+    }
+    return (cache?cache.match(url).catch(function(){return null;}):Promise.resolve(null)).then(function(hit){
+      return hit?hit.blob().then(decode).catch(fromRepository):fromRepository();
+    });
+  }).catch(function(){art.retryAt=Date.now()+30000;});
+  return art;
+}
+
+function journalOf(venue,issns){
+  if(!S.jmap){S.jmap={};arr(S.journals&&S.journals.list).concat(arr(S.journals&&S.journals.other)).forEach(function(j){S.jmap[venueKey(j.name)]=j;});}
+  var row=matchArtwork(venue,issns),key=venueKey(row?row.title:venue),j=obj(S.jmap[key]);
+  var root=row!==false&&S.logos[key],art=root?{url:root,color:S.logoColor[key],wide:S.logoWide[key]}:collectionArtwork(row);
+  var own=/^#[0-9a-f]{6}$/i.test(str(j.color))?str(j.color):'';
+  return {abbr:str(j.abbr).slice(0,4)||initials(venue),color:art.color||own,url:art.url,wide:art.wide};
+}
+function jmark(venue,swatch,issns){
+  var j=journalOf(venue,issns);
+  if(j.url)return h('img',{class:swatch?'jlogo compact':'jlogo',src:j.url,alt:'',title:str(venue)});
   if(!swatch&&!j.abbr)return null;
   return h('span',{class:swatch?'jmark swatch':'jmark','aria-hidden':'true','data-len':String(j.abbr.length),
     style:j.color?'--j:'+j.color:null},swatch?null:j.abbr);
 }
 function entry(p,num,kind,showArea){
   var oa=obj(S.full[p.id]),oaUrl=safeUrl(oa.url);
-  var text=h('div',null,titleEl(p),byline(p.authors),h('p',{class:'cite'},p.venue?jmark(p.venue,true):null,citeLine(p)),
+  var text=h('div',null,titleEl(p),byline(p.authors),h('p',{class:'cite'},p.venue?jmark(p.venue,true,paperSerials(p)):null,citeLine(p)),
     p.summary?h('p',{class:'summary'},str(p.summary)):null,
     oaUrl?h('p',{class:'open'},h('a',{href:oaUrl,target:'_blank',rel:'noopener'},'Open copy'),oa.version?' ('+str(oa.version)+')':''):null,
     showArea&&p.area?h('span',{class:'tag'},str(p.area)):null);
   var gloss=h('aside',{class:'gloss'},h('p',null,str(p.why)));
   if(p.basis==='title')gloss.append(h('span',{class:'basis'},'Judged on the title; no abstract was deposited'));
   gloss.append(actions(p,kind));
-  var jc=journalOf(p.venue).color;
+  var jc=journalOf(p.venue,paperSerials(p)).color;
   return h('li',{class:num?'entry':'entry flat',style:jc?'--j:'+jc:null},num?h('span',{class:'num'},num):null,text,gloss);
 }
 function areaSection(name,n,sub){
@@ -660,10 +740,10 @@ function sheet(p,num,kind){
   if(p.summary&&p.basis==='known')note='Summary written from general knowledge of the paper, not from its text.';
   else if(!p.summary&&p.basis==='title')note='No abstract was deposited, so this was judged on the title.';
   else if(!p.summary&&p.basis==='abstract')note='A fuller summary is added at the next check.';
-  var jc=journalOf(p.venue).color,acts=actions(p,kind);
+  var journal=journalOf(p.venue,paperSerials(p)),jc=journal.color,acts=actions(p,kind);
   if(oaUrl)acts.append(h('a',{class:'open-copy',href:oaUrl,target:'_blank',rel:'noopener'},'Open copy'+(oa.version?' ('+str(oa.version)+')':'')));
   return h('article',{class:'paper',style:jc?'--j:'+jc:null},
-    h('div',{class:'paper-head'},h('span',{class:S.logos[venueKey(p.venue)]&&S.logoWide[venueKey(p.venue)]?'paper-venue wordmark':'paper-venue'},jmark(p.venue),h('span',null,str(p.venue))),h('span',{class:'paper-when'},right)),
+    h('div',{class:'paper-head'},h('span',{class:journal.url&&journal.wide?'paper-venue wordmark':'paper-venue'},jmark(p.venue,false,paperSerials(p)),h('span',null,str(p.venue))),h('span',{class:'paper-when'},right)),
     h('h3',{class:'paper-title'},url?h('a',{href:url,target:'_blank',rel:'noopener'},str(p.title)):str(p.title)),
     byline(p.authors,'paper-authors'),
     kind==='reserve'&&p.area?h('p',{class:'paper-type'},str(p.area)):null,
@@ -748,8 +828,9 @@ function meter(n){
   return h('p',{class:'meter'},t,h('span',null,'Objection severity '+n+' of 10'));
 }
 function deskEntry(d,num){
-  var dv=str(d.venue)||str(obj(S.papers.filter(function(x){return x.id===d.id;})[0]).venue);
-  var text=h('div',null,titleEl(d),byline(d.authors),h('p',{class:'cite'},dv?jmark(dv,true):null,str(d.cite)),
+  var source=obj(S.papers.find(function(x){return x.id===d.id;})),dv=str(d.venue)||str(source.venue);
+  var ids=d.issns||(publicationTitle(source.venue)===publicationTitle(dv)?paperSerials(source):[]);
+  var text=h('div',null,titleEl(d),byline(d.authors),h('p',{class:'cite'},dv?jmark(dv,true,ids):null,str(d.cite)),
     d.tag?h('span',{class:'tag'},str(d.tag)):null,
     h('p',{class:'argument'},str(d.argument)));
   var gloss=h('aside',{class:'gloss'},meter(d.severity),h('p',null,str(d.review)));
@@ -757,7 +838,7 @@ function deskEntry(d,num){
   var links=arr(d.links).filter(function(l){return l&&safeUrl(l.url);});
   if(links.length){var lw=h('div',{class:'links'});links.forEach(function(l){lw.append(h('a',{href:safeUrl(l.url),target:'_blank',rel:'noopener'},str(l.label)||'Link'));});gloss.append(lw);}
   gloss.append(actions(d,'desk'));
-  var jc=dv?journalOf(dv).color:'';
+  var jc=dv?journalOf(dv,ids).color:'';
   return h('li',{class:'entry',style:jc?'--j:'+jc:null},h('span',{class:'num'},num),text,gloss);
 }
 function viewDesk(){
@@ -838,13 +919,14 @@ function lookup(){
   S.filling=true;render(true);
   var m=/10\.\d{4,9}\/[^\s"<>]+/.exec(q),doi=m?m[0].replace(/[.,;)\]]+$/,''):'';
   var url=doi?'https://api.crossref.org/works/'+encodeURIComponent(doi)
-    :'https://api.crossref.org/works?rows=1&select=DOI,title,author,container-title,issued&query.bibliographic='+encodeURIComponent(q.slice(0,400));
+    :'https://api.crossref.org/works?rows=1&select=DOI,title,author,container-title,ISSN,issued&query.bibliographic='+encodeURIComponent(q.slice(0,400));
   fetch(url).then(function(r){if(!r.ok)throw 0;return r.json();}).then(function(j){
     var it=doi?j.message:arr(j.message&&j.message.items)[0];
     if(!it||!arr(it.title)[0]){toast('Crossref found no match. Fill in the fields by hand.');return;}
     S.form.title=str(arr(it.title)[0]);
     S.form.authors=arr(it.author).map(function(a){return [a.given,a.family].filter(Boolean).join(' ')||str(a.name);}).filter(Boolean).join(', ');
     S.form.venue=str(arr(it['container-title'])[0]);
+    S.form.crossrefVenue=S.form.venue;S.form.issns=arr(it.ISSN);
     var dp=it.issued&&arr(it.issued['date-parts'])[0];
     S.form.year=dp&&dp[0]?String(dp[0]):'';
     S.form.url=it.DOI?'https://doi.org/'+it.DOI:'';
@@ -856,17 +938,18 @@ function addPaper(){
   var f=S.form;
   if(!f.title.trim()){toast('Give the paper a title.');return;}
   var id='m-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-  U.board[id]={title:f.title.trim(),authors:f.authors.trim(),venue:f.venue.trim(),cite:'',year:f.year.trim(),
+  U.board[id]={title:f.title.trim(),authors:f.authors.trim(),venue:f.venue.trim(),issns:publicationTitle(f.venue)===publicationTitle(f.crossrefVenue)?arr(f.issns):[],cite:'',year:f.year.trim(),
     url:safeUrl(f.url),column:'queue',note:'',order:Date.now(),addedAt:now(),updatedAt:now(),from:'manual'};
   S.form=blankForm();S.adding=false;changed();toast('Added to board');render(true);
 }
 function colKey(b){return COLS.some(function(c){return c[0]===b.column;})?b.column:'queue';}
 function slip(b,ci){
-  var jc=b.venue?journalOf(b.venue).color:'';
+  var journal=journalOf(b.venue,b.issns),jc=journal.color;
   var plus=h('button',{class:'plus',type:'button','aria-pressed':String(!!b.plus),'aria-label':b.plus?'Remove the + from this paper':'Mark this paper +',
     title:b.plus?'Marked +. Press to remove.':'Mark +: each author gains a level',onclick:function(ev){ev.stopPropagation();togglePlus(b.id);}},'+');
   var e=h('div',{class:b.plus?'slip plussed':'slip',role:'button',tabindex:'0',draggable:'true','aria-label':'Open '+str(b.title),style:jc?'--j:'+jc:null},
     plus,
+    journal.url?jmark(b.venue,true,b.issns):null,
     h('h3',{class:'slip-title'},str(b.title)),
     (b.authors||b.year)?byline(b.authors,'slip-meta',true,str(b.year)):null,
     str(b.note).trim()?h('p',{class:'slip-note'},str(b.note).trim()):h('p',{class:'slip-nonote'},'No notes yet'));
@@ -915,6 +998,7 @@ function syncBlock(){
     :'Signed in to '+Sync.repo+'.';
   b.append(h('p',{class:'area-sub',style:'margin:8px 0 14px'},line));
   if(S.logoNote)b.append(h('p',{class:'hint',style:'margin:0 0 14px'},S.logoNote));
+  if(artworkIndex.available)b.append(h('p',{class:'hint'},artworkIndex.available+' more journal marks are available when a matching paper appears.'));
   b.append(h('div',{class:'acts'},
     h('button',{class:'btn',type:'button',onclick:function(){pushNow();}},'Sync now'),
     h('button',{class:'btn quiet',type:'button',onclick:signOut},'Sign out of this browser')));
@@ -964,7 +1048,7 @@ function viewLedger(){
   groups.forEach(function(g){
     b2.append(h('p',{class:'jgroup'},g.name));
     var ul=h('ul',{class:'jlist'});
-    g.items.forEach(function(j){ul.append(h('li',null,h('span',{class:'jname'},jmark(j.name),h('span',null,str(j.name))),h('span',{class:'issn'},str(j.issn))));});
+    g.items.forEach(function(j){ul.append(h('li',null,h('span',{class:'jname'},jmark(j.name,false,[j.issn]),h('span',null,str(j.name))),h('span',{class:'issn'},str(j.issn))));});
     b2.append(ul);
   });
   grid.append(b2);
@@ -1029,7 +1113,7 @@ function openSheet(id){
     h('div',{class:'sheet-top'},close,url?h('a',{class:'btn',href:url,target:'_blank',rel:'noopener'},'Open the paper'):null),
     h('h2',null,str(b.title)),
     byline(b.authors),
-    h('p',{class:'cite'},citeLine({venue:b.venue,cite:b.cite||str(b.year)})),
+    h('p',{class:'cite'},b.venue?jmark(b.venue,true,b.issns):null,citeLine({venue:b.venue,cite:b.cite||str(b.year)})),
     h('div',{class:'sheet-row'},seg,plusBtn),
     h('div',{class:'notes-h'},h('label',{for:'sheet-notes'},'Your notes'),saved),
     ta,
@@ -1127,10 +1211,14 @@ function ghData(name){
 function applyData(d){
   S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.jmap=null;S.profile=d[5];S.seed=d[6];
   S.full=obj(d[7]);S.desklog=arr(d[8]);
+  artworkIndex=buildArtworkIndex(d[9]);
 }
 function parseStored(k){try{return JSON.parse(lsGet(k)||'null');}catch(e){return null;}}
 function loadData(){
-  return Promise.all(DATA.map(ghData)).then(function(d){
+  return Promise.all(DATA.map(function(name){
+    if(name!=='logo-catalog')return ghData(name);
+    return ghData(name).catch(function(){return arr(parseStored('rr.data'))[9]||null;});
+  })).then(function(d){
     S.dataAt=Date.now();S.failed=false;S.nodata=d[0]==null;
     applyData(d);
     if(!S.nodata)lsSet('rr.data',JSON.stringify(d));
@@ -1167,7 +1255,7 @@ function logoTargets(){
   });
   return m;
 }
-function logoCache(){try{return window.caches?caches.open('rr-logos'):Promise.resolve(null);}catch(e){return Promise.resolve(null);}}
+function logoCache(){try{return window.caches?caches.open('rr-logos').catch(function(){return null;}):Promise.resolve(null);}catch(e){return Promise.resolve(null);}}
 function logoKey(sha){return 'https://logos.invalid/'+encodeURIComponent(sha);}
 function setLogo(key,blob,known){
   if(S.logos[key])URL.revokeObjectURL(S.logos[key]);
@@ -1189,7 +1277,7 @@ function lum(r,g,b){
 function inspectLogo(url){
   return new Promise(function(done){
     var im=new Image();
-    im.onerror=function(){done({color:'',wide:false});};
+    im.onerror=function(){done({color:'',wide:false,invalid:true});};
     im.onload=function(){
       var wide=im.naturalHeight>0&&im.naturalWidth/im.naturalHeight>=2,color='';
       try{
