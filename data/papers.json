@@ -530,7 +530,8 @@
   "rank": 1,
   "why": "The convergence view of public justification. The October review of Rawls left one concern standing: why shared reasons and not convergence.",
   "basis": "known",
-  "run": "2026-11-21-first"
+  "run": "2026-11-21-first",
+  "summary": "They defend a convergence view of public justification: a coercive law is justified only if each citizen has sufficient reason of their own to accept it. Religious reasons can therefore defeat a law for those who hold them, though they cannot justify imposing one on others, and duties of restraint fall differently on citizens and officials."
  },
  {
   "id": "10.2307_2023861",
@@ -545,7 +546,8 @@
   "rank": 2,
   "why": "The Ramsey and Carnap method in its standard later form. Background to both Psillos and De Benedetto and La Rosa.",
   "basis": "known",
-  "run": "2026-11-21-first"
+  "run": "2026-11-21-first",
+  "summary": "Lewis shows how to define a theory's new terms from its old vocabulary. Replace the theoretical terms with variables to form the Ramsey sentence, then define each term as naming the corresponding member of the theory's unique realization, if there is one. Theoretical terms become definable and eliminable without loss."
  },
  {
   "id": "10.1080_00048409812348201",
@@ -560,7 +562,8 @@
   "rank": 3,
   "why": "Argues from spectrum cases that better than is not transitive, the kind of intuition Muñoz reassigns to defeat.",
   "basis": "known",
-  "run": "2026-11-21-first"
+  "run": "2026-11-21-first",
+  "summary": "Rachels argues that better than is not transitive. In a sequence of pains, each slightly milder but much longer than the last, every step seems worse than the one before, yet the final long discomfort seems better than the brief agony at the start. He defends these judgments against attempts to explain them away."
  },
  {
   "id": "10.2307_2182490",
@@ -575,7 +578,8 @@
   "rank": 4,
   "why": "The account of aesthetic concepts that Walton's Categories of Art responds to.",
   "basis": "known",
-  "run": "2026-11-21-first"
+  "run": "2026-11-21-first",
+  "summary": "Sibley argues that aesthetic terms such as graceful or garish are not governed by conditions: no list of non-aesthetic features is ever enough to guarantee that one applies. Applying them takes taste, and critics support their judgments by getting others to see the features, not by proof."
  },
  {
   "id": "10.1086_289281",
@@ -590,7 +594,8 @@
   "rank": 1,
   "why": "Revives Newman's objection to structural content and links it to Ramsey sentences. Background to the Newman challenge in the Psillos review.",
   "basis": "known",
-  "run": "2026-11-22-auto"
+  "run": "2026-11-22-auto",
+  "summary": "Demopoulos and Friedman revive Newman's 1928 objection to Russell's structuralism: a theory that says only that relations of a given structure exist is true whenever the world has enough objects. They find the same difficulty in Ramsey-sentence accounts of theories and in Putnam's model-theoretic argument."
  },
  {
   "id": "10.1093_aristotelian_86.1.117",
@@ -605,6 +610,7 @@
   "rank": 2,
   "why": "Gives an account of incommensurability and a test for it based on failures of transitivity in comparisons. Bears on incomparability and parity.",
   "basis": "known",
-  "run": "2026-11-22-auto"
+  "run": "2026-11-22-auto",
+  "summary": "Raz calls two options incommensurable when neither is better and they are not of equal value. The mark is a failure of transitivity: improving one option does not make it better than the other. He argues that such incommensurability is common and is no defect in the options or in what is known of them."
  }
 ]

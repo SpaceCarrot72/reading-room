@@ -3,8 +3,9 @@
 
 Reads the ledger in data/, asks Crossref what each watched journal has registered
 since the last run, asks Claude which of those fit the reader's profile, and appends
-the results to data/papers.json and data/runs.json. Nothing already in the ledger is
-changed or repeated. Standard library only.
+the results to data/papers.json and data/runs.json. Nothing in the ledger is repeated;
+the only change to earlier entries is adding a summary where one is missing.
+Standard library only.
 
 Environment
   ANTHROPIC_API_KEY   required. Claude API key.
@@ -222,12 +223,20 @@ There is no quota. Passing every candidate is an acceptable result.
 
 For "new" and "reserve" also give:
 - "area": exactly one of the area names, spelled as given.
-- "why": one or two plain sentences, at most 40 words, in your own words, saying what the paper claims and, where true, which thread it bears on. Never reuse wording from an abstract. No praise, no filler, no em dashes. Do not address the reader: never write "you" or "your"; name the thread instead.
+- "summary": two or three plain sentences, 40 to 60 words, in your own words: the question the paper asks, its answer, and the main move. Only when the record has an abstract; otherwise "".
+- "why": one plain sentence, at most 30 words, on why it belongs on this reader's list: the area or thread it bears on. Do not repeat the summary.
 - "basis": "abstract" if the record has an abstract, otherwise "title". With "title", say only what the title supports.
+Never reuse wording from an abstract. No praise, no filler, no em dashes. Do not address the reader: never write "you" or "your"; name the thread instead.
 
 Reply with only a JSON array holding one object per candidate, best fit first:
-{"id": "...", "lane": "new" | "reserve" | "pass", "area": "...", "why": "...", "basis": "abstract" | "title"}
+{"id": "...", "lane": "new" | "reserve" | "pass", "area": "...", "summary": "...", "why": "...", "basis": "abstract" | "title"}
 Use each id exactly as given."""
+
+SUMMARY_SYSTEM = """You write short summaries of philosophy papers for one reader's private reading list.
+
+For each record, write "summary": two or three plain sentences, 40 to 60 words, in your own words: the question the paper asks, its answer, and the main move. Work only from the abstract given. Never reuse wording from the abstract. No praise, no filler, no em dashes, and never address the reader.
+
+Reply with only a JSON array: {"id": "...", "summary": "..."}. Use each id exactly as given."""
 
 CLASSICS_SYSTEM = """You suggest older philosophy papers for one reader's private reading list.
 
@@ -235,14 +244,17 @@ You are given the reader's areas, the threads they are working on, their notes o
 
 Only suggest papers you are confident exist as described. Each suggestion is checked against Crossref and dropped if it is not found. Do not suggest anything already on the list.
 
-For each suggestion give "why": one or two plain sentences, at most 40 words, saying what the paper does and which thread it serves. No praise, no filler, no em dashes. Do not address the reader: never write "you" or "your"; name the thread instead.
+For each suggestion give:
+- "summary": two or three plain sentences, 40 to 60 words, on what the paper argues and how.
+- "why": one plain sentence, at most 30 words, naming the thread or note it serves.
+No praise, no filler, no em dashes. Do not address the reader: never write "you" or "your"; name the thread instead.
 
-Reply with only a JSON array: {"area": "...", "authors": "...", "title": "...", "year": 1970, "why": "..."}"""
+Reply with only a JSON array: {"area": "...", "authors": "...", "title": "...", "year": 1970, "summary": "...", "why": "..."}"""
 
 
-def tidy(why):
+def tidy(why, limit=400):
     why = re.sub(r"\s*[—–]\s*", ", ", clean(str(why or "")))
-    return why[:400]
+    return why[:limit]
 
 
 def triage(batch, profile):
@@ -272,6 +284,7 @@ def triage(batch, profile):
                 area = match[0]
         judged[row["id"]] = {
             "lane": lane, "area": area, "order": order,
+            "summary": tidy(row.get("summary"), 560) if lane != "pass" and known[row["id"]]["abstract"] else "",
             "why": tidy(row.get("why")) if lane != "pass" else "",
             "basis": "abstract" if known[row["id"]]["abstract"] and row.get("basis") != "title" else "title"}
     return judged
@@ -307,6 +320,37 @@ def find_classic(sugg):
                 "venue": clean(" ".join((it.get("container-title") or [])[:1])),
                 "cite": cite, "year": year, "url": "https://doi.org/" + doi}
     return None
+
+
+def backfill_summaries(papers, limit=90):
+    """Give earlier entries a summary where Crossref has an abstract. Each entry is tried once."""
+    todo = []
+    for p in papers:
+        if p.get("summary") or p.get("summaryChecked") or p.get("lane") not in ("new", "reserve", "classic"):
+            continue
+        if len(todo) >= limit:
+            break
+        p["summaryChecked"] = True
+        doi = p.get("url", "").replace("https://doi.org/", "")
+        if p.get("basis") == "title" or not doi:
+            continue
+        try:
+            rec = http("https://api.crossref.org/works/" + urllib.parse.quote(doi, safe="/")).get("message") or {}
+        except Exception:
+            p.pop("summaryChecked", None)   # a network failure is worth another try next run
+            continue
+        abstract = re.sub(r"^abstract[:.\s]*", "", clean(rec.get("abstract")), flags=re.I)[:ABSTRACT_CHARS]
+        if abstract:
+            todo.append({"id": p["id"], "title": p.get("title"), "abstract": abstract})
+        time.sleep(0.2)
+    by_id, written = {p["id"]: p for p in papers}, 0
+    for i in range(0, len(todo), BATCH):
+        rows = parse_json(claude(SUMMARY_SYSTEM, json.dumps(todo[i:i + BATCH], ensure_ascii=False)))
+        for row in rows if isinstance(rows, list) else []:
+            if isinstance(row, dict) and row.get("id") in by_id and row.get("summary"):
+                by_id[row["id"]]["summary"] = tidy(row["summary"], 560)
+                written += 1
+    return written
 
 
 # ---------- the run ----------
@@ -410,7 +454,8 @@ def main():
         ranks[key] = ranks.get(key, 0) + 1
         added.append({"id": k, "title": c["title"], "authors": c["authors"], "venue": c["venue"],
                       "date": c["date"], "url": c["url"], "area": v["area"], "lane": v["lane"],
-                      "rank": ranks[key], "why": v["why"], "basis": v["basis"], "run": run_id})
+                      "rank": ranks[key], "summary": v["summary"], "why": v["why"], "basis": v["basis"],
+                      "run": run_id})
     kept = sum(1 for a in added if a["lane"] == "new")
 
     # 3. Older work tied to the threads.
@@ -441,12 +486,20 @@ def main():
                     continue
                 used_areas.add(match[0])
                 hit.update({"area": match[0], "lane": "classic", "rank": len(classics) + 1,
-                            "why": why, "basis": "known", "run": run_id})
+                            "summary": tidy(s.get("summary"), 560), "why": why, "basis": "known", "run": run_id})
                 classics.append(hit)
         except Exception as e:
             notes.append(f"The classics step failed ({e}).")
 
-    # 4. Write the ledger.
+    # 4. Summaries for earlier entries that lack one.
+    try:
+        filled = backfill_summaries(papers)
+        if filled:
+            notes.append(f"Wrote summaries for {filled} earlier entries.")
+    except Exception as e:
+        notes.append(f"Summaries for earlier entries failed ({e}).")
+
+    # 5. Write the ledger.
     if failed:
         notes.append("Crossref failed for: " + ", ".join(failed) + ".")
     if quiet:
