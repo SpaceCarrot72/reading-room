@@ -207,7 +207,7 @@ body[data-view="new"] #main{padding-top:22px}
 .navbtn:hover{border-color:var(--ink)}
 .navbtn:disabled{opacity:.35;cursor:default;border-color:var(--rule)}
 .deck{position:relative;display:flex;gap:36px;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:thin;margin:16px calc(-1*var(--gutter)) 0;padding:34px calc(50% + var(--gutter) - var(--pw)/2) 46px;background:var(--well);--pw:min(440px,calc(100vw - 56px))}
-.paper{flex:0 0 var(--pw);min-height:590px;scroll-snap-align:center;display:flex;flex-direction:column;background:var(--sheet);border:1px solid var(--rule);padding:30px 34px 24px;box-shadow:4px 4px 0 -1px var(--sheet),4px 4px 0 0 var(--rule),8px 8px 0 -1px var(--sheet),8px 8px 0 0 var(--rule)}
+.paper{--jl:color-mix(in srgb,var(--j,#5A606C) 30%,#fff);--jw:color-mix(in srgb,var(--j,#5A606C) 6%,#fff);flex:0 0 var(--pw);min-height:600px;scroll-snap-align:center;display:flex;flex-direction:column;background:var(--sheet);border:7px solid var(--j,var(--ink-soft));border-radius:20px;padding:20px 24px 18px;box-shadow:0 1px 2px rgba(20,22,27,.10),0 22px 34px -22px rgba(20,22,27,.50)}
 .paper-head{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;font-size:12.5px;line-height:1.35;color:var(--ink-soft);border-bottom:2px solid var(--j,var(--ink))}
 .paper-venue{display:flex;align-items:flex-end;gap:11px;min-width:0}
 .paper-venue>span:last-child{padding-bottom:8px;color:var(--ink)}
@@ -232,22 +232,33 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 .signin-sub{color:var(--ink-soft);margin:0 0 30px}
 .signin-form{display:grid;gap:16px}
 .signin-msg{margin:0;min-height:1.5em;color:#9B2226;font-size:14px}
-.paper-title{font:400 26px/1.17 var(--display);margin:22px 0 0;text-wrap:balance}
+.paper-title{font:400 25px/1.17 var(--display);margin:18px 0 0;text-wrap:balance}
 .paper-title a{color:inherit;text-decoration:none}
 .paper-title a:hover,.paper-title a:focus-visible{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
 .paper-authors{margin:10px 0 0;font-weight:500;font-size:14px}
-.paper-summary{font:400 14px/1.72 var(--text);margin:18px 0 0}
-.paper-note{margin:14px 0 0;font-size:13px;line-height:1.5;color:var(--ink-soft)}
-.paper-why{margin:16px 0 0;border-left:2px solid var(--j,var(--desk));padding-left:12px;color:var(--j,var(--desk));font-size:13.5px;line-height:1.5}
-.paper .paper-foot a{color:var(--j,var(--desk))}
+.paper-type{display:flex;justify-content:space-between;gap:12px;margin:16px 2px 7px;font-size:12px;line-height:1.3;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.paper-box{flex:1;display:flex;flex-direction:column;border:1px solid var(--jl);border-radius:10px;background:var(--jw);padding:14px 16px 13px}
+.paper-summary{font:400 13.5px/1.7 var(--text);margin:0 0 12px}
+.paper-note{margin:0 0 12px;font-size:13px;line-height:1.5;color:var(--ink-soft)}
+.paper-why{margin:auto 0 0;padding-top:11px;border-top:1px solid var(--jl);color:var(--j,var(--desk));font-size:13.5px;line-height:1.5}
+.paper .acts{margin-top:14px;align-items:center}
+.paper .open-copy{margin-left:auto;font-size:12.5px;color:var(--j,var(--desk));text-underline-offset:3px}
+.lv{display:inline-block;vertical-align:1px;padding:0 6px;border-radius:999px;background:var(--j,var(--ink));color:#fff;font:600 10.5px/1.6 var(--ui);letter-spacing:.02em;white-space:nowrap}
+.lv.pop{animation:lvpop .7s cubic-bezier(.2,1.5,.4,1)}
+@keyframes lvpop{0%{transform:scale(.3);opacity:0}55%{transform:scale(1.3);opacity:1}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.lv.pop{animation:none}}
+.slip{position:relative;border-radius:10px;border-top:4px solid var(--j,var(--rule))}
+.slip-title{padding-right:32px}
+.plus{position:absolute;top:9px;right:10px;width:26px;height:26px;display:grid;place-items:center;padding:0 0 1px;border:1px solid var(--rule);border-radius:50%;background:var(--sheet);color:var(--ink-soft);font:500 17px/1 var(--ui);cursor:pointer}
+.plus:hover{border-color:var(--ink-soft);color:var(--ink)}
+.plus[aria-pressed="true"]{background:var(--j,var(--ink));border-color:var(--j,var(--ink));color:#fff}
+.sheet-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:20px}
+.sheet-row .seg{margin-top:0}
+.plusbtn[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
 .entry .gloss{border-left-color:var(--j,var(--desk));color:var(--j,var(--desk))}
 .entry .ticks i{background:var(--j,var(--desk))}
 .entry .open a{color:var(--j,var(--desk))}
-.paper-fill{flex:1;min-height:16px}
-.paper-foot{display:flex;justify-content:space-between;gap:12px;margin:0;padding-top:12px;border-top:1px solid var(--rule);font-size:12.5px;color:var(--ink-soft);white-space:pre-wrap}
-.paper-foot a{color:var(--desk);text-underline-offset:3px}
-.paper .acts{margin-top:12px}
-@media (max-width:480px){.paper{padding:24px 22px 20px;min-height:540px}.paper-title{font-size:23px}.deck{gap:20px}}
+@media (max-width:480px){.paper{padding:16px 17px 15px;min-height:540px;border-width:6px;border-radius:18px}.paper-title{font-size:22px}.paper-box{padding:12px 13px}.deck{gap:20px}}
 </style>
 </head>
 <body>
@@ -275,7 +286,7 @@ var MONTHS=['January','February','March','April','May','June','July','August','S
 var ONES=['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
 var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
 
-var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoNote:'',outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],
+var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoNote:'',lv:{},pop:{},outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
   form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},layout:'sheets'};
 var U=blankUser();
@@ -513,12 +524,52 @@ function citeLine(p){
   return str(p.venue)+(p.date?', registered '+fmtDate(p.date,true):'');
 }
 function bare(a){return str(a).replace(/\s*\[[^\]]*\]/g,'');}
-function byline(a,cls){
-  var p=h('p',{class:cls||'byline'});
-  str(a).split(/(\[[^\]]*\])/).forEach(function(part){
-    if(part)p.append(part.charAt(0)==='['?h('span',{class:'aff'},part):part);
+/* authors: "Name [Institution], Name" split into people; a level is how many papers on the board carry a + for that author */
+function people(a){
+  return str(a).split(/,\s*(?![^\[]*\])/).map(function(part){
+    var m=/^(.*?)\s*(\[[^\]]*\])?\s*$/.exec(part)||[];
+    return {name:str(m[1]).trim(),aff:str(m[2])};
+  }).filter(function(x){return x.name;});
+}
+function authorKey(n){
+  return str(n).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z\s-]/g,' ').split(/\s+/)
+    .filter(function(t){return t.length>1;}).join(' ');
+}
+function levels(){
+  var m={};
+  Object.keys(U.board).forEach(function(id){
+    var b=U.board[id];if(!b||!b.plus)return;
+    people(b.authors).forEach(function(x){var k=authorKey(x.name);if(k)m[k]=(m[k]||0)+1;});
   });
+  return m;
+}
+function lvChip(name){
+  var k=authorKey(name),lv=S.lv[k];
+  if(!lv)return null;
+  return h('span',{class:S.pop[k]?'lv pop':'lv',title:'Level '+lv+': '+count(lv,'paper','papers')+' on your board marked +'},'Lv '+lv);
+}
+function byline(a,cls,compact,tail){
+  var p=h('p',{class:cls||'byline'});
+  people(a).forEach(function(x,i){
+    if(i)p.append(', ');
+    p.append(x.name);
+    var chip=lvChip(x.name);
+    if(chip)p.append(' ',chip);
+    if(x.aff&&!compact)p.append(' ',h('span',{class:'aff'},x.aff));
+  });
+  if(tail)p.append(p.childNodes.length?', '+tail:tail);
   return p;
+}
+function togglePlus(id){
+  var b=U.board[id];if(!b)return;
+  b.plus=!b.plus;b.updatedAt=now();
+  S.lv=levels();S.pop={};
+  if(b.plus){
+    var said=people(b.authors).map(function(x){var k=authorKey(x.name);S.pop[k]=true;return x.name+' is now level '+S.lv[k];});
+    toast(said.length?said.join('. ')+'.':'Marked +.');
+    setTimeout(function(){S.pop={};},1500);
+  }else toast('Removed the +.');
+  changed();
 }
 function venueKey(v){return str(v).toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,' ').trim().replace(/^the /,'');}
 function initials(v){
@@ -571,18 +622,18 @@ function sheet(p,num,kind){
   if(p.summary&&p.basis==='known')note='Summary written from general knowledge of the paper, not from its text.';
   else if(!p.summary&&p.basis==='title')note='No abstract was deposited, so this was judged on the title.';
   else if(!p.summary&&p.basis==='abstract')note='A fuller summary is added at the next check.';
-  var jc=journalOf(p.venue).color;
+  var jc=journalOf(p.venue).color,acts=actions(p,kind);
+  if(oaUrl)acts.append(h('a',{class:'open-copy',href:oaUrl,target:'_blank',rel:'noopener'},'Open copy'+(oa.version?' ('+str(oa.version)+')':'')));
   return h('article',{class:'paper',style:jc?'--j:'+jc:null},
     h('div',{class:'paper-head'},h('span',{class:S.logos[venueKey(p.venue)]&&S.logoWide[venueKey(p.venue)]?'paper-venue wordmark':'paper-venue'},jmark(p.venue),h('span',null,str(p.venue))),h('span',{class:'paper-when'},right)),
     h('h3',{class:'paper-title'},url?h('a',{href:url,target:'_blank',rel:'noopener'},str(p.title)):str(p.title)),
     byline(p.authors,'paper-authors'),
-    p.summary?h('p',{class:'paper-summary'},str(p.summary)):null,
-    note?h('p',{class:'paper-note'},note):null,
-    h('p',{class:'paper-why'},str(p.why)),
-    h('div',{class:'paper-fill'}),
-    h('p',{class:'paper-foot'},h('span',null,(num?num+'  ':'')+str(p.area)),
-      oaUrl?h('a',{href:oaUrl,target:'_blank',rel:'noopener'},'Open copy'+(oa.version?' ('+str(oa.version)+')':'')):null),
-    actions(p,kind));
+    h('p',{class:'paper-type'},h('span',null,str(p.area)),num?h('span',null,'No. '+num):null),
+    h('div',{class:'paper-box'},
+      p.summary?h('p',{class:'paper-summary'},str(p.summary)):null,
+      note?h('p',{class:'paper-note'},note):null,
+      h('p',{class:'paper-why'},str(p.why))),
+    acts);
 }
 function deck(key,groups,kind){
   var flat=[];
@@ -773,10 +824,13 @@ function addPaper(){
 }
 function colKey(b){return COLS.some(function(c){return c[0]===b.column;})?b.column:'queue';}
 function slip(b,ci){
-  var meta=[bare(b.authors),str(b.year)].filter(Boolean).join(', ');
-  var e=h('div',{class:'slip',role:'button',tabindex:'0',draggable:'true','aria-label':'Open '+str(b.title)},
+  var jc=b.venue?journalOf(b.venue).color:'';
+  var plus=h('button',{class:'plus',type:'button','aria-pressed':String(!!b.plus),'aria-label':b.plus?'Remove the + from this paper':'Mark this paper +',
+    title:b.plus?'Marked +. Press to remove.':'Mark +: each author gains a level',onclick:function(ev){ev.stopPropagation();togglePlus(b.id);}},'+');
+  var e=h('div',{class:b.plus?'slip plussed':'slip',role:'button',tabindex:'0',draggable:'true','aria-label':'Open '+str(b.title),style:jc?'--j:'+jc:null},
+    plus,
     h('h3',{class:'slip-title'},str(b.title)),
-    meta?h('p',{class:'slip-meta'},meta):null,
+    (b.authors||b.year)?byline(b.authors,'slip-meta',true,str(b.year)):null,
     str(b.note).trim()?h('p',{class:'slip-note'},str(b.note).trim()):h('p',{class:'slip-nonote'},'No notes yet'));
   var foot=h('div',{class:'slip-foot'});
   if(ci>0)foot.append(h('button',{class:'mini',type:'button',onclick:function(ev){ev.stopPropagation();move(b.id,COLS[ci-1][0]);}},'Move to '+COLS[ci-1][1]));
@@ -784,6 +838,7 @@ function slip(b,ci){
   e.append(foot);
   e.addEventListener('click',function(){openSheet(b.id);});
   e.addEventListener('keydown',function(ev){if(ev.target===e&&(ev.key==='Enter'||ev.key===' ')){ev.preventDefault();openSheet(b.id);}});
+  plus.addEventListener('keydown',function(ev){ev.stopPropagation();});
   e.addEventListener('dragstart',function(ev){ev.dataTransfer.setData('text/plain',b.id);ev.dataTransfer.effectAllowed='move';e.classList.add('dragging');});
   e.addEventListener('dragend',function(){e.classList.remove('dragging');});
   return e;
@@ -792,7 +847,7 @@ function viewBoard(){
   var v=h('div');if(waiting(v))return v;
   var all=boardList(),n=all.length,withNotes=all.filter(function(b){return str(b.note).trim();}).length;
   var head=lede(n?count(n,'paper','papers')+' on your board.':'Your board is empty.',
-    n?(withNotes?count(withNotes,'has','have')+' notes. ':'No notes yet. ')+'Open a paper to write in its margin, and move it between columns as you read. Unfinished papers here are first in line for a desk review when an open copy exists.'
+    n?(withNotes?count(withNotes,'has','have')+' notes. ':'No notes yet. ')+'Open a paper to write in its margin, and move it between columns as you read. Press + on a paper you rate and each of its authors gains a level, shown beside their name on every card. Unfinished papers here are first in line for a desk review when an open copy exists.'
      :'Save a paper from New, Desk or Reserve, or add one yourself.');
   if(!S.adding)head.append(h('div',{class:'lede-row'},h('button',{class:'btn solid',type:'button',onclick:function(){S.adding=true;render(true);}},'Add a paper')));
   v.append(head);
@@ -929,12 +984,15 @@ function openSheet(id){
   });
   var close=h('button',{class:'btn',type:'button',onclick:closeSheet},'Close');
   var url=safeUrl(b.url);
+  var plusBtn=h('button',{class:'btn plusbtn',type:'button','aria-pressed':String(!!b.plus)},b.plus?'Marked +':'Mark +');
+  plusBtn.addEventListener('click',function(){togglePlus(id);var on=!!(U.board[id]&&U.board[id].plus);
+    plusBtn.setAttribute('aria-pressed',String(on));plusBtn.textContent=on?'Marked +':'Mark +';});
   var panel=h('aside',{class:'sheet',role:'dialog','aria-modal':'true','aria-label':str(b.title)},
     h('div',{class:'sheet-top'},close,url?h('a',{class:'btn',href:url,target:'_blank',rel:'noopener'},'Open the paper'):null),
     h('h2',null,str(b.title)),
     byline(b.authors),
     h('p',{class:'cite'},citeLine({venue:b.venue,cite:b.cite||str(b.year)})),
-    seg,
+    h('div',{class:'sheet-row'},seg,plusBtn),
     h('div',{class:'notes-h'},h('label',{for:'sheet-notes'},'Your notes'),saved),
     ta,
     h('div',{class:'acts'},h('button',{class:'btn quiet',type:'button',onclick:function(){var x=S.sheet;if(x)clearTimeout(x.timer);S.sheet=null;hideLayer();removeFromBoard(id);}},'Remove from board')));
@@ -998,7 +1056,7 @@ function render(force){
   renderTabs();
   var main=$('main'),a=document.activeElement;
   if(!force&&a&&main.contains(a)&&(a.tagName==='TEXTAREA'||a.tagName==='INPUT')){S.stale=true;return;}
-  S.stale=false;S.deck=null;
+  S.stale=false;S.deck=null;S.lv=levels();
   if(!Sync.token){main.replaceChildren(viewSignIn());return;}
   main.replaceChildren(VIEWFN[S.view]());
   if(S.deck)S.deck.fix();
