@@ -1,0 +1,134 @@
+{
+ "list": [
+  {
+   "name": "Philosophy & Public Affairs",
+   "issn": "0048-3915",
+   "group": "Political and moral"
+  },
+  {
+   "name": "Ethics",
+   "issn": "0014-1704",
+   "group": "Political and moral"
+  },
+  {
+   "name": "The Journal of Political Philosophy",
+   "issn": "0963-8016",
+   "group": "Political and moral"
+  },
+  {
+   "name": "Politics, Philosophy & Economics",
+   "issn": "1470-594X",
+   "group": "Political and moral"
+  },
+  {
+   "name": "Journal of Ethics and Social Philosophy",
+   "issn": "1559-3061",
+   "group": "Political and moral"
+  },
+  {
+   "name": "Journal of Moral Philosophy",
+   "issn": "1740-4681",
+   "group": "Political and moral"
+  },
+  {
+   "name": "Utilitas",
+   "issn": "0953-8208",
+   "group": "Political and moral"
+  },
+  {
+   "name": "Economics & Philosophy",
+   "issn": "0266-2671",
+   "group": "Political and moral"
+  },
+  {
+   "name": "Linguistics and Philosophy",
+   "issn": "0165-0157",
+   "group": "Language and logic"
+  },
+  {
+   "name": "Mind & Language",
+   "issn": "0268-1064",
+   "group": "Language and logic"
+  },
+  {
+   "name": "Semantics and Pragmatics",
+   "issn": "1937-8912",
+   "group": "Language and logic"
+  },
+  {
+   "name": "Journal of Philosophical Logic",
+   "issn": "0022-3611",
+   "group": "Language and logic"
+  },
+  {
+   "name": "The British Journal of Aesthetics",
+   "issn": "0007-0904",
+   "group": "Aesthetics"
+  },
+  {
+   "name": "The Journal of Aesthetics and Art Criticism",
+   "issn": "0021-8529",
+   "group": "Aesthetics"
+  },
+  {
+   "name": "Mind",
+   "issn": "0026-4423",
+   "group": "General"
+  },
+  {
+   "name": "Noûs",
+   "issn": "0029-4624",
+   "group": "General"
+  },
+  {
+   "name": "The Philosophical Review",
+   "issn": "0031-8108",
+   "group": "General"
+  },
+  {
+   "name": "The Journal of Philosophy",
+   "issn": "0022-362X",
+   "group": "General"
+  },
+  {
+   "name": "Philosophy and Phenomenological Research",
+   "issn": "0031-8205",
+   "group": "General"
+  },
+  {
+   "name": "Philosophical Studies",
+   "issn": "0031-8116",
+   "group": "General"
+  },
+  {
+   "name": "The Philosophical Quarterly",
+   "issn": "0031-8094",
+   "group": "General"
+  },
+  {
+   "name": "Analysis",
+   "issn": "0003-2638",
+   "group": "General"
+  },
+  {
+   "name": "Australasian Journal of Philosophy",
+   "issn": "0004-8402",
+   "group": "General"
+  },
+  {
+   "name": "Philosophers' Imprint",
+   "issn": "1533-628X",
+   "group": "General"
+  },
+  {
+   "name": "Ergo",
+   "issn": "2330-4014",
+   "group": "General"
+  },
+  {
+   "name": "Erkenntnis",
+   "issn": "0165-0106",
+   "group": "General"
+  }
+ ]
+}

@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light">
+<title>Reading Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baskervville:ital@0;1&family=Hanken+Grotesk:wght@400;500;600&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+:root{
+  /* Layout: every entry is a text column with a gloss beside it. The author's work sits on the left;
+     the desk's remarks (blue ink) and your own notes (marker yellow) sit in the margin. */
+  --paper:#FFFFFF;
+  --sheet:#FFFFFF;
+  --well:#F4F5F8;
+  --ink:#14161B;
+  --ink-soft:#5A606C;
+  --rule:#E1E3E9;
+  --desk:#1E3FCC;
+  --desk-wash:#EEF1FD;
+  --mine-wash:#FFF3B0;
+  --mine-edge:#E3C22F;
+  --display:"Baskervville","Libre Baskerville","GFS Baskerville",Baskerville,"Times New Roman",serif;
+  --text:"Libre Baskerville","GFS Baskerville",Baskerville,Georgia,serif;
+  --ui:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --gutter:clamp(16px,4vw,40px);
+  color-scheme:light;
+}
+/* One theme by choice: the page is white whatever the system setting. */
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font:400 15px/1.5 var(--ui);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--desk);outline-offset:2px}
+[hidden]{display:none !important}
+.wrap{max-width:1180px;margin:0 auto;padding:0 var(--gutter) 96px}
+
+/* masthead */
+.mast{display:flex;flex-wrap:wrap;align-items:center;gap:10px 28px;padding:20px 0 0}
+.mark{font:400 22px/1 var(--display);margin:0;white-space:nowrap}
+.tabs{display:flex;gap:2px;overflow-x:auto;margin:0 -6px;padding:3px 6px}
+.tab{appearance:none;border:0;background:none;color:var(--ink-soft);font:500 14px/1 var(--ui);padding:9px 13px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab[aria-current="page"]{color:var(--ink);background:var(--well)}
+.tab .n{margin-left:6px;font-weight:400;font-variant-numeric:tabular-nums;color:var(--ink-soft)}
+.status{margin-left:auto;font-size:13px;color:var(--ink-soft);white-space:nowrap}
+
+/* lede */
+.lede{padding:clamp(36px,7vw,76px) 0 8px;max-width:47rem}
+.lede h1{font:400 clamp(34px,5.4vw,60px)/1.04 var(--display);letter-spacing:-0.012em;margin:0;text-wrap:balance}
+.lede p{margin:18px 0 0;color:var(--ink-soft);max-width:40rem;line-height:1.55}
+.lede-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:22px}
+
+/* areas and entries */
+.area{margin-top:48px;border-top:1px solid var(--ink);padding-top:12px}
+.area-h{display:flex;align-items:baseline;gap:10px;margin:0;font:600 14px/1.3 var(--ui)}
+.area-h .n{font-weight:400;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.area-sub{margin:4px 0 0;color:var(--ink-soft);font-size:13.5px;max-width:40rem}
+.none{margin:18px 0 6px;color:var(--ink-soft);font-size:14px}
+.entries{list-style:none;margin:0;padding:0}
+.entry{display:grid;grid-template-columns:3rem minmax(0,1fr) minmax(0,21rem);column-gap:clamp(16px,3vw,36px);padding:24px 0;border-top:1px solid var(--rule)}
+.entries > .entry:first-child{border-top:0}
+.entry.flat{grid-template-columns:minmax(0,1fr) minmax(0,21rem)}
+.num{font-size:13px;color:var(--ink-soft);font-variant-numeric:tabular-nums;padding-top:7px}
+.title{font:400 24px/1.2 var(--display);margin:0;text-wrap:balance}
+.title a{color:inherit;text-decoration:none;background:linear-gradient(currentColor,currentColor) 0 100%/0 1px no-repeat;transition:background-size .18s}
+.title a:hover,.title a:focus-visible{background-size:100% 1px}
+.byline{margin:9px 0 0;font-weight:500;font-size:14px}
+.cite{margin:2px 0 0;color:var(--ink-soft);font-size:13.5px}
+.tag{display:inline-block;margin:10px 0 0;padding:3px 10px;border:1px solid var(--rule);border-radius:999px;font-size:12.5px;color:var(--ink-soft)}
+.argument{font:400 15.5px/1.75 var(--text);margin:16px 0 0;max-width:37rem}
+.gloss{align-self:start;border-left:2px solid var(--desk);padding:1px 0 1px 14px;color:var(--desk);font-size:14px;line-height:1.55}
+.gloss p{margin:0}
+.gloss p + p{margin-top:8px}
+.gloss .label{font-weight:600}
+.gloss a{color:inherit;text-underline-offset:3px}
+.basis{display:inline-block;margin-top:9px;padding:2px 9px;border:1px dashed currentColor;border-radius:999px;font-size:12.5px;opacity:.85}
+.links{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:10px}
+.meter{display:flex;align-items:center;gap:10px;font-weight:600}
+.ticks{display:inline-flex;gap:3px}
+.ticks i{width:4px;height:13px;border-radius:1px;background:var(--desk);opacity:.2}
+.ticks i.on{opacity:1}
+.acts{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:13px}
+.onboard{font-size:13px;color:var(--ink-soft)}
+.foot{margin:40px 0 0;padding-top:14px;border-top:1px solid var(--rule);color:var(--ink-soft);font-size:13px;max-width:47rem}
+
+/* buttons */
+.btn{appearance:none;font:500 13px/1 var(--ui);padding:8px 13px;border-radius:999px;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);cursor:pointer}
+a.btn{text-decoration:none;display:inline-block}
+.btn:hover{border-color:var(--ink)}
+.btn.solid{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.btn.quiet{background:none;border-color:transparent;color:var(--ink-soft)}
+.btn.quiet:hover{color:var(--ink);border-color:var(--rule)}
+.btn:disabled{opacity:.45;cursor:default}
+
+/* board */
+.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin-top:40px;align-items:start}
+.col{border-top:1px solid var(--ink);padding:12px 0 28px;min-height:160px;border-radius:0 0 8px 8px}
+.col.over{background:var(--desk-wash)}
+.col-h{display:flex;align-items:baseline;gap:10px;margin:0 0 14px;font:600 14px/1.3 var(--ui)}
+.col-h .n{font-weight:400;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.col-empty{color:var(--ink-soft);font-size:13.5px;margin:0}
+.slip{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:14px 14px 12px;margin:0 0 10px;cursor:pointer}
+.slip:hover{border-color:var(--ink-soft)}
+.slip.dragging{opacity:.4}
+.slip-title{font:400 18px/1.24 var(--display);margin:0}
+.slip-meta{margin:7px 0 0;color:var(--ink-soft);font-size:12.5px;line-height:1.4}
+.slip-note{margin:11px 0 0;padding:8px 10px;background:var(--mine-wash);border-left:2px solid var(--mine-edge);font-size:13px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:5;overflow:hidden}
+.slip-nonote{margin:11px 0 0;color:var(--ink-soft);font-size:13px}
+.slip-foot{display:flex;gap:6px;margin-top:10px}
+.mini{appearance:none;border:1px solid var(--rule);background:none;color:var(--ink-soft);border-radius:999px;padding:5px 10px;font:500 12px/1 var(--ui);cursor:pointer}
+.mini:hover{color:var(--ink);border-color:var(--ink)}
+
+/* forms */
+.form{background:var(--sheet);border:1px solid var(--rule);border-radius:8px;padding:20px;margin-top:28px;max-width:47rem;display:grid;gap:14px}
+.field{display:grid;gap:5px}
+.field label{font:500 13px/1.3 var(--ui)}
+.field input,.field textarea{font:400 15px/1.4 var(--ui);background:var(--well);border:1px solid var(--rule);border-radius:6px;padding:9px 11px;width:100%}
+.field textarea{min-height:72px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.hint{color:var(--ink-soft);font-size:13px;margin:0}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(8,10,16,.42);z-index:10}
+.sheet{position:fixed;top:0;right:0;bottom:0;width:min(580px,100%);background:var(--sheet);border-left:1px solid var(--rule);z-index:11;overflow:auto;padding:22px clamp(18px,4vw,32px) 40px;animation:slide .2s ease-out}
+@keyframes slide{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+.sheet-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.sheet h2{font:400 28px/1.15 var(--display);margin:20px 0 0;text-wrap:balance}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:999px;padding:2px;margin-top:20px}
+.seg button{appearance:none;border:0;background:none;font:500 13px/1 var(--ui);padding:7px 12px;border-radius:999px;color:var(--ink-soft);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.notes-h{display:flex;justify-content:space-between;align-items:baseline;margin:26px 0 8px;font:600 14px/1.3 var(--ui)}
+.saved{font-weight:400;font-size:12.5px;color:var(--ink-soft)}
+.notes{display:block;width:100%;min-height:300px;background:var(--mine-wash);border:0;border-left:2px solid var(--mine-edge);border-radius:0 4px 4px 0;padding:14px 16px;font:400 15px/1.6 var(--ui);color:var(--ink);resize:vertical}
+.notes::placeholder{color:var(--ink-soft)}
+
+/* ledger */
+.ledger{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;margin-top:40px}
+.block{border-top:1px solid var(--ink);padding-top:12px;min-width:0}
+.block.wide{grid-column:1/-1}
+.block h2{font:600 14px/1.3 var(--ui);margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 18px}
+.chip{border:1px solid var(--rule);border-radius:999px;padding:4px 11px;font-size:13px;background:var(--sheet)}
+.field .threads{display:block;width:100%;min-height:150px;background:var(--mine-wash);border:0;border-left:2px solid var(--mine-edge);border-radius:0 4px 4px 0;padding:12px 14px;font:400 14.5px/1.6 var(--ui);color:var(--ink);resize:vertical}
+.jgroup{margin:16px 0 0;font:500 13px/1.3 var(--ui);color:var(--ink-soft)}
+.jlist{list-style:none;padding:0;margin:6px 0 0;font-size:13.5px}
+.jlist li{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
+.jlist .issn{color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tablewrap{overflow-x:auto}
+.runs{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:10px;min-width:560px}
+.runs th{text-align:left;font-weight:500;color:var(--ink-soft);padding:6px 14px 6px 0;border-bottom:1px solid var(--rule);white-space:nowrap}
+.runs td{padding:10px 14px 10px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+.runs .r{text-align:right;font-variant-numeric:tabular-nums}
+.runs td.note{color:var(--ink-soft);min-width:18rem}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:999px;font-size:13.5px;z-index:20;max-width:calc(100% - 32px)}
+
+@media (max-width:860px){
+  .entry{grid-template-columns:2.4rem minmax(0,1fr)}
+  .entry.flat{grid-template-columns:minmax(0,1fr)}
+  .gloss{grid-column:2;margin-top:16px}
+  .entry.flat .gloss{grid-column:1}
+  .board{grid-template-columns:1fr}
+  .col{min-height:0}
+  .ledger{grid-template-columns:1fr;gap:36px}
+  .grid2{grid-template-columns:1fr}
+  .status{margin-left:0;width:100%}
+}
+@media (max-width:480px){
+  .entry{grid-template-columns:minmax(0,1fr)}
+  .num{padding:0 0 4px}
+  .gloss{grid-column:1}
+  .title{font-size:21px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none !important;transition:none !important}
+}
+.stack{display:grid;gap:40px;align-content:start;min-width:0}
+.block a,.area-sub a{color:var(--desk);text-underline-offset:3px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="mast">
+    <p class="mark">Reading Room</p>
+    <nav class="tabs" id="tabs" aria-label="Views"></nav>
+    <p class="status" id="status"></p>
+  </header>
+  <main id="main"></main>
+</div>
+<div id="layer" hidden></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function(){
+'use strict';
+
+var AREAS=['Political philosophy','Philosophy of language','Ethics and metaethics','Aesthetics'];
+var COLS=[['queue','To read'],['reading','Reading'],['done','Finished']];
+var VIEWS=[['new','New'],['desk','Desk'],['reserve','Reserve'],['board','Board'],['ledger','Ledger']];
+var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+var ONES=['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
+var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+
+var S={ready:false,failed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,
+  view:'new',issue:null,showDismissed:false,adding:false,filling:false,
+  form:blankForm(),threads:null,raf:0,stale:false,sheet:null};
+var U=blankUser();
+var Sync={repo:'',token:'',sha:null,state:'local',msg:'',timer:0,busy:false,again:false,pulled:0};
+var SITE=(function(){
+  var host=location.hostname,seg=location.pathname.split('/').filter(Boolean);
+  var owner=/\.github\.io$/.test(host)?host.replace(/\.github\.io$/,''):'';
+  var repo=owner?(seg[0]||owner+'.github.io'):'';
+  return {owner:owner,repo:repo,notes:owner&&repo?owner+'/'+repo+'-notes':''};
+})();
+
+function blankForm(){return {cite:'',title:'',authors:'',venue:'',year:'',url:''};}
+function blankUser(){return {version:1,areas:null,threads:null,threadsAt:'',board:{},gone:{},dismissed:{},updatedAt:''};}
+function $(id){return document.getElementById(id);}
+function str(v){return typeof v==='string'?v:(v==null?'':String(v));}
+function arr(x){return Array.isArray(x)?x:[];}
+function obj(x){return x&&typeof x==='object'&&!Array.isArray(x)?x:{};}
+function normUser(u){
+  u=obj(u);var o=blankUser();
+  o.areas=Array.isArray(u.areas)?u.areas:null;
+  o.threads=typeof u.threads==='string'?u.threads:null;
+  o.threadsAt=str(u.threadsAt);o.board=obj(u.board);o.gone=obj(u.gone);o.dismissed=obj(u.dismissed);o.updatedAt=str(u.updatedAt);
+  return o;
+}
+function h(tag,attrs){
+  var e=document.createElement(tag),k,v,i,c;
+  if(attrs){for(k in attrs){v=attrs[k];
+    if(v==null||v===false)continue;
+    if(k==='class')e.className=v;
+    else if(k.slice(0,2)==='on')e.addEventListener(k.slice(2),v);
+    else if(v===true)e.setAttribute(k,'');
+    else e.setAttribute(k,v);}}
+  for(i=2;i<arguments.length;i++){c=arguments[i];
+    if(c==null||c===false)continue;
+    if(Array.isArray(c))c.forEach(function(x){if(x!=null&&x!==false)e.append(x);});
+    else e.append(c);}
+  return e;
+}
+function fmtDate(v,short){
+  var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(str(v));
+  if(!m)return str(v);
+  var mon=MONTHS[+m[2]-1]||'';
+  return (+m[3])+' '+(short?mon.slice(0,3):mon)+' '+m[1];
+}
+function word(n){
+  if(!Number.isInteger(n)||n<0||n>99)return String(n);
+  if(n<20)return ONES[n];
+  var o=n%10;return TENS[Math.floor(n/10)]+(o?'-'+ONES[o]:'');
+}
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1);}
+function count(n,one,many){return cap(word(n))+' '+(n===1?one:many);}
+function safeUrl(u){u=str(u).trim();
+  if(/^10\.\d{4,9}\/\S+$/.test(u))return 'https://doi.org/'+u;
+  return /^https?:\/\//i.test(u)?u:'';}
+function areas(){
+  var a=arr(U.areas).filter(function(x){return typeof x==='string'&&x;});
+  if(!a.length)a=arr(S.profile&&S.profile.areas).filter(function(x){return typeof x==='string'&&x;});
+  return a.length?a:AREAS;
+}
+function threadsText(){return U.threads!=null?U.threads:str(S.profile&&S.profile.threads);}
+function latestRun(){return S.runs.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at));})[0]||null;}
+function boardList(){return Object.keys(U.board).map(function(id){var o={},x=obj(U.board[id]);for(var k in x)o[k]=x[k];o.id=id;return o;});}
+function onBoard(id){return Object.prototype.hasOwnProperty.call(U.board,id);}
+function dismissed(id){var d=U.dismissed[id];return !!(d&&d.v);}
+function now(){return new Date().toISOString();}
+function byRank(a,b){return (a.rank||999)-(b.rank||999);}
+function isOpen(p){return !dismissed(p.id)&&!onBoard(p.id);}
+function later(x,y){return str(x)>str(y);}
+
+var toastT=0;
+function toast(msg){var t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true;},3600);}
+
+/* storage in this browser */
+function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+function lsDel(k){try{localStorage.removeItem(k);}catch(e){}}
+function cacheUser(){lsSet('rr.user',JSON.stringify(U));}
+
+/* notes sync with a private GitHub repository */
+function enc(s){var b=new TextEncoder().encode(s),bin='';for(var i=0;i<b.length;i++)bin+=String.fromCharCode(b[i]);return btoa(bin);}
+function dec(b64){var bin=atob(b64.replace(/\s/g,'')),b=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)b[i]=bin.charCodeAt(i);return new TextDecoder().decode(b);}
+function ghUrl(){return 'https://api.github.com/repos/'+Sync.repo+'/contents/user.json';}
+function ghHeaders(write){
+  var o={'Authorization':'Bearer '+Sync.token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
+  if(write)o['Content-Type']='application/json';
+  return o;
+}
+function ghMsg(e){
+  var s=e&&e.status;
+  if(s===401)return 'GitHub rejected the token. Paste a current one in the Ledger.';
+  if(s===403)return 'The token cannot write to the notes repository. Give it Contents read and write.';
+  if(s===404)return 'GitHub cannot find that repository with this token. Check the name and the token’s access.';
+  if(s==='parse')return 'The notes file on GitHub is not valid. Open user.json there and repair or delete it.';
+  return 'Could not reach GitHub. Notes are saved in this browser and will sync on the next change.';
+}
+function merge(a,b){
+  var o=blankUser(),ids={},k;
+  if(later(b.threadsAt,a.threadsAt)){o.threads=b.threads;o.threadsAt=b.threadsAt;o.areas=b.areas||a.areas;}
+  else{o.threads=a.threads!=null?a.threads:b.threads;o.threadsAt=a.threadsAt||b.threadsAt;o.areas=a.areas||b.areas;}
+  for(k in a.board)ids[k]=1;for(k in b.board)ids[k]=1;for(k in a.gone)ids[k]=1;for(k in b.gone)ids[k]=1;
+  for(k in ids){
+    var da=a.board[k],db=b.board[k];
+    var best=da&&db?(later(db.updatedAt,da.updatedAt)?db:da):(da||db);
+    var gone=later(b.gone[k],a.gone[k])?b.gone[k]:(a.gone[k]||b.gone[k]);
+    if(best&&!(gone&&later(gone,best.updatedAt)))o.board[k]=best;
+    else if(gone)o.gone[k]=gone;
+  }
+  for(k in a.dismissed)o.dismissed[k]=a.dismissed[k];
+  for(k in b.dismissed){var x=o.dismissed[k],y=b.dismissed[k];if(!x||later(y&&y.at,x&&x.at))o.dismissed[k]=y;}
+  o.updatedAt=later(b.updatedAt,a.updatedAt)?b.updatedAt:a.updatedAt;
+  return o;
+}
+function same(a,b){
+  function strip(u){var o={};for(var k in u)if(k!=='updatedAt')o[k]=u[k];return JSON.stringify(o);}
+  return strip(a)===strip(b);
+}
+function pull(){
+  return fetch(ghUrl(),{headers:ghHeaders(false),cache:'no-store'}).then(function(r){
+    if(r.status===404){Sync.sha=null;return null;}
+    if(!r.ok)throw {status:r.status};
+    return r.json().then(function(j){
+      Sync.sha=j.sha;Sync.pulled=Date.now();
+      try{return normUser(JSON.parse(dec(str(j.content))));}catch(e){throw {status:'parse'};}
+    });
+  });
+}
+function put(attempt){
+  var body={message:'Update reading room notes',content:enc(JSON.stringify(U,null,1))};
+  if(Sync.sha)body.sha=Sync.sha;
+  return fetch(ghUrl(),{method:'PUT',headers:ghHeaders(true),body:JSON.stringify(body)}).then(function(r){
+    if((r.status===409||r.status===422)&&attempt<2){
+      return pull().then(function(remote){
+        if(remote){U=merge(U,remote);cacheUser();schedule();}
+        return put(attempt+1);
+      });
+    }
+    if(!r.ok)throw {status:r.status};
+    return r.json().then(function(j){if(j&&j.content&&j.content.sha)Sync.sha=j.content.sha;});
+  });
+}
+function pushNow(){
+  clearTimeout(Sync.timer);
+  if(!Sync.token||!Sync.repo)return Promise.resolve();
+  if(Sync.busy){Sync.again=true;return Promise.resolve();}
+  Sync.busy=true;Sync.state='saving';renderStatus();
+  return put(0).then(function(){Sync.state='synced';Sync.msg='';lsDel('rr.dirty');},
+    function(e){Sync.state='error';Sync.msg=ghMsg(e);})
+  .then(function(){
+    Sync.busy=false;renderStatus();
+    if(Sync.again){Sync.again=false;return pushNow();}
+  });
+}
+function changed(){
+  U.updatedAt=now();cacheUser();
+  if(Sync.token&&Sync.repo){lsSet('rr.dirty','1');Sync.state='saving';clearTimeout(Sync.timer);Sync.timer=setTimeout(pushNow,1500);}
+  schedule();
+}
+function initialSync(){
+  Sync.state='saving';renderStatus();
+  return pull().then(function(remote){
+    if(!remote)return pushNow();
+    if(lsGet('rr.dirty')==='1'){U=merge(U,remote);cacheUser();schedule();return pushNow();}
+    U=remote;cacheUser();Sync.state='synced';schedule();
+  }).catch(function(e){Sync.state='error';Sync.msg=ghMsg(e);schedule();});
+}
+function connect(repo,token){
+  repo=str(repo).trim().replace(/^https?:\/\/github\.com\//,'').replace(/\.git$/,'').replace(/\/+$/,'');
+  token=str(token).trim();
+  if(!/^[\w.-]+\/[\w.-]+$/.test(repo)){toast('Write the notes repository as owner/name.');return;}
+  if(!token){toast('Paste a token first.');return;}
+  Sync.repo=repo;Sync.token=token;Sync.sha=null;Sync.state='saving';renderStatus();
+  fetch('https://api.github.com/repos/'+repo,{headers:ghHeaders(false),cache:'no-store'}).then(function(r){
+    if(!r.ok)throw {status:r.status};
+    return pull();
+  }).then(function(remote){
+    lsSet('rr.sync',JSON.stringify({repo:repo,token:token}));
+    var merged=remote?merge(U,remote):U;
+    var need=!remote||!same(merged,remote);
+    U=merged;cacheUser();
+    if(need)return pushNow();
+    Sync.state='synced';
+  }).then(function(){
+    if(Sync.state==='error'){toast(Sync.msg);}
+    else toast('Notes now sync with '+repo+'.');
+    render(true);
+  },function(e){
+    Sync.token='';Sync.state='error';Sync.msg=ghMsg(e);toast(Sync.msg);render(true);
+  });
+}
+function disconnect(){
+  lsDel('rr.sync');lsDel('rr.dirty');Sync.token='';Sync.sha=null;Sync.state='local';Sync.msg='';
+  toast('Token removed from this browser. Notes stay here.');render(true);
+}
+function syncLabel(){
+  if(Sync.state==='synced')return 'Notes synced';
+  if(Sync.state==='saving')return 'Saving notes';
+  if(Sync.state==='error')return 'Notes not synced';
+  return 'Notes in this browser only';
+}
+
+/* actions */
+function boardDoc(p,from){
+  return {title:str(p.title),authors:str(p.authors),venue:str(p.venue),cite:str(p.cite),
+    year:p.year||str(p.date).slice(0,4)||'',url:safeUrl(p.url),column:'queue',note:'',
+    order:Date.now(),addedAt:now(),updatedAt:now(),from:from};
+}
+function save(p,from){U.board[p.id]=boardDoc(p,from);delete U.gone[p.id];changed();toast('Saved to board');}
+function dismiss(p,flag){U.dismissed[p.id]={v:!!flag,at:now()};changed();toast(flag?'Dismissed':'Restored');}
+function move(id,col){if(!U.board[id])return;U.board[id].column=col;U.board[id].updatedAt=now();changed();}
+function removeFromBoard(id){delete U.board[id];U.gone[id]=now();changed();toast('Removed from board');}
+
+/* shared pieces */
+function lede(title,sub){return h('header',{class:'lede'},h('h1',null,title),sub?h('p',null,sub):null);}
+function waiting(v){
+  if(S.failed){v.append(lede('The reading room could not load its data.','Reload the page. If that does not help, check that the data folder was published with the site.'));return true;}
+  if(!S.ready){v.append(lede('Opening the reading room.',''));return true;}
+  return false;
+}
+function actions(p,kind){
+  var row=h('div',{class:'acts'});
+  if(onBoard(p.id)){
+    row.append(h('span',{class:'onboard'},'On your board'),
+      h('button',{class:'btn quiet',type:'button',onclick:function(){go('board');openSheet(p.id);}},'Open notes'));
+    return row;
+  }
+  row.append(h('button',{class:'btn',type:'button',onclick:function(){save(p,kind);}},'Save to board'));
+  if(kind!=='desk'){
+    row.append(dismissed(p.id)
+      ? h('button',{class:'btn quiet',type:'button',onclick:function(){dismiss(p,false);}},'Restore')
+      : h('button',{class:'btn quiet',type:'button',onclick:function(){dismiss(p,true);}},'Dismiss'));
+  }
+  return row;
+}
+function titleEl(p,url){
+  url=safeUrl(url||p.url);
+  return h('h3',{class:'title'},url?h('a',{href:url,target:'_blank',rel:'noopener'},str(p.title)):str(p.title));
+}
+function citeLine(p){
+  if(p.cite)return (p.venue?str(p.venue)+' ':'')+str(p.cite);
+  return str(p.venue)+(p.date?', registered '+fmtDate(p.date,true):'');
+}
+function entry(p,num,kind,showArea){
+  var text=h('div',null,titleEl(p),h('p',{class:'byline'},str(p.authors)),h('p',{class:'cite'},citeLine(p)),
+    showArea&&p.area?h('span',{class:'tag'},str(p.area)):null);
+  var gloss=h('aside',{class:'gloss'},h('p',null,str(p.why)));
+  if(p.basis==='title')gloss.append(h('span',{class:'basis'},'Judged on the title; no abstract was deposited'));
+  gloss.append(actions(p,kind));
+  return h('li',{class:num?'entry':'entry flat'},num?h('span',{class:'num'},num):null,text,gloss);
+}
+function areaSection(name,n,sub){
+  return h('section',{class:'area'},h('h2',{class:'area-h'},name,n==null?null:h('span',{class:'n'},String(n))),sub?h('p',{class:'area-sub'},sub):null);
+}
+
+/* views */
+function viewNew(){
+  var v=h('div');if(waiting(v))return v;
+  var items=S.papers.filter(function(p){return p.lane==='new'&&isOpen(p);});
+  var run=latestRun(),sub='';
+  if(run)sub='Latest check '+fmtDate(run.at)+': '+str(run.kept)+' kept from '+str(run.checked)+' research articles across '+str(run.journals)+' journals, covering '+fmtDate(run.since)+' onward.';
+  else sub='The first check has not run yet.';
+  v.append(lede(items.length?count(items.length,'paper','papers')+' to look at.':'Nothing waiting.',sub));
+  var list=areas(),known={};
+  list.forEach(function(a){known[a]=1;});
+  var other=items.filter(function(p){return !known[p.area];});
+  list.forEach(function(area,i){
+    var rows=items.filter(function(p){return p.area===area;}).sort(function(a,b){return str(b.run).localeCompare(str(a.run))||byRank(a,b);});
+    var sec=areaSection(area,rows.length);
+    if(!rows.length)sec.append(h('p',{class:'none'},run&&run.since?'No new papers in this area since '+fmtDate(run.since)+'.':'No new papers in this area.'));
+    else{var ol=h('ol',{class:'entries'});rows.forEach(function(p,j){ol.append(entry(p,(i+1)+'.'+(j+1),'new'));});sec.append(ol);}
+    v.append(sec);
+  });
+  if(other.length){
+    var so=areaSection('Other areas',other.length),oo=h('ol',{class:'entries'});
+    other.sort(byRank).forEach(function(p){oo.append(entry(p,'','new',true));});so.append(oo);v.append(so);
+  }
+  var gone=S.papers.filter(function(p){return p.lane==='new'&&dismissed(p.id)&&!onBoard(p.id);});
+  if(gone.length){
+    v.append(h('div',{class:'foot'},h('button',{class:'btn quiet',type:'button',onclick:function(){S.showDismissed=!S.showDismissed;schedule();}},
+      S.showDismissed?'Hide dismissed':'Show '+gone.length+' dismissed')));
+    if(S.showDismissed){var og=h('ol',{class:'entries'});gone.forEach(function(p){og.append(entry(p,'','new',true));});v.append(og);}
+  }
+  return v;
+}
+
+function meter(n){
+  n=Math.max(0,Math.min(10,Math.round(Number(n)||0)));
+  var t=h('span',{class:'ticks','aria-hidden':'true'});
+  for(var i=1;i<=10;i++)t.append(h('i',{class:i<=n?'on':null}));
+  return h('p',{class:'meter'},t,h('span',null,'Objection severity '+n+' of 10'));
+}
+function deskEntry(d,num){
+  var text=h('div',null,titleEl(d),h('p',{class:'byline'},str(d.authors)),h('p',{class:'cite'},str(d.cite)),
+    d.tag?h('span',{class:'tag'},str(d.tag)):null,
+    h('p',{class:'argument'},str(d.argument)));
+  var gloss=h('aside',{class:'gloss'},meter(d.severity),h('p',null,str(d.review)));
+  if(d.use)gloss.append(h('p',null,h('span',{class:'label'},'Use: '),str(d.use)));
+  var links=arr(d.links).filter(function(l){return l&&safeUrl(l.url);});
+  if(links.length){var lw=h('div',{class:'links'});links.forEach(function(l){lw.append(h('a',{href:safeUrl(l.url),target:'_blank',rel:'noopener'},str(l.label)||'Link'));});gloss.append(lw);}
+  gloss.append(actions(d,'desk'));
+  return h('li',{class:'entry'},h('span',{class:'num'},num),text,gloss);
+}
+function viewDesk(){
+  var v=h('div');if(waiting(v))return v;
+  var seen={},dates=[];
+  S.desk.forEach(function(d){var k=str(d.issue);if(k&&!seen[k]){seen[k]=1;dates.push(k);}});
+  dates.sort().reverse();
+  if(!dates.length){v.append(lede('No reviewed issues yet.','Reviewed papers appear here once the desk has run.'));return v;}
+  var cur=dates.indexOf(S.issue)>=0?S.issue:dates[0];
+  var meta=S.issues.filter(function(i){return i.id===cur;})[0]||{};
+  var items=S.desk.filter(function(d){return d.issue===cur;}).sort(function(a,b){return (a.order||0)-(b.order||0);});
+  var head=lede(str(meta.title)||'Issue of '+fmtDate(cur),
+    'Issue of '+fmtDate(cur)+'. '+count(items.length,'paper','papers')+', each with the argument first and the review beside it.'+(meta.source?' '+str(meta.source)+'.':''));
+  if(dates.length>1){
+    var row=h('div',{class:'lede-row'});
+    dates.forEach(function(d){row.append(h('button',{class:d===cur?'btn solid':'btn',type:'button',onclick:function(){S.issue=d;schedule();}},fmtDate(d,true)));});
+    head.append(row);
+  }
+  v.append(head);
+  var secs=[];
+  items.forEach(function(d){var name=str(d.section)||'Papers',s=secs.filter(function(x){return x.name===name;})[0];
+    if(!s){s={name:name,items:[]};secs.push(s);}s.items.push(d);});
+  secs.forEach(function(s,i){
+    var sec=areaSection(s.name,s.items.length),ol=h('ol',{class:'entries'});
+    s.items.forEach(function(d,j){ol.append(deskEntry(d,(i+1)+'.'+(j+1)));});
+    sec.append(ol);v.append(sec);
+  });
+  if(meta.note)v.append(h('p',{class:'foot'},str(meta.note)));
+  return v;
+}
+
+function viewReserve(){
+  var v=h('div');if(waiting(v))return v;
+  var classics=S.papers.filter(function(p){return p.lane==='classic'&&isOpen(p);}).sort(function(a,b){return str(b.run).localeCompare(str(a.run))||byRank(a,b);});
+  var near=S.papers.filter(function(p){return p.lane==='reserve'&&isOpen(p);});
+  var order=areas();
+  near.sort(function(a,b){var x=order.indexOf(a.area),y=order.indexOf(b.area);return (x<0?99:x)-(y<0?99:y)||str(b.run).localeCompare(str(a.run))||byRank(a,b);});
+  var n=classics.length+near.length;
+  v.append(lede(n?cap(word(n))+' held in reserve.':'Nothing in reserve.','Older work tied to your threads, and near-misses from the journals. None of it has been reviewed.'));
+  var s1=areaSection('Classics queue',classics.length,'Older papers picked against the threads in your profile.');
+  if(classics.length){var o1=h('ol',{class:'entries'});classics.forEach(function(p){o1.append(entry(p,'','reserve',true));});s1.append(o1);}
+  else s1.append(h('p',{class:'none'},'No classics queued.'));
+  v.append(s1);
+  var s2=areaSection('Near-misses',near.length,'In your areas, further from your threads.');
+  if(near.length){var o2=h('ol',{class:'entries'});near.forEach(function(p){o2.append(entry(p,'','reserve',true));});s2.append(o2);}
+  else s2.append(h('p',{class:'none'},'No near-misses held.'));
+  v.append(s2);
+  return v;
+}
+
+function field(id,label,key,multi){
+  var input=multi?h('textarea',{id:id}):h('input',{id:id,type:'text',autocomplete:'off'});
+  input.value=S.form[key];
+  input.addEventListener('input',function(){S.form[key]=input.value;});
+  return h('div',{class:'field'},h('label',{for:id},label),input);
+}
+function addForm(){
+  var f=h('form',{class:'form',onsubmit:function(e){e.preventDefault();addPaper();}});
+  f.append(field('add-cite','Paste a citation or DOI','cite',true),
+    h('div',{class:'acts'},
+      h('button',{class:'btn',type:'button',disabled:S.filling,onclick:lookup},S.filling?'Asking Crossref':'Look it up on Crossref'),
+      h('p',{class:'hint'},'Fills the fields from the closest Crossref record. Check the result before adding.')),
+    field('add-title','Title','title'),
+    h('div',{class:'grid2'},field('add-authors','Authors','authors'),field('add-venue','Journal or book','venue')),
+    h('div',{class:'grid2'},field('add-year','Year','year'),field('add-url','Link or DOI','url')),
+    h('div',{class:'acts'},h('button',{class:'btn solid',type:'submit'},'Add to board'),
+      h('button',{class:'btn quiet',type:'button',onclick:function(){S.adding=false;S.form=blankForm();render(true);}},'Cancel')));
+  return f;
+}
+function lookup(){
+  var q=S.form.cite.trim();
+  if(!q){toast('Paste a citation or DOI first.');return;}
+  if(S.filling)return;
+  S.filling=true;render(true);
+  var m=/10\.\d{4,9}\/[^\s"<>]+/.exec(q),doi=m?m[0].replace(/[.,;)\]]+$/,''):'';
+  var url=doi?'https://api.crossref.org/works/'+encodeURIComponent(doi)
+    :'https://api.crossref.org/works?rows=1&select=DOI,title,author,container-title,issued&query.bibliographic='+encodeURIComponent(q.slice(0,400));
+  fetch(url).then(function(r){if(!r.ok)throw 0;return r.json();}).then(function(j){
+    var it=doi?j.message:arr(j.message&&j.message.items)[0];
+    if(!it||!arr(it.title)[0]){toast('Crossref found no match. Fill in the fields by hand.');return;}
+    S.form.title=str(arr(it.title)[0]);
+    S.form.authors=arr(it.author).map(function(a){return [a.given,a.family].filter(Boolean).join(' ')||str(a.name);}).filter(Boolean).join(', ');
+    S.form.venue=str(arr(it['container-title'])[0]);
+    var dp=it.issued&&arr(it.issued['date-parts'])[0];
+    S.form.year=dp&&dp[0]?String(dp[0]):'';
+    S.form.url=it.DOI?'https://doi.org/'+it.DOI:'';
+    toast('Filled from Crossref. Check it before adding.');
+  }).catch(function(){toast('Could not reach Crossref. Fill in the fields by hand.');})
+  .then(function(){S.filling=false;render(true);});
+}
+function addPaper(){
+  var f=S.form;
+  if(!f.title.trim()){toast('Give the paper a title.');return;}
+  var id='m-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  U.board[id]={title:f.title.trim(),authors:f.authors.trim(),venue:f.venue.trim(),cite:'',year:f.year.trim(),
+    url:safeUrl(f.url),column:'queue',note:'',order:Date.now(),addedAt:now(),updatedAt:now(),from:'manual'};
+  S.form=blankForm();S.adding=false;changed();toast('Added to board');render(true);
+}
+function colKey(b){return COLS.some(function(c){return c[0]===b.column;})?b.column:'queue';}
+function slip(b,ci){
+  var meta=[str(b.authors),str(b.year)].filter(Boolean).join(', ');
+  var e=h('div',{class:'slip',role:'button',tabindex:'0',draggable:'true','aria-label':'Open '+str(b.title)},
+    h('h3',{class:'slip-title'},str(b.title)),
+    meta?h('p',{class:'slip-meta'},meta):null,
+    str(b.note).trim()?h('p',{class:'slip-note'},str(b.note).trim()):h('p',{class:'slip-nonote'},'No notes yet'));
+  var foot=h('div',{class:'slip-foot'});
+  if(ci>0)foot.append(h('button',{class:'mini',type:'button',onclick:function(ev){ev.stopPropagation();move(b.id,COLS[ci-1][0]);}},'Move to '+COLS[ci-1][1]));
+  if(ci<COLS.length-1)foot.append(h('button',{class:'mini',type:'button',onclick:function(ev){ev.stopPropagation();move(b.id,COLS[ci+1][0]);}},'Move to '+COLS[ci+1][1]));
+  e.append(foot);
+  e.addEventListener('click',function(){openSheet(b.id);});
+  e.addEventListener('keydown',function(ev){if(ev.target===e&&(ev.key==='Enter'||ev.key===' ')){ev.preventDefault();openSheet(b.id);}});
+  e.addEventListener('dragstart',function(ev){ev.dataTransfer.setData('text/plain',b.id);ev.dataTransfer.effectAllowed='move';e.classList.add('dragging');});
+  e.addEventListener('dragend',function(){e.classList.remove('dragging');});
+  return e;
+}
+function viewBoard(){
+  var v=h('div');if(waiting(v))return v;
+  var all=boardList(),n=all.length,withNotes=all.filter(function(b){return str(b.note).trim();}).length;
+  var head=lede(n?count(n,'paper','papers')+' on your board.':'Your board is empty.',
+    n?(withNotes?count(withNotes,'has','have')+' notes. ':'No notes yet. ')+'Open a paper to write in its margin, and move it between columns as you read.'
+     :'Save a paper from New, Desk or Reserve, or add one yourself.');
+  if(!S.adding)head.append(h('div',{class:'lede-row'},h('button',{class:'btn solid',type:'button',onclick:function(){S.adding=true;render(true);}},'Add a paper')));
+  v.append(head);
+  if(S.adding)v.append(addForm());
+  var grid=h('div',{class:'board'});
+  COLS.forEach(function(c,ci){
+    var rows=all.filter(function(b){return colKey(b)===c[0];}).sort(function(a,b){return (a.order||0)-(b.order||0);});
+    var col=h('section',{class:'col','aria-label':c[1]},h('h2',{class:'col-h'},c[1],h('span',{class:'n'},String(rows.length))));
+    if(rows.length)rows.forEach(function(b){col.append(slip(b,ci));});
+    else col.append(h('p',{class:'col-empty'},'Nothing here yet.'));
+    col.addEventListener('dragover',function(ev){ev.preventDefault();col.classList.add('over');});
+    col.addEventListener('dragleave',function(){col.classList.remove('over');});
+    col.addEventListener('drop',function(ev){ev.preventDefault();col.classList.remove('over');
+      var id=ev.dataTransfer.getData('text/plain');
+      if(id&&onBoard(id))move(id,c[0]);});
+    grid.append(col);
+  });
+  v.append(grid);
+  return v;
+}
+
+function syncBlock(){
+  var b=h('section',{class:'block'},h('h2',null,'Notes sync'));
+  var line=Sync.state==='synced'?'Your board, notes and threads sync with '+Sync.repo+'.'
+    :Sync.state==='saving'?'Saving to '+Sync.repo+'.'
+    :Sync.state==='error'?Sync.msg
+    :'Your board, notes and threads are saved in this browser only.';
+  b.append(h('p',{class:'area-sub',style:'margin:8px 0 14px'},line));
+  if(Sync.token){
+    b.append(h('div',{class:'acts'},
+      h('button',{class:'btn',type:'button',onclick:function(){pushNow();}},'Sync now'),
+      h('button',{class:'btn quiet',type:'button',onclick:disconnect},'Remove the token from this browser')));
+    return b;
+  }
+  var repo=h('input',{id:'sync-repo',type:'text',autocomplete:'off',spellcheck:'false',placeholder:'owner/reading-room-notes'});
+  repo.value=Sync.repo||SITE.notes;
+  var tok=h('input',{id:'sync-token',type:'password',autocomplete:'off',spellcheck:'false'});
+  b.append(h('form',{style:'display:grid;gap:14px',onsubmit:function(e){e.preventDefault();connect(repo.value,tok.value);}},
+    h('div',{class:'field'},h('label',{for:'sync-repo'},'Private notes repository'),repo),
+    h('div',{class:'field'},h('label',{for:'sync-token'},'GitHub token'),tok),
+    h('div',{class:'acts'},h('button',{class:'btn solid',type:'submit'},'Connect')),
+    h('p',{class:'hint'},'Use a fine-grained token limited to that one repository, with Contents set to read and write. It is kept in this browser and sent only to GitHub.')));
+  return b;
+}
+function viewLedger(){
+  var v=h('div');if(waiting(v))return v;
+  v.append(lede('Ledger','What the checks look for, which journals they read, where your notes are kept, and what each run did.'));
+  var grid=h('div',{class:'ledger'});
+  var b1=h('section',{class:'block'},h('h2',null,'What it looks for'));
+  var chips=h('div',{class:'chips'});areas().forEach(function(a){chips.append(h('span',{class:'chip'},a));});
+  b1.append(chips);
+  var ta=h('textarea',{class:'threads',id:'profile-threads'});
+  var current=threadsText();
+  ta.value=S.threads==null?current:S.threads;
+  var btn=h('button',{class:'btn solid',type:'button',disabled:ta.value===current},'Save threads');
+  ta.addEventListener('input',function(){S.threads=ta.value;btn.disabled=ta.value===current;});
+  btn.addEventListener('click',function(){
+    U.threads=ta.value;U.threadsAt=now();if(!U.areas)U.areas=areas();
+    S.threads=null;changed();toast('Threads saved');render(true);
+  });
+  b1.append(h('div',{class:'field'},h('label',{for:'profile-threads'},'Threads you are working on'),ta),
+    h('div',{class:'acts'},btn),
+    h('p',{class:'hint',style:'margin-top:10px'},Sync.token?'Each weekly check reads this before it decides what to keep.':'The weekly check reads this once your notes are synced. Until then it uses the default profile.'));
+  grid.append(h('div',{class:'stack'},b1,syncBlock()));
+
+  var list=arr(S.journals&&S.journals.list);
+  var b2=h('section',{class:'block'},h('h2',null,count(list.length,'journal','journals')+' watched'));
+  var groups=[];
+  list.forEach(function(j){var g=str(j.group)||'Journals',x=groups.filter(function(y){return y.name===g;})[0];
+    if(!x){x={name:g,items:[]};groups.push(x);}x.items.push(j);});
+  groups.forEach(function(g){
+    b2.append(h('p',{class:'jgroup'},g.name));
+    var ul=h('ul',{class:'jlist'});
+    g.items.forEach(function(j){ul.append(h('li',null,h('span',null,str(j.name)),h('span',{class:'issn'},str(j.issn))));});
+    b2.append(ul);
+  });
+  grid.append(b2);
+
+  var runs=S.runs.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at))||str(b.id).localeCompare(str(a.id));});
+  var b3=h('section',{class:'block wide'},h('h2',null,'Runs'));
+  if(SITE.owner)b3.append(h('p',{class:'area-sub'},'The check runs every Monday. ',
+    h('a',{href:'https://github.com/'+SITE.owner+'/'+SITE.repo+'/actions/workflows/weekly-check.yml',target:'_blank',rel:'noopener'},'Open it on GitHub'),' to run it now or read its log.'));
+  if(!runs.length)b3.append(h('p',{class:'none'},'No runs recorded.'));
+  else{
+    var tb=h('tbody');
+    runs.forEach(function(r){tb.append(h('tr',null,
+      h('td',null,fmtDate(r.at,true)),h('td',null,str(r.kind)),
+      h('td',{class:'r'},str(r.checked)),h('td',{class:'r'},str(r.kept)),h('td',{class:'r'},str(r.reserve)),
+      h('td',{class:'note'},str(r.note))));});
+    b3.append(h('div',{class:'tablewrap'},h('table',{class:'runs'},
+      h('thead',null,h('tr',null,h('th',null,'Date'),h('th',null,'How'),h('th',{class:'r'},'Checked'),h('th',{class:'r'},'Kept'),h('th',{class:'r'},'Reserve'),h('th',null,'Notes'))),tb)));
+  }
+  grid.append(b3);
+  v.append(grid);
+  return v;
+}
+
+/* notes sheet */
+function openSheet(id){
+  var b=U.board[id];
+  if(!b)return;
+  closeSheet();
+  var ta=h('textarea',{class:'notes',id:'sheet-notes',placeholder:'Objections, uses, page references.'});
+  ta.value=str(b.note);
+  var saved=h('span',{class:'saved','aria-live':'polite'},'');
+  var seg=h('div',{class:'seg',role:'group','aria-label':'Column'});
+  COLS.forEach(function(c){
+    var bt=h('button',{type:'button','aria-pressed':String(colKey(b)===c[0])},c[1]);
+    bt.addEventListener('click',function(){move(id,c[0]);
+      Array.prototype.forEach.call(seg.children,function(x){x.setAttribute('aria-pressed','false');});bt.setAttribute('aria-pressed','true');});
+    seg.append(bt);
+  });
+  var close=h('button',{class:'btn',type:'button',onclick:closeSheet},'Close');
+  var url=safeUrl(b.url);
+  var panel=h('aside',{class:'sheet',role:'dialog','aria-modal':'true','aria-label':str(b.title)},
+    h('div',{class:'sheet-top'},close,url?h('a',{class:'btn',href:url,target:'_blank',rel:'noopener'},'Open the paper'):null),
+    h('h2',null,str(b.title)),
+    h('p',{class:'byline'},str(b.authors)),
+    h('p',{class:'cite'},citeLine({venue:b.venue,cite:b.cite||str(b.year)})),
+    seg,
+    h('div',{class:'notes-h'},h('label',{for:'sheet-notes'},'Your notes'),saved),
+    ta,
+    h('div',{class:'acts'},h('button',{class:'btn quiet',type:'button',onclick:function(){var x=S.sheet;if(x)clearTimeout(x.timer);S.sheet=null;hideLayer();removeFromBoard(id);}},'Remove from board')));
+  var scrim=h('div',{class:'scrim',onclick:closeSheet});
+  S.sheet={id:id,ta:ta,saved:saved,timer:0,last:str(b.note),touched:false};
+  ta.addEventListener('input',function(){S.sheet.touched=true;saved.textContent='Editing';clearTimeout(S.sheet.timer);S.sheet.timer=setTimeout(flushNote,600);});
+  var layer=$('layer');layer.replaceChildren(scrim,panel);layer.hidden=false;
+  close.focus();
+}
+function flushNote(){
+  var sh=S.sheet;if(!sh)return;
+  clearTimeout(sh.timer);
+  var val=sh.ta.value;if(val===sh.last||!U.board[sh.id])return;
+  sh.last=val;U.board[sh.id].note=val;U.board[sh.id].updatedAt=now();
+  changed();renderStatus();
+}
+function hideLayer(){var layer=$('layer');layer.hidden=true;layer.replaceChildren();}
+function closeSheet(){if(!S.sheet)return;flushNote();S.sheet=null;hideLayer();}
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&S.sheet)closeSheet();});
+
+/* rendering */
+var VIEWFN={new:viewNew,desk:viewDesk,reserve:viewReserve,board:viewBoard,ledger:viewLedger};
+function renderStatus(){
+  var run=latestRun(),parts=[];
+  if(run)parts.push('Checked '+fmtDate(run.at,true));
+  if(S.ready)parts.push(syncLabel());
+  $('status').textContent=parts.join('. ');
+  if(S.sheet&&S.sheet.touched){
+    S.sheet.saved.textContent=Sync.state==='saving'?'Saving':Sync.state==='synced'?'Synced':Sync.state==='error'?'Saved here, not synced':'Saved in this browser';
+  }
+}
+function renderTabs(){
+  var counts={};
+  if(S.ready){
+    counts.new=S.papers.filter(function(p){return p.lane==='new'&&isOpen(p);}).length;
+    counts.reserve=S.papers.filter(function(p){return (p.lane==='reserve'||p.lane==='classic')&&isOpen(p);}).length;
+    counts.board=Object.keys(U.board).length;
+  }
+  var nav=$('tabs');nav.replaceChildren();
+  VIEWS.forEach(function(v){
+    nav.append(h('button',{class:'tab',type:'button','aria-current':S.view===v[0]?'page':null,onclick:function(){go(v[0]);}},
+      v[1],counts[v[0]]!=null?h('span',{class:'n'},String(counts[v[0]])):null));
+  });
+  renderStatus();
+}
+function render(force){
+  renderTabs();
+  var main=$('main'),a=document.activeElement;
+  if(!force&&a&&main.contains(a)&&(a.tagName==='TEXTAREA'||a.tagName==='INPUT')){S.stale=true;return;}
+  S.stale=false;
+  main.replaceChildren(VIEWFN[S.view]());
+}
+function schedule(){if(S.raf)return;S.raf=requestAnimationFrame(function(){S.raf=0;render(false);});}
+document.addEventListener('focusout',function(){if(S.stale)setTimeout(schedule,0);});
+function route(){var k=location.hash.replace('#','');S.view=VIEWFN[k]?k:'new';}
+function go(v){if(location.hash==='#'+v)return;location.hash=v;}
+window.addEventListener('hashchange',function(){route();window.scrollTo(0,0);render(true);});
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState!=='visible'||!Sync.token||Sync.busy||S.sheet)return;
+  if(lsGet('rr.dirty')==='1'||Date.now()-Sync.pulled<60000)return;
+  pull().then(function(remote){if(remote&&!same(remote,U)){U=remote;cacheUser();schedule();}Sync.state='synced';renderStatus();}).catch(function(){});
+});
+window.addEventListener('beforeunload',function(){if(S.sheet)flushNote();});
+
+/* start */
+function loadJSON(name){
+  return fetch('data/'+name+'.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw new Error(name);return r.json();}).catch(function(){return null;});
+}
+function boot(){
+  route();render(true);
+  var saved=null,local=null;
+  try{saved=JSON.parse(lsGet('rr.sync')||'null');}catch(e){}
+  try{local=JSON.parse(lsGet('rr.user')||'null');}catch(e){}
+  if(saved&&saved.repo&&saved.token){Sync.repo=str(saved.repo);Sync.token=str(saved.token);}
+  else Sync.repo=SITE.notes;
+  Promise.all(['papers','desk','issues','runs','journals','profile','user-seed'].map(loadJSON)).then(function(d){
+    if(d[0]==null){S.failed=true;render(true);return;}
+    S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.profile=d[5];
+    U=normUser(local||d[6]);
+    if(!local)cacheUser();
+    S.ready=true;render(true);
+    if(Sync.token)return initialSync();
+  });
+}
+boot();
+})();
+</script>
+</body>
+</html>

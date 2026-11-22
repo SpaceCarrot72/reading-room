@@ -1,0 +1,22 @@
+[
+ {
+  "id": "2026-11-21-first",
+  "at": "2026-11-21",
+  "kind": "By hand",
+  "since": "2026-10-22",
+  "journals": 26,
+  "checked": 106,
+  "kept": 25,
+  "reserve": 12,
+  "classics": 4,
+  "note": "First fill, run by hand in chat. Ethics, The Journal of Political Philosophy, Mind, The Philosophical Review, The British Journal of Aesthetics, The Journal of Aesthetics and Art Criticism, Journal of Philosophical Logic, Semantics and Pragmatics and Ergo registered no research articles in the window, so Aesthetics has no new entries. Philosophers' Imprint had one untitled record, skipped. About a quarter of the records had no abstract and were judged on the title.",
+  "passed": [
+   "10.1007_s11098-026-02663-2",
+   "10.1007_s11098-026-02671-2",
+   "10.1007_s11098-026-02672-1",
+   "10.1007_s11098-026-02659-y",
+   "10.1007_s11098-026-02641-8"
+  ],
+  "carry": []
+ }
+]
