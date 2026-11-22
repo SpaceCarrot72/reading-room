@@ -224,6 +224,8 @@ body[data-view="new"] #main{padding-top:22px}
 .aff{color:var(--ink-soft);font-weight:400}
 .jlogo{flex:none;display:block;height:46px;width:auto;max-width:112px;object-fit:contain;object-position:left bottom;margin-bottom:7px}
 .jlist .jlogo{height:36px;max-width:64px;margin:0;object-position:left center}
+.paper-venue{position:relative}
+.paper-venue.wordmark>span:last-child{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 .signin{max-width:400px;margin:16vh auto 0}
 .signin h1{font:400 36px/1.1 var(--display);margin:0 0 8px}
@@ -273,7 +275,7 @@ var MONTHS=['January','February','March','April','May','June','July','August','S
 var ONES=['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
 var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
 
-var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoNote:'',outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],
+var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoNote:'',outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
   form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},layout:'sheets'};
 var U=blankUser();
@@ -533,7 +535,7 @@ function journalOf(venue){
 }
 function jmark(venue,swatch){
   var j=journalOf(venue),logo=!swatch&&S.logos[venueKey(venue)];
-  if(logo)return h('img',{class:'jlogo',src:logo,alt:''});
+  if(logo)return h('img',{class:'jlogo',src:logo,alt:'',title:str(venue)});
   if(!swatch&&!j.abbr)return null;
   return h('span',{class:swatch?'jmark swatch':'jmark','aria-hidden':'true','data-len':String(j.abbr.length),
     style:j.color?'--j:'+j.color:null},swatch?null:j.abbr);
@@ -571,7 +573,7 @@ function sheet(p,num,kind){
   else if(!p.summary&&p.basis==='abstract')note='A fuller summary is added at the next check.';
   var jc=journalOf(p.venue).color;
   return h('article',{class:'paper',style:jc?'--j:'+jc:null},
-    h('div',{class:'paper-head'},h('span',{class:'paper-venue'},jmark(p.venue),h('span',null,str(p.venue))),h('span',{class:'paper-when'},right)),
+    h('div',{class:'paper-head'},h('span',{class:S.logos[venueKey(p.venue)]&&S.logoWide[venueKey(p.venue)]?'paper-venue wordmark':'paper-venue'},jmark(p.venue),h('span',null,str(p.venue))),h('span',{class:'paper-when'},right)),
     h('h3',{class:'paper-title'},url?h('a',{href:url,target:'_blank',rel:'noopener'},str(p.title)):str(p.title)),
     byline(p.authors,'paper-authors'),
     p.summary?h('p',{class:'paper-summary'},str(p.summary)):null,
@@ -1071,42 +1073,52 @@ function logoTargets(){
 }
 function logoCache(){try{return window.caches?caches.open('rr-logos'):Promise.resolve(null);}catch(e){return Promise.resolve(null);}}
 function logoKey(sha){return 'https://logos.invalid/'+encodeURIComponent(sha);}
-function setLogo(key,blob,color){
+function setLogo(key,blob,known){
   if(S.logos[key])URL.revokeObjectURL(S.logos[key]);
   S.logos[key]=URL.createObjectURL(blob);
-  if(color){S.logoColor[key]=color;return Promise.resolve(color);}
-  return primaryColor(S.logos[key]).then(function(c){if(c)S.logoColor[key]=c;else delete S.logoColor[key];return c;});
+  return (known?Promise.resolve(known):inspectLogo(S.logos[key])).then(function(info){
+    if(info.color)S.logoColor[key]=info.color;else delete S.logoColor[key];
+    if(info.wide)S.logoWide[key]=true;else delete S.logoWide[key];
+    return info;
+  });
 }
 function lum(r,g,b){
   var v=[r,g,b].map(function(c){c/=255;return c<=0.03928?c/12.92:Math.pow((c+0.055)/1.055,2.4);});
   return 0.2126*v[0]+0.7152*v[1]+0.0722*v[2];
 }
-/* The colour that covers most of a logo, ignoring white, greys and black, darkened until it reads as text on white.
-   Empty when the logo has no real colour, so the journal keeps the colour set for it. */
-function primaryColor(url){
+/* What the page needs to know about a logo image.
+   color: the hue that carries most of the logo's colour, ignoring white, greys and black, darkened until it
+   reads as text on white. Empty when the logo has almost no colour, so the journal keeps the colour set for it.
+   wide: the image is at least twice as wide as it is tall, which is how a wordmark is told from an emblem. */
+function inspectLogo(url){
   return new Promise(function(done){
     var im=new Image();
-    im.onerror=function(){done('');};
+    im.onerror=function(){done({color:'',wide:false});};
     im.onload=function(){
+      var wide=im.naturalHeight>0&&im.naturalWidth/im.naturalHeight>=2,color='';
       try{
         var n=48,c=document.createElement('canvas');c.width=n;c.height=n;
         var x=c.getContext('2d');x.drawImage(im,0,0,n,n);
-        var d=x.getImageData(0,0,n,n).data,bins={},seen=0,best=null,i,r,g,b,mx,mn,k,o;
+        var d=x.getImageData(0,0,n,n).data,bins={},seen=0,tinted=0,best=null,i,r,g,b,mx,mn,ch,hue,k,o;
         for(i=0;i<d.length;i+=4){
           if(d[i+3]<128)continue;
           r=d[i];g=d[i+1];b=d[i+2];mx=Math.max(r,g,b);mn=Math.min(r,g,b);
           if(mn>225)continue;
-          seen++;
-          if(mx<40||(mx-mn)/mx<0.25)continue;
-          k=(r>>5)+'.'+(g>>5)+'.'+(b>>5);
-          o=bins[k]||(bins[k]={n:0,r:0,g:0,b:0});o.n++;o.r+=r;o.g+=g;o.b+=b;
+          seen++;ch=mx-mn;
+          if(mx<40||ch/mx<0.25)continue;
+          tinted++;
+          hue=mx===r?((g-b)/ch+6)%6:mx===g?(b-r)/ch+2:(r-g)/ch+4;
+          k=Math.floor(hue*2)%12;
+          o=bins[k]||(bins[k]={w:0,r:0,g:0,b:0});o.w+=ch;o.r+=r*ch;o.g+=g*ch;o.b+=b*ch;
         }
-        for(k in bins)if(!best||bins[k].n>best.n)best=bins[k];
-        if(!best||best.n<seen*0.08){done('');return;}
-        r=best.r/best.n;g=best.g/best.n;b=best.b/best.n;
-        for(i=0;i<60&&1.05/(lum(r,g,b)+0.05)<4.5;i++){r*=0.94;g*=0.94;b*=0.94;}
-        done('#'+[r,g,b].map(function(v){return ('0'+Math.round(v).toString(16)).slice(-2);}).join(''));
-      }catch(e){done('');}
+        for(k in bins)if(!best||bins[k].w>best.w)best=bins[k];
+        if(best&&tinted>=seen*0.05){
+          r=best.r/best.w;g=best.g/best.w;b=best.b/best.w;
+          for(i=0;i<60&&1.05/(lum(r,g,b)+0.05)<4.5;i++){r*=0.94;g*=0.94;b*=0.94;}
+          color='#'+[r,g,b].map(function(v){return ('0'+Math.round(v).toString(16)).slice(-2);}).join('');
+        }
+      }catch(e){}
+      done({color:color,wide:wide});
     };
     im.src=url;
   });
@@ -1117,7 +1129,7 @@ function logosFromCache(){
   return logoCache().then(function(c){
     if(!c)return;
     return Promise.all(idx.map(function(x){
-      return c.match(logoKey(x.sha)).then(function(r){return r?r.blob():null;}).then(function(b){if(b)return setLogo(str(x.key),b,/^#[0-9a-f]{6}$/i.test(str(x.color))?x.color:'');});
+      return c.match(logoKey(x.sha)).then(function(r){return r?r.blob():null;}).then(function(b){if(b)return setLogo(str(x.key),b,{color:/^#[0-9a-f]{6}$/i.test(str(x.color))?x.color:'',wide:x.wide===true});});
     })).then(schedule);
   }).catch(function(){});
 }
@@ -1147,13 +1159,13 @@ function loadLogos(){
             if(c)c.put(logoKey(x.sha),new Response(blob,{headers:{'Content-Type':x.mime}})).catch(function(){});
             return blob;
           });
-        }).then(function(blob){return setLogo(x.key,blob).then(function(col){x.color=col;return x;});}).catch(function(){return null;});
+        }).then(function(blob){return setLogo(x.key,blob).then(function(info){x.color=info.color;x.wide=info.wide;return x;});}).catch(function(){return null;});
       }));
     }).then(function(done){
       done=done.filter(Boolean);
       var keep={};done.forEach(function(x){keep[x.key]=1;});
-      Object.keys(S.logos).forEach(function(k){if(!keep[k]){URL.revokeObjectURL(S.logos[k]);delete S.logos[k];delete S.logoColor[k];}});
-      lsSet('rr.logos',JSON.stringify(done.map(function(x){return {key:x.key,sha:x.sha,color:x.color||''};})));
+      Object.keys(S.logos).forEach(function(k){if(!keep[k]){URL.revokeObjectURL(S.logos[k]);delete S.logos[k];delete S.logoColor[k];delete S.logoWide[k];}});
+      lsSet('rr.logos',JSON.stringify(done.map(function(x){return {key:x.key,sha:x.sha,color:x.color||'',wide:!!x.wide};})));
       S.logoNote=done.length?count(done.length,'journal logo','journal logos')+' shown from the logos folder.'+(skipped?' '+count(skipped,'file was','files were')+' skipped: the name matches no journal, or the file is over 600 KB.':'')
         :'No journal logos yet. Add image files to a logos folder in the repository, each named by the journal’s ISSN, for example 0048-3915.png.';
       schedule();
