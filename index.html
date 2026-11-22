@@ -236,7 +236,8 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 .paper-title a{color:inherit;text-decoration:none}
 .paper-title a:hover,.paper-title a:focus-visible{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
 .paper-authors{margin:10px 0 0;font-weight:500;font-size:14px}
-.paper-type{display:flex;justify-content:space-between;gap:12px;margin:16px 2px 7px;font-size:12px;line-height:1.3;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.paper-type{margin:16px 2px 7px;font-size:12px;line-height:1.3;color:var(--ink-soft)}
+.paper-authors+.paper-box,.paper-title+.paper-box{margin-top:18px}
 .paper-box{flex:1;display:flex;flex-direction:column;border:1px solid var(--jl);border-radius:10px;background:var(--jw);padding:14px 16px 13px}
 .paper-summary{font:400 13.5px/1.7 var(--text);margin:0 0 12px}
 .paper-note{margin:0 0 12px;font-size:13px;line-height:1.5;color:var(--ink-soft)}
@@ -524,6 +525,43 @@ function citeLine(p){
   return str(p.venue)+(p.date?', registered '+fmtDate(p.date,true):'');
 }
 function bare(a){return str(a).replace(/\s*\[[^\]]*\]/g,'');}
+/* aff:start  Institutions are shown in their short everyday form: "Purdue", "Edinburgh", "UCLA". */
+var AFF_KNOWN=[
+  [/^university of california,? (?:at )?los angeles$/i,'UCLA'],
+  [/^university of california,? (?:at )?(.+)$/i,'UC $1'],
+  [/^university of southern california$/i,'USC'],
+  [/^university of british columbia$/i,'UBC'],
+  [/^massachusetts institute of technology$/i,'MIT'],
+  [/^california institute of technology$/i,'Caltech'],
+  [/^new york university$/i,'NYU'],
+  [/^london school of economics(?: and political science)?$/i,'LSE'],
+  [/^university college london$/i,'UCL'],
+  [/^australian national university$/i,'ANU'],
+  [/^national university of singapore$/i,'NUS'],
+  [/^city university of new york\b.*$/i,'CUNY'],
+  [/^university of north carolina(?: at|,)? chapel hill$/i,'UNC Chapel Hill'],
+  [/^university of texas(?: at|,)? austin$/i,'UT Austin'],
+  [/^freie universit[aä]t berlin$/i,'FU Berlin'],
+  [/^humboldt[- ]universit[aä]t(?: zu)? berlin$/i,'HU Berlin'],
+  [/^ludwig[- ]maximilians[- ]universit[aä]t(?: m[uü]nchen)?$/i,'LMU Munich']
+];
+/* Left in full: what remains would be a bare adjective, or two different schools would read the same. */
+var AFF_VAGUE=/^(open|national|central|technical|catholic|american|european|normal|medical|federal|international|christian|free|autonomous|pontifical|polytechnic)$/i;
+var AFF_SHARED=/^(york|boston|miami|newcastle|northeastern|western|lincoln|trinity|victoria|queen's|st\.? ?louis)$/i;
+function shortPlace(place){
+  var t=str(place).trim().replace(/^the\s+/i,''),i,m,out='';
+  for(i=0;i<AFF_KNOWN.length;i++)if(AFF_KNOWN[i][0].test(t))return t.replace(AFF_KNOWN[i][0],AFF_KNOWN[i][1]);
+  if((m=/^(?:university|universit[àa]|universit[ée]|universit[aä]t|universidad|universidade|universiteit)\s+(?:of|degli studi di|di|de|del|della|do|da|zu|van)\s+(?:the\s+)?(.+)$/i.exec(t)))out=m[1];
+  else if((m=/^universit(?:[aä]t|[ée])\s+(.+)$/i.exec(t)))out=m[1];
+  else if((m=/^(.+?)\s+(?:university|universit[aä]t|universitet|universiteit)$/i.exec(t))&&!/\b(of|for|and)\b/i.test(m[1]))out=m[1];
+  if(!out)return t;
+  if(AFF_SHARED.test(out)||AFF_VAGUE.test(out.split(/\s+/).pop()))return t;
+  return out;
+}
+function shortAff(aff){
+  return '['+str(aff).replace(/^\[|\]$/g,'').split(/\s*;\s*/).map(shortPlace).filter(Boolean).join('; ')+']';
+}
+/* aff:end */
 /* authors: "Name [Institution], Name" split into people; a level is how many papers on the board carry a + for that author */
 function people(a){
   return str(a).split(/,\s*(?![^\[]*\])/).map(function(part){
@@ -555,7 +593,7 @@ function byline(a,cls,compact,tail){
     p.append(x.name);
     var chip=lvChip(x.name);
     if(chip)p.append(' ',chip);
-    if(x.aff&&!compact)p.append(' ',h('span',{class:'aff'},x.aff));
+    if(x.aff&&!compact)p.append(' ',h('span',{class:'aff',title:x.aff.replace(/^\[|\]$/g,'')},shortAff(x.aff)));
   });
   if(tail)p.append(p.childNodes.length?', '+tail:tail);
   return p;
@@ -628,7 +666,7 @@ function sheet(p,num,kind){
     h('div',{class:'paper-head'},h('span',{class:S.logos[venueKey(p.venue)]&&S.logoWide[venueKey(p.venue)]?'paper-venue wordmark':'paper-venue'},jmark(p.venue),h('span',null,str(p.venue))),h('span',{class:'paper-when'},right)),
     h('h3',{class:'paper-title'},url?h('a',{href:url,target:'_blank',rel:'noopener'},str(p.title)):str(p.title)),
     byline(p.authors,'paper-authors'),
-    h('p',{class:'paper-type'},h('span',null,str(p.area)),num?h('span',null,'No. '+num):null),
+    kind==='reserve'&&p.area?h('p',{class:'paper-type'},str(p.area)):null,
     h('div',{class:'paper-box'},
       p.summary?h('p',{class:'paper-summary'},str(p.summary)):null,
       note?h('p',{class:'paper-note'},note):null,
