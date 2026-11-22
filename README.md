@@ -67,7 +67,8 @@ Set these as repository variables: Settings, Secrets and variables, Actions, Var
 Other changes:
 
 - Threads you are working on: Ledger, on the site.
-- Journals watched: `data/journals.json` (name, ISSN, group).
+- Journals watched: `data/journals.json` (name, ISSN, group). Each journal also has an `abbr` (the letters on its mark, four at most) and a `color` (six-digit hex, dark enough for white text). The `other` list gives marks to journals that turn up as classics but are not watched.
+- Author affiliations: taken from Crossref when the publisher deposits them. Springer journals (Philosophical Studies, Erkenntnis, Linguistics and Philosophy) do not, so the weekly check also asks OpenAlex, on up to four runs per paper. Authors with no known affiliation are shown without brackets. Affiliations are never sent to the model that judges the papers.
 - Schedule: `cron` in `.github/workflows/weekly-check.yml`.
 
 ## What is public and what is not

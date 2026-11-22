@@ -122,13 +122,47 @@ def crossref_new(issn, since):
     return (http(url).get("message") or {}).get("items") or []
 
 
-def names(item):
+CAMPUS = re.compile(r"^(The )?(University of (California|Texas|Wisconsin|Illinois|North Carolina|Massachusetts|"
+                    r"Colorado|Maryland|Minnesota|Missouri|Nebraska|Tennessee|Hawai.i|Michigan)|"
+                    r"(City|State) University of New York)$", re.I)
+PLACE = re.compile(r"universit|college|institut|academy|polytechni|hochschule|\bschool of economics\b|"
+                   r"\b(ETH|MIT|CNRS|LSE|EHESS|CUNY|SUNY|UCL)\b", re.I)
+UNIT = re.compile(r"^(department|dept\.?|faculty|school (of|for)|division|program(me)?|cent(re|er)|chair|section|group|unit|"
+                  r"d[ée]partement|departamento|dipartimento|fakult[äa]t|facult[ée]|facultad|seminar|lehrstuhl|"
+                  r"institut (f[üu]r|de|d')|instituto de|istituto di|institute (of|for) (philosophy|logic|ethics)|"
+                  r"philosoph)", re.I)
+
+
+def short_affiliation(text):
+    """'Department of Philosophy, Purdue University, West Lafayette, IN, USA' becomes 'Purdue University'."""
+    parts = [p.strip() for p in re.split(r"[,;]", clean(text)) if p.strip()]
+    for i, part in enumerate(parts):
+        if PLACE.search(part) and not UNIT.match(part):
+            if CAMPUS.match(part) and i + 1 < len(parts) and len(parts[i + 1].split()) <= 3:
+                part = f"{part}, {parts[i + 1]}"
+            return part[:70]
+    return parts[0][:70] if parts else ""
+
+
+def names(item, places=True):
+    """Authors as 'Given Family [Institution]', comma separated; the bracket is left out when unknown."""
     out = []
     for a in item.get("author") or []:
         n = " ".join(x for x in (a.get("given"), a.get("family")) if x) or a.get("name") or ""
-        if n:
-            out.append(n)
+        if not n:
+            continue
+        found = []
+        for aff in (a.get("affiliation") or []) if places else []:
+            place = short_affiliation(aff.get("name") if isinstance(aff, dict) else "")
+            if place and place not in found:
+                found.append(place)
+        out.append(f"{n} [{'; '.join(found[:2])}]" if found else n)
     return ", ".join(out)
+
+
+def bare(authors):
+    """The authors line without bracketed institutions."""
+    return re.sub(r"\s*\[[^\]]*\]", "", authors or "")
 
 
 def record(item, venue):
@@ -260,7 +294,7 @@ def tidy(why, limit=400):
 def triage(batch, profile):
     payload = dict(profile)
     payload["candidates"] = [
-        {"id": c["id"], "title": c["title"], "authors": c["authors"], "venue": c["venue"],
+        {"id": c["id"], "title": c["title"], "authors": bare(c["authors"]), "venue": c["venue"],
          "abstract": c["abstract"] or None} for c in batch]
     reply = claude(TRIAGE_SYSTEM, json.dumps(payload, ensure_ascii=False))
     rows = parse_json(reply)
@@ -316,10 +350,21 @@ def find_classic(sugg):
         cite = (cite + ": " + page if cite and page else cite or page).strip()
         cite = (cite + f" ({year})" if year else cite).strip()
         doi = it["DOI"]
-        return {"id": slug(doi), "title": title, "authors": names(it),
+        return {"id": slug(doi), "title": title, "authors": names(it, places=False),
                 "venue": clean(" ".join((it.get("container-title") or [])[:1])),
                 "cite": cite, "year": year, "url": "https://doi.org/" + doi}
     return None
+
+
+_WORKS = {}
+
+
+def crossref_work(doi):
+    """One Crossref record, fetched once per run. Raises when Crossref cannot be reached."""
+    if doi not in _WORKS:
+        _WORKS[doi] = http("https://api.crossref.org/works/" + urllib.parse.quote(doi, safe="/")).get("message") or {}
+        time.sleep(0.2)
+    return _WORKS[doi]
 
 
 def backfill_summaries(papers, limit=90):
@@ -335,14 +380,13 @@ def backfill_summaries(papers, limit=90):
         if p.get("basis") == "title" or not doi:
             continue
         try:
-            rec = http("https://api.crossref.org/works/" + urllib.parse.quote(doi, safe="/")).get("message") or {}
+            rec = crossref_work(doi)
         except Exception:
             p.pop("summaryChecked", None)   # a network failure is worth another try next run
             continue
         abstract = re.sub(r"^abstract[:.\s]*", "", clean(rec.get("abstract")), flags=re.I)[:ABSTRACT_CHARS]
         if abstract:
             todo.append({"id": p["id"], "title": p.get("title"), "abstract": abstract})
-        time.sleep(0.2)
     by_id, written = {p["id"]: p for p in papers}, 0
     for i in range(0, len(todo), BATCH):
         rows = parse_json(claude(SUMMARY_SYSTEM, json.dumps(todo[i:i + BATCH], ensure_ascii=False)))
@@ -353,12 +397,85 @@ def backfill_summaries(papers, limit=90):
     return written
 
 
+def openalex_places(doi):
+    """[(author name, [institutions])] from OpenAlex, which often has affiliations Crossref lacks.
+    Returns [] when OpenAlex has no record or cannot be reached."""
+    try:
+        rec = http("https://api.openalex.org/works/https://doi.org/" + urllib.parse.quote(doi, safe="/")
+                   + "?select=authorships", tries=1, timeout=30)
+    except Exception:
+        return []
+    out = []
+    for a in (rec or {}).get("authorships") or []:
+        name = ((a.get("author") or {}).get("display_name")) or a.get("raw_author_name") or ""
+        found = []
+        for inst in a.get("institutions") or []:
+            place = clean(inst.get("display_name"))[:70]
+            if place and place not in found:
+                found.append(place)
+        if not found:
+            for raw in a.get("raw_affiliation_strings") or []:
+                place = short_affiliation(raw)
+                if place and place not in found:
+                    found.append(place)
+        out.append((name, found[:2]))
+    return out
+
+
+def with_openalex(authors, doi):
+    """Add institutions from OpenAlex to a plain authors line, when the two author lists line up."""
+    people = [n.strip() for n in bare(authors).split(",") if n.strip()]
+    found = openalex_places(doi)
+    if not people or len(found) != len(people):
+        return authors
+    out = []
+    for person, (name, places) in zip(people, found):
+        surname = norm(person).split()[-1:] or [""]
+        ok = places and surname[0] and surname[0] in norm(name).split()
+        out.append(f"{person} [{'; '.join(places)}]" if ok else person)
+    return ", ".join(out)
+
+
+AFFIL_TRIES = 4
+
+
+def fill_affiliations(papers, limit=60):
+    """Add institutions to recent entries that have none: Crossref first, then OpenAlex.
+    New papers reach OpenAlex late, so each entry is tried on up to four runs."""
+    done = tried = 0
+    for p in papers:
+        authors = p.get("authors") or ""
+        if p.get("lane") not in ("new", "reserve") or not authors or "[" in authors:
+            continue
+        if int(p.get("affilTries") or 0) >= AFFIL_TRIES or tried >= limit:
+            continue
+        doi = p.get("url", "").replace("https://doi.org/", "")
+        if not doi:
+            continue
+        tried += 1
+        first = not p.get("affilTries")
+        p["affilTries"] = int(p.get("affilTries") or 0) + 1
+        found = ""
+        if first:
+            try:
+                found = names(crossref_work(doi))
+            except Exception:
+                found = ""
+        if "[" not in found or bare(found) != bare(authors):
+            found = with_openalex(authors, doi)
+        if "[" in found:
+            p["authors"] = found
+            done += 1
+    return done
+
+
 # ---------- the run ----------
 
 def main():
     if not API_KEY:
         sys.exit("ANTHROPIC_API_KEY is not set. Add it under the repository's Actions secrets.")
 
+    _WORKS.clear()
     papers = load("papers.json", [])
     desk = load("desk.json", [])
     runs = load("runs.json", [])
@@ -498,6 +615,14 @@ def main():
             notes.append(f"Wrote summaries for {filled} earlier entries.")
     except Exception as e:
         notes.append(f"Summaries for earlier entries failed ({e}).")
+
+    # 4b. Institutions for authors who have none yet.
+    try:
+        placed = fill_affiliations(papers)
+        if placed:
+            notes.append(f"Added author affiliations to {placed} entries.")
+    except Exception as e:
+        notes.append(f"Author affiliations failed ({e}).")
 
     # 5. Write the ledger.
     if failed:

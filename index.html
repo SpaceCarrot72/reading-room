@@ -208,8 +208,20 @@ body[data-view="new"] #main{padding-top:22px}
 .navbtn:disabled{opacity:.35;cursor:default;border-color:var(--rule)}
 .deck{position:relative;display:flex;gap:36px;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:thin;margin:16px calc(-1*var(--gutter)) 0;padding:34px calc(50% + var(--gutter) - var(--pw)/2) 46px;background:var(--well);--pw:min(440px,calc(100vw - 56px))}
 .paper{flex:0 0 var(--pw);min-height:590px;scroll-snap-align:center;display:flex;flex-direction:column;background:var(--sheet);border:1px solid var(--rule);padding:30px 34px 24px;box-shadow:4px 4px 0 -1px var(--sheet),4px 4px 0 0 var(--rule),8px 8px 0 -1px var(--sheet),8px 8px 0 0 var(--rule)}
-.paper-head{display:flex;justify-content:space-between;gap:14px;font-size:12.5px;line-height:1.35;color:var(--ink-soft);padding-bottom:10px;border-bottom:1px solid var(--ink)}
-.paper-head span:last-child{text-align:right;flex:none;max-width:55%}
+.paper-head{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;font-size:12.5px;line-height:1.35;color:var(--ink-soft);border-bottom:2px solid var(--j,var(--ink))}
+.paper-venue{display:flex;align-items:flex-end;gap:11px;min-width:0}
+.paper-venue>span:last-child{padding-bottom:8px;color:var(--ink)}
+.paper-when{text-align:right;flex:none;max-width:45%;padding-bottom:8px}
+.jmark{flex:none;box-sizing:border-box;display:inline-grid;place-items:center;width:36px;height:46px;background:var(--j,var(--ink-soft));color:#fff;font:400 12.5px/1 var(--display);letter-spacing:.03em;box-shadow:inset 0 0 0 3px var(--j,var(--ink-soft)),inset 0 0 0 4px rgba(255,255,255,.6)}
+.jmark[data-len="1"],.jmark[data-len="2"]{font-size:16px}
+.jmark[data-len="4"]{font-size:10.5px;letter-spacing:0}
+.jmark.swatch{display:inline-block;width:9px;height:12px;margin-right:7px;vertical-align:-1px;box-shadow:none}
+.jname{display:flex;align-items:center;gap:10px;min-width:0}
+.jlist li{align-items:center}
+.jlist .jmark{width:28px;height:36px;font-size:10px;box-shadow:none}
+.jlist .jmark[data-len="1"],.jlist .jmark[data-len="2"]{font-size:12.5px}
+.jlist .jmark[data-len="4"]{font-size:8.5px}
+.aff{color:var(--ink-soft);font-weight:400}
 .paper-title{font:400 26px/1.17 var(--display);margin:22px 0 0;text-wrap:balance}
 .paper-title a{color:inherit;text-decoration:none}
 .paper-title a:hover,.paper-title a:focus-visible{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
@@ -490,9 +502,35 @@ function citeLine(p){
   if(p.cite)return (p.venue?str(p.venue)+' ':'')+str(p.cite);
   return str(p.venue)+(p.date?', registered '+fmtDate(p.date,true):'');
 }
+function bare(a){return str(a).replace(/\s*\[[^\]]*\]/g,'');}
+function byline(a,cls){
+  var p=h('p',{class:cls||'byline'});
+  str(a).split(/(\[[^\]]*\])/).forEach(function(part){
+    if(part)p.append(part.charAt(0)==='['?h('span',{class:'aff'},part):part);
+  });
+  return p;
+}
+function venueKey(v){return str(v).toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,' ').trim().replace(/^the /,'');}
+function initials(v){
+  var w=str(v).replace(/&/g,' ').split(/[^A-Za-z\u00C0-\u024F]+/).filter(function(x){return x&&!/^(the|of|and|for|in|on|a|an)$/i.test(x);});
+  if(!w.length)return '';
+  if(w.length===1)return w[0].charAt(0).toUpperCase()+w[0].slice(1,3).toLowerCase();
+  return w.slice(0,4).map(function(x){return x.charAt(0).toUpperCase();}).join('');
+}
+function journalOf(venue){
+  if(!S.jmap){S.jmap={};arr(S.journals&&S.journals.list).concat(arr(S.journals&&S.journals.other)).forEach(function(j){S.jmap[venueKey(j.name)]=j;});}
+  var j=obj(S.jmap[venueKey(venue)]);
+  return {abbr:str(j.abbr).slice(0,4)||initials(venue),color:/^#[0-9a-f]{6}$/i.test(str(j.color))?str(j.color):''};
+}
+function jmark(venue,swatch){
+  var j=journalOf(venue);
+  if(!swatch&&!j.abbr)return null;
+  return h('span',{class:swatch?'jmark swatch':'jmark','aria-hidden':'true','data-len':String(j.abbr.length),
+    style:j.color?'--j:'+j.color:null},swatch?null:j.abbr);
+}
 function entry(p,num,kind,showArea){
   var oa=obj(S.full[p.id]),oaUrl=safeUrl(oa.url);
-  var text=h('div',null,titleEl(p),h('p',{class:'byline'},str(p.authors)),h('p',{class:'cite'},citeLine(p)),
+  var text=h('div',null,titleEl(p),byline(p.authors),h('p',{class:'cite'},p.venue?jmark(p.venue,true):null,citeLine(p)),
     p.summary?h('p',{class:'summary'},str(p.summary)):null,
     oaUrl?h('p',{class:'open'},h('a',{href:oaUrl,target:'_blank',rel:'noopener'},'Open copy'),oa.version?' ('+str(oa.version)+')':''):null,
     showArea&&p.area?h('span',{class:'tag'},str(p.area)):null);
@@ -520,10 +558,11 @@ function sheet(p,num,kind){
   if(p.summary&&p.basis==='known')note='Summary written from general knowledge of the paper, not from its text.';
   else if(!p.summary&&p.basis==='title')note='No abstract was deposited, so this was judged on the title.';
   else if(!p.summary&&p.basis==='abstract')note='A fuller summary is added at the next check.';
-  return h('article',{class:'paper'},
-    h('div',{class:'paper-head'},h('span',null,str(p.venue)),h('span',null,right)),
+  var jc=journalOf(p.venue).color;
+  return h('article',{class:'paper',style:jc?'--j:'+jc:null},
+    h('div',{class:'paper-head'},h('span',{class:'paper-venue'},jmark(p.venue),h('span',null,str(p.venue))),h('span',{class:'paper-when'},right)),
     h('h3',{class:'paper-title'},url?h('a',{href:url,target:'_blank',rel:'noopener'},str(p.title)):str(p.title)),
-    h('p',{class:'paper-authors'},str(p.authors)),
+    byline(p.authors,'paper-authors'),
     p.summary?h('p',{class:'paper-summary'},str(p.summary)):null,
     note?h('p',{class:'paper-note'},note):null,
     h('p',{class:'paper-why'},str(p.why)),
@@ -607,7 +646,8 @@ function meter(n){
   return h('p',{class:'meter'},t,h('span',null,'Objection severity '+n+' of 10'));
 }
 function deskEntry(d,num){
-  var text=h('div',null,titleEl(d),h('p',{class:'byline'},str(d.authors)),h('p',{class:'cite'},str(d.cite)),
+  var dv=str(d.venue)||str(obj(S.papers.filter(function(x){return x.id===d.id;})[0]).venue);
+  var text=h('div',null,titleEl(d),byline(d.authors),h('p',{class:'cite'},dv?jmark(dv,true):null,str(d.cite)),
     d.tag?h('span',{class:'tag'},str(d.tag)):null,
     h('p',{class:'argument'},str(d.argument)));
   var gloss=h('aside',{class:'gloss'},meter(d.severity),h('p',null,str(d.review)));
@@ -719,7 +759,7 @@ function addPaper(){
 }
 function colKey(b){return COLS.some(function(c){return c[0]===b.column;})?b.column:'queue';}
 function slip(b,ci){
-  var meta=[str(b.authors),str(b.year)].filter(Boolean).join(', ');
+  var meta=[bare(b.authors),str(b.year)].filter(Boolean).join(', ');
   var e=h('div',{class:'slip',role:'button',tabindex:'0',draggable:'true','aria-label':'Open '+str(b.title)},
     h('h3',{class:'slip-title'},str(b.title)),
     meta?h('p',{class:'slip-meta'},meta):null,
@@ -812,7 +852,7 @@ function viewLedger(){
   groups.forEach(function(g){
     b2.append(h('p',{class:'jgroup'},g.name));
     var ul=h('ul',{class:'jlist'});
-    g.items.forEach(function(j){ul.append(h('li',null,h('span',null,str(j.name)),h('span',{class:'issn'},str(j.issn))));});
+    g.items.forEach(function(j){ul.append(h('li',null,h('span',{class:'jname'},jmark(j.name),h('span',null,str(j.name))),h('span',{class:'issn'},str(j.issn))));});
     b2.append(ul);
   });
   grid.append(b2);
@@ -873,7 +913,7 @@ function openSheet(id){
   var panel=h('aside',{class:'sheet',role:'dialog','aria-modal':'true','aria-label':str(b.title)},
     h('div',{class:'sheet-top'},close,url?h('a',{class:'btn',href:url,target:'_blank',rel:'noopener'},'Open the paper'):null),
     h('h2',null,str(b.title)),
-    h('p',{class:'byline'},str(b.authors)),
+    byline(b.authors),
     h('p',{class:'cite'},citeLine({venue:b.venue,cite:b.cite||str(b.year)})),
     seg,
     h('div',{class:'notes-h'},h('label',{for:'sheet-notes'},'Your notes'),saved),
@@ -969,7 +1009,7 @@ function boot(){
   else Sync.repo=SITE.notes;
   Promise.all(['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log'].map(loadJSON)).then(function(d){
     if(d[0]==null){S.failed=true;render(true);return;}
-    S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.profile=d[5];
+    S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.jmap=null;S.profile=d[5];
     S.full=obj(d[7]);S.desklog=arr(d[8]);
     U=normUser(local||d[6]);
     if(!local)cacheUser();

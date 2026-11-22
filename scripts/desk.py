@@ -207,7 +207,7 @@ def cite_of(p, today):
 def choose(avail, areas, threads, board):
     saved = [{"title": b.get("title"), "note": (b.get("note") or "")[:600]} for b in board.values() if isinstance(b, dict)][:60]
     payload = {"areas": areas, "threads": threads, "saved_notes": saved, "candidates": [
-        {"id": p["id"], "title": p["title"], "authors": p.get("authors"), "area": p.get("area"),
+        {"id": p["id"], "title": p["title"], "authors": lib.bare(p.get("authors")), "area": p.get("area"),
          "kind": p.get("lane"), "why_listed": p.get("why") or None,
          "saved_by_reader": p["id"] in board,
          "open_copy": p["_version"]} for p in avail]}
@@ -370,7 +370,8 @@ def main():
             skipped.append(f"\"{p['title']}\" (review failed: {str(e)[:200]})")
             continue
         entry = {"id": pid, "issue": issue_id, "order": len(reviewed) + 1, "section": p.get("area") or "Papers",
-                 "title": p["title"], "authors": p.get("authors") or "", "cite": cite_of(p, today),
+                 "title": p["title"], "authors": p.get("authors") or "", "venue": p.get("venue") or "",
+                 "cite": cite_of(p, today),
                  "year": p.get("year") or (p.get("date") or "")[:4], "url": p["url"],
                  "links": [{"label": "Published paper", "url": p["url"]},
                            {"label": f"Open copy read by the desk ({rec.get('version') or 'open copy'})", "url": used}]}
