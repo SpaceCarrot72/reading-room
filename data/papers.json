@@ -576,5 +576,35 @@
   "why": "The account of aesthetic concepts that Walton's Categories of Art responds to.",
   "basis": "known",
   "run": "2026-11-21-first"
+ },
+ {
+  "id": "10.1086_289281",
+  "title": "Critical Notice: Bertrand Russell's The Analysis of Matter : Its Historical Context and Contemporary Interest",
+  "authors": "William Demopoulos, Michael Friedman",
+  "venue": "Philosophy of Science",
+  "cite": "52(4): 621–639 (1985)",
+  "year": 1985,
+  "url": "https://doi.org/10.1086/289281",
+  "area": "Philosophy of language",
+  "lane": "classic",
+  "rank": 1,
+  "why": "Revives Newman's objection to structural content and links it to Ramsey sentences. This bears on your thread about Ramsey and Carnap sentences and what a theory's structural content amounts to.",
+  "basis": "known",
+  "run": "2026-11-22-auto"
+ },
+ {
+  "id": "10.1093_aristotelian_86.1.117",
+  "title": "VII—Value Incommensurability: Some Preliminaries",
+  "authors": "Joseph Raz",
+  "venue": "Proceedings of the Aristotelian Society",
+  "cite": "86(1): 117–134 (1986)",
+  "year": 1986,
+  "url": "https://doi.org/10.1093/aristotelian/86.1.117",
+  "area": "Ethics and metaethics",
+  "lane": "classic",
+  "rank": 2,
+  "why": "Gives an account of incommensurability and a test for it based on failures of transitivity in comparisons. It serves your value comparison thread on incomparability and parity.",
+  "basis": "known",
+  "run": "2026-11-22-auto"
  }
 ]

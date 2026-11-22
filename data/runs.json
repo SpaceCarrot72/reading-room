@@ -18,5 +18,20 @@
    "10.1007_s11098-026-02641-8"
   ],
   "carry": []
+ },
+ {
+  "id": "2026-11-22-auto",
+  "at": "2026-11-22",
+  "kind": "Weekly check",
+  "since": "2026-11-20",
+  "journals": 26,
+  "checked": 10,
+  "kept": 0,
+  "reserve": 0,
+  "classics": 2,
+  "model": "claude-sonnet-5-5",
+  "passed": [],
+  "carry": [],
+  "note": "23 of 26 journals registered no research articles since 2026-11-20. Nothing new to judge."
  }
 ]
