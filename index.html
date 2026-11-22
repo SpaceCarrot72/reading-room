@@ -222,6 +222,14 @@ body[data-view="new"] #main{padding-top:22px}
 .jlist .jmark[data-len="1"],.jlist .jmark[data-len="2"]{font-size:12.5px}
 .jlist .jmark[data-len="4"]{font-size:8.5px}
 .aff{color:var(--ink-soft);font-weight:400}
+.jlogo{flex:none;display:block;height:46px;width:auto;max-width:112px;object-fit:contain;object-position:left bottom;margin-bottom:7px}
+.jlist .jlogo{height:36px;max-width:64px;margin:0;object-position:left center}
+body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
+.signin{max-width:400px;margin:16vh auto 0}
+.signin h1{font:400 36px/1.1 var(--display);margin:0 0 8px}
+.signin-sub{color:var(--ink-soft);margin:0 0 30px}
+.signin-form{display:grid;gap:16px}
+.signin-msg{margin:0;min-height:1.5em;color:#9B2226;font-size:14px}
 .paper-title{font:400 26px/1.17 var(--display);margin:22px 0 0;text-wrap:balance}
 .paper-title a{color:inherit;text-decoration:none}
 .paper-title a:hover,.paper-title a:focus-visible{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
@@ -253,24 +261,19 @@ body[data-view="new"] #main{padding-top:22px}
 (function(){
 'use strict';
 
-var AREAS=['Political philosophy','Philosophy of language','Ethics and metaethics','Aesthetics'];
+var AREAS=[];
+var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log'];
 var COLS=[['queue','To read'],['reading','Reading'],['done','Finished']];
 var VIEWS=[['new','New'],['desk','Desk'],['reserve','Reserve'],['board','Board'],['ledger','Ledger']];
 var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 var ONES=['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
 var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
 
-var S={ready:false,failed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],
+var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoNote:'',outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
   form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},layout:'sheets'};
 var U=blankUser();
 var Sync={repo:'',token:'',sha:null,state:'local',msg:'',timer:0,busy:false,again:false,pulled:0};
-var SITE=(function(){
-  var host=location.hostname,seg=location.pathname.split('/').filter(Boolean);
-  var owner=/\.github\.io$/.test(host)?host.replace(/\.github\.io$/,''):'';
-  var repo=owner?(seg[0]||owner+'.github.io'):'';
-  return {owner:owner,repo:repo,notes:owner&&repo?owner+'/'+repo+'-notes':''};
-})();
 
 function blankForm(){return {cite:'',title:'',authors:'',venue:'',year:'',url:''};}
 function blankUser(){return {version:1,areas:null,threads:null,threadsAt:'',board:{},gone:{},dismissed:{},updatedAt:''};}
@@ -350,8 +353,8 @@ function ghHeaders(write){
 }
 function ghMsg(e){
   var s=e&&e.status;
-  if(s===401)return 'GitHub rejected the token. Paste a current one in the Ledger.';
-  if(s===403)return 'The token cannot write to the notes repository. Give it Contents read and write.';
+  if(s===401)return 'GitHub rejected the token. Check that it is current and pasted in full.';
+  if(s===403)return 'The token cannot write to the repository. Give it Contents read and write.';
   if(s===404)return 'GitHub cannot find that repository with this token. Check the name and the token’s access.';
   if(s==='parse')return 'The notes file on GitHub is not valid. Open user.json there and repair or delete it.';
   return 'Could not reach GitHub. Notes are saved in this browser and will sync on the next change.';
@@ -429,36 +432,34 @@ function initialSync(){
 function connect(repo,token){
   repo=str(repo).trim().replace(/^https?:\/\/github\.com\//,'').replace(/\.git$/,'').replace(/\/+$/,'');
   token=str(token).trim();
-  if(!/^[\w.-]+\/[\w.-]+$/.test(repo)){toast('Write the notes repository as owner/name.');return;}
-  if(!token){toast('Paste a token first.');return;}
-  Sync.repo=repo;Sync.token=token;Sync.sha=null;Sync.state='saving';renderStatus();
-  fetch('https://api.github.com/repos/'+repo,{headers:ghHeaders(false),cache:'no-store'}).then(function(r){
+  if(!/^[\w.-]+\/[\w.-]+$/.test(repo))return Promise.reject({text:'Write the repository as owner/name.'});
+  if(!token)return Promise.reject({text:'Paste the token first.'});
+  Sync.repo=repo;Sync.token=token;Sync.sha=null;
+  return fetch('https://api.github.com/repos/'+repo,{headers:ghHeaders(false),cache:'no-store'}).then(function(r){
     if(!r.ok)throw {status:r.status};
-    return pull();
-  }).then(function(remote){
     lsSet('rr.sync',JSON.stringify({repo:repo,token:token}));
-    var merged=remote?merge(U,remote):U;
-    var need=!remote||!same(merged,remote);
-    U=merged;cacheUser();
-    if(need)return pushNow();
-    Sync.state='synced';
-  }).then(function(){
-    if(Sync.state==='error'){toast(Sync.msg);}
-    else toast('Notes now sync with '+repo+'.');
-    render(true);
-  },function(e){
-    Sync.token='';Sync.state='error';Sync.msg=ghMsg(e);toast(Sync.msg);render(true);
+    return start();
+  },function(){throw {status:0};}).catch(function(e){
+    if(!lsGet('rr.sync'))Sync.token='';
+    throw {text:e&&e.text?e.text:(e&&e.status===0?'Could not reach GitHub. Check the connection and try again.':ghMsg(e))};
   });
 }
-function disconnect(){
-  lsDel('rr.sync');lsDel('rr.dirty');Sync.token='';Sync.sha=null;Sync.state='local';Sync.msg='';
-  toast('Token removed from this browser. Notes stay here.');render(true);
+function signOut(){
+  if(lsGet('rr.dirty')==='1'&&!S.outArmed){
+    S.outArmed=true;toast('Some notes have not reached GitHub yet. Press again to sign out without them.');
+    if(Sync.state!=='error')pushNow();
+    return;
+  }
+  ['rr.sync','rr.dirty','rr.user','rr.data','rr.logos'].forEach(lsDel);
+  try{if(window.caches)caches.delete('rr-logos');}catch(e){}
+  history.replaceState(null,'',location.pathname);
+  location.reload();
 }
 function syncLabel(){
   if(Sync.state==='synced')return 'Notes synced';
   if(Sync.state==='saving')return 'Saving notes';
   if(Sync.state==='error')return 'Notes not synced';
-  return 'Notes in this browser only';
+  return 'Signed out';
 }
 
 /* actions */
@@ -475,8 +476,11 @@ function removeFromBoard(id){delete U.board[id];U.gone[id]=now();changed();toast
 /* shared pieces */
 function lede(title,sub){return h('header',{class:'lede'},h('h1',null,title),sub?h('p',null,sub):null);}
 function waiting(v){
-  if(S.failed){v.append(lede('The reading room could not load its data.','Reload the page. If that does not help, check that the data folder was published with the site.'));return true;}
+  if(S.failed){v.append(lede('The reading room could not load.',S.failMsg),
+    h('div',{class:'acts'},h('button',{class:'btn',type:'button',onclick:function(){location.reload();}},'Try again'),
+      h('button',{class:'btn quiet',type:'button',onclick:function(){S.outArmed=true;signOut();}},'Sign out')));return true;}
   if(!S.ready){v.append(lede('Opening the reading room.',''));return true;}
+  if(S.nodata&&S.view!=='ledger'){v.append(lede('No papers yet.','The weekly check has not written a data folder to '+Sync.repo+' yet.'));return true;}
   return false;
 }
 function actions(p,kind){
@@ -523,7 +527,8 @@ function journalOf(venue){
   return {abbr:str(j.abbr).slice(0,4)||initials(venue),color:/^#[0-9a-f]{6}$/i.test(str(j.color))?str(j.color):''};
 }
 function jmark(venue,swatch){
-  var j=journalOf(venue);
+  var j=journalOf(venue),logo=!swatch&&S.logos[venueKey(venue)];
+  if(logo)return h('img',{class:'jlogo',src:logo,alt:''});
   if(!swatch&&!j.abbr)return null;
   return h('span',{class:swatch?'jmark swatch':'jmark','aria-hidden':'true','data-len':String(j.abbr.length),
     style:j.color?'--j:'+j.color:null},swatch?null:j.abbr);
@@ -801,31 +806,36 @@ function viewBoard(){
 }
 
 function syncBlock(){
-  var b=h('section',{class:'block'},h('h2',null,'Notes sync'));
-  var line=Sync.state==='synced'?'Your board, notes and threads sync with '+Sync.repo+'.'
+  var b=h('section',{class:'block'},h('h2',null,'Private repository'));
+  var line=Sync.state==='synced'?'Papers, board, notes and threads are read from '+Sync.repo+' and saved back to it.'
     :Sync.state==='saving'?'Saving to '+Sync.repo+'.'
     :Sync.state==='error'?Sync.msg
-    :'Your board, notes and threads are saved in this browser only.';
+    :'Signed in to '+Sync.repo+'.';
   b.append(h('p',{class:'area-sub',style:'margin:8px 0 14px'},line));
-  if(Sync.token){
-    b.append(h('div',{class:'acts'},
-      h('button',{class:'btn',type:'button',onclick:function(){pushNow();}},'Sync now'),
-      h('button',{class:'btn quiet',type:'button',onclick:disconnect},'Remove the token from this browser')));
-    return b;
-  }
-  var repo=h('input',{id:'sync-repo',type:'text',autocomplete:'off',spellcheck:'false',placeholder:'owner/reading-room-notes'});
-  repo.value=Sync.repo||SITE.notes;
-  var tok=h('input',{id:'sync-token',type:'password',autocomplete:'off',spellcheck:'false'});
-  b.append(h('form',{style:'display:grid;gap:14px',onsubmit:function(e){e.preventDefault();connect(repo.value,tok.value);}},
-    h('div',{class:'field'},h('label',{for:'sync-repo'},'Private notes repository'),repo),
-    h('div',{class:'field'},h('label',{for:'sync-token'},'GitHub token'),tok),
-    h('div',{class:'acts'},h('button',{class:'btn solid',type:'submit'},'Connect')),
-    h('p',{class:'hint'},'Use a fine-grained token limited to that one repository, with Contents set to read and write. It is kept in this browser and sent only to GitHub.')));
+  if(S.logoNote)b.append(h('p',{class:'hint',style:'margin:0 0 14px'},S.logoNote));
+  b.append(h('div',{class:'acts'},
+    h('button',{class:'btn',type:'button',onclick:function(){pushNow();}},'Sync now'),
+    h('button',{class:'btn quiet',type:'button',onclick:signOut},'Sign out of this browser')));
   return b;
+}
+function viewSignIn(){
+  var repo=h('input',{id:'sync-repo',name:'username',type:'text',autocomplete:'username',autocapitalize:'none',autocorrect:'off',spellcheck:'false',placeholder:'owner/repository'});
+  var tok=h('input',{id:'sync-token',name:'password',type:'password',autocomplete:'current-password',spellcheck:'false'});
+  var msg=h('p',{class:'signin-msg',role:'alert'});
+  var btn=h('button',{class:'btn solid',type:'submit'},'Sign in');
+  var form=h('form',{class:'signin-form',onsubmit:function(e){
+    e.preventDefault();btn.disabled=true;btn.textContent='Signing in';msg.textContent='';
+    connect(repo.value,tok.value).catch(function(err){btn.disabled=false;btn.textContent='Sign in';msg.textContent=str(err&&err.text);});
+  }},
+    h('div',{class:'field'},h('label',{for:'sync-repo'},'Private repository'),repo),
+    h('div',{class:'field'},h('label',{for:'sync-token'},'Access token'),tok),
+    h('div',{class:'acts'},btn),msg,
+    h('p',{class:'hint'},'The token is kept in this browser and sent only to GitHub. A password manager can save it so that signing in on another device is one tap.'));
+  return h('div',{class:'signin'},h('h1',null,'Reading Room'),h('p',{class:'signin-sub'},'Nothing is shown until you sign in.'),form);
 }
 function viewLedger(){
   var v=h('div');if(waiting(v))return v;
-  v.append(lede('Ledger','What the checks look for, which journals they read, where your notes are kept, and what each run did.'));
+  v.append(lede('Ledger','What the checks look for, which journals they read, where everything is kept, and what each run did.'));
   var grid=h('div',{class:'ledger'});
   var b1=h('section',{class:'block'},h('h2',null,'What it looks for'));
   var chips=h('div',{class:'chips'});areas().forEach(function(a){chips.append(h('span',{class:'chip'},a));});
@@ -841,7 +851,7 @@ function viewLedger(){
   });
   b1.append(h('div',{class:'field'},h('label',{for:'profile-threads'},'Threads you are working on'),ta),
     h('div',{class:'acts'},btn),
-    h('p',{class:'hint',style:'margin-top:10px'},Sync.token?'Each weekly check reads this before it decides what to keep.':'The weekly check reads this once your notes are synced. Until then it uses the default profile.'));
+    h('p',{class:'hint',style:'margin-top:10px'},'Each weekly check reads this before it decides what to keep.'));
   grid.append(h('div',{class:'stack'},b1,syncBlock()));
 
   var list=arr(S.journals&&S.journals.list);
@@ -859,8 +869,8 @@ function viewLedger(){
 
   var runs=S.runs.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at))||str(b.id).localeCompare(str(a.id));});
   var b3=h('section',{class:'block wide'},h('h2',null,'Runs'));
-  if(SITE.owner)b3.append(h('p',{class:'area-sub'},'The check runs every Monday. ',
-    h('a',{href:'https://github.com/'+SITE.owner+'/'+SITE.repo+'/actions/workflows/weekly-check.yml',target:'_blank',rel:'noopener'},'Open it on GitHub'),' to run it now or read its log.'));
+  b3.append(h('p',{class:'area-sub'},'The check runs every Monday. ',
+    h('a',{href:'https://github.com/'+Sync.repo+'/actions/workflows/weekly-check.yml',target:'_blank',rel:'noopener'},'Open it on GitHub'),' to run it now or read its log.'));
   if(!runs.length)b3.append(h('p',{class:'none'},'No runs recorded.'));
   else{
     var tb=h('tbody');
@@ -970,7 +980,7 @@ function renderTabs(){
         v[1],counts[v[0]]!=null?h('span',{class:'n'},String(counts[v[0]])):null));
     });
   });
-  document.body.setAttribute('data-view',S.view);
+  document.body.setAttribute('data-view',Sync.token?S.view:'signin');
   var extra=$('footextra');extra.replaceChildren();
   if(S.ready&&S.view==='new')extra.append(layoutToggle());
   renderStatus();
@@ -980,6 +990,7 @@ function render(force){
   var main=$('main'),a=document.activeElement;
   if(!force&&a&&main.contains(a)&&(a.tagName==='TEXTAREA'||a.tagName==='INPUT')){S.stale=true;return;}
   S.stale=false;S.deck=null;
+  if(!Sync.token){main.replaceChildren(viewSignIn());return;}
   main.replaceChildren(VIEWFN[S.view]());
   if(S.deck)S.deck.fix();
 }
@@ -992,30 +1003,127 @@ document.addEventListener('visibilitychange',function(){
   if(document.visibilityState!=='visible'||!Sync.token||Sync.busy||S.sheet)return;
   if(lsGet('rr.dirty')==='1'||Date.now()-Sync.pulled<60000)return;
   pull().then(function(remote){if(remote&&!same(remote,U)){U=remote;cacheUser();schedule();}Sync.state='synced';renderStatus();}).catch(function(){});
+  if(Date.now()-S.dataAt>3*3600000)loadData().then(function(ok){if(ok)schedule();});
 });
 window.addEventListener('beforeunload',function(){if(S.sheet)flushNote();});
 
-/* start */
-function loadJSON(name){
-  return fetch('data/'+name+'.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw new Error(name);return r.json();}).catch(function(){return null;});
+/* everything is read from the private repository */
+function ghRaw(path){
+  return fetch('https://api.github.com/repos/'+Sync.repo+'/contents/'+path,
+    {headers:{'Authorization':'Bearer '+Sync.token,'Accept':'application/vnd.github.raw+json','X-GitHub-Api-Version':'2022-11-28'},cache:'no-store'});
 }
+function ghData(name){
+  return ghRaw('data/'+name+'.json').then(function(r){
+    if(r.status===404)return null;
+    if(!r.ok)throw {status:r.status};
+    return r.text().then(function(t){try{return JSON.parse(t);}catch(e){return null;}});
+  });
+}
+function applyData(d){
+  S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.jmap=null;S.profile=d[5];S.seed=d[6];
+  S.full=obj(d[7]);S.desklog=arr(d[8]);
+}
+function parseStored(k){try{return JSON.parse(lsGet(k)||'null');}catch(e){return null;}}
+function loadData(){
+  return Promise.all(DATA.map(ghData)).then(function(d){
+    S.dataAt=Date.now();S.failed=false;S.nodata=d[0]==null;
+    applyData(d);
+    if(!S.nodata)lsSet('rr.data',JSON.stringify(d));
+    return true;
+  },function(e){
+    if(S.ready){toast('Could not reach GitHub. Showing the copy saved in this browser.');return false;}
+    S.failed=true;S.failMsg=e&&e.status?ghMsg(e):'Could not reach GitHub. Check the connection and reload.';
+    render(true);return false;
+  });
+}
+function start(){
+  var cached=parseStored('rr.data'),local=parseStored('rr.user');
+  S.failed=false;
+  if(local)U=normUser(local);
+  if(local&&Array.isArray(cached)&&cached[0]){applyData(cached);S.ready=true;logosFromCache();}
+  render(true);
+  return loadData().then(function(ok){
+    if(!ok)return;
+    if(!local){U=normUser(S.seed);cacheUser();}
+    render(true);
+    return initialSync().then(function(){S.ready=true;render(true);return loadLogos();});
+  });
+}
+
+/* journal logos: image files the reader keeps in the private repository, shown only in this browser */
+var LOGO_TYPES={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',gif:'image/gif',svg:'image/svg+xml'};
+var LOGO_MAX=600000;
+function logoTargets(){
+  var m={};
+  arr(S.journals&&S.journals.list).concat(arr(S.journals&&S.journals.other)).forEach(function(j){
+    var k=venueKey(j.name);if(!k)return;
+    if(j.issn)m[str(j.issn).toLowerCase()]=k;
+    m[k.replace(/ /g,'-')]=k;
+  });
+  return m;
+}
+function logoCache(){try{return window.caches?caches.open('rr-logos'):Promise.resolve(null);}catch(e){return Promise.resolve(null);}}
+function logoKey(sha){return 'https://logos.invalid/'+encodeURIComponent(sha);}
+function setLogo(key,blob){
+  if(S.logos[key])URL.revokeObjectURL(S.logos[key]);
+  S.logos[key]=URL.createObjectURL(blob);
+}
+function logosFromCache(){
+  var idx=arr(parseStored('rr.logos'));
+  if(!idx.length)return Promise.resolve();
+  return logoCache().then(function(c){
+    if(!c)return;
+    return Promise.all(idx.map(function(x){
+      return c.match(logoKey(x.sha)).then(function(r){return r?r.blob():null;}).then(function(b){if(b)setLogo(str(x.key),b);});
+    })).then(schedule);
+  }).catch(function(){});
+}
+function loadLogos(){
+  return ghRaw('logos').then(function(r){
+    if(r.status===404)return [];
+    if(!r.ok)throw {status:r.status};
+    return r.json();
+  }).then(function(list){
+    var targets=logoTargets(),want=[],skipped=0;
+    arr(list).forEach(function(f){
+      var m=/^(.+)\.([a-z0-9]+)$/i.exec(str(f&&f.name));
+      if(!m||f.type!=='file'||!LOGO_TYPES[m[2].toLowerCase()])return;
+      var key=targets[m[1].toLowerCase()];
+      if(!key||(f.size||0)>LOGO_MAX){skipped++;return;}
+      want.push({key:key,sha:str(f.sha),name:str(f.name),mime:LOGO_TYPES[m[2].toLowerCase()]});
+    });
+    return logoCache().then(function(c){
+      return Promise.all(want.map(function(x){
+        return (c?c.match(logoKey(x.sha)):Promise.resolve(null)).then(function(hit){
+          if(hit)return hit.blob();
+          return ghRaw('logos/'+encodeURIComponent(x.name)).then(function(r){
+            if(!r.ok)throw {status:r.status};
+            return r.arrayBuffer();
+          }).then(function(buf){
+            var blob=new Blob([buf],{type:x.mime});
+            if(c)c.put(logoKey(x.sha),new Response(blob,{headers:{'Content-Type':x.mime}})).catch(function(){});
+            return blob;
+          });
+        }).then(function(blob){setLogo(x.key,blob);return x;},function(){return null;});
+      }));
+    }).then(function(done){
+      done=done.filter(Boolean);
+      var keep={};done.forEach(function(x){keep[x.key]=1;});
+      Object.keys(S.logos).forEach(function(k){if(!keep[k]){URL.revokeObjectURL(S.logos[k]);delete S.logos[k];}});
+      lsSet('rr.logos',JSON.stringify(done.map(function(x){return {key:x.key,sha:x.sha};})));
+      S.logoNote=done.length?count(done.length,'journal logo','journal logos')+' shown from the logos folder.'+(skipped?' '+count(skipped,'file was','files were')+' skipped: the name matches no journal, or the file is over 600 KB.':'')
+        :'No journal logos yet. Add image files to a logos folder in the repository, each named by the journal’s ISSN, for example 0048-3915.png.';
+      schedule();
+    });
+  }).catch(function(){S.logoNote='The logos folder could not be read.';});
+}
+
 function boot(){
   S.layout=lsGet('rr.layout')==='list'?'list':'sheets';
-  route();render(true);
-  var saved=null,local=null;
-  try{saved=JSON.parse(lsGet('rr.sync')||'null');}catch(e){}
-  try{local=JSON.parse(lsGet('rr.user')||'null');}catch(e){}
-  if(saved&&saved.repo&&saved.token){Sync.repo=str(saved.repo);Sync.token=str(saved.token);}
-  else Sync.repo=SITE.notes;
-  Promise.all(['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log'].map(loadJSON)).then(function(d){
-    if(d[0]==null){S.failed=true;render(true);return;}
-    S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.jmap=null;S.profile=d[5];
-    S.full=obj(d[7]);S.desklog=arr(d[8]);
-    U=normUser(local||d[6]);
-    if(!local)cacheUser();
-    S.ready=true;render(true);
-    if(Sync.token)return initialSync();
-  });
+  route();
+  var saved=parseStored('rr.sync');
+  if(saved&&saved.repo&&saved.token){Sync.repo=str(saved.repo);Sync.token=str(saved.token);start();}
+  else render(true);
 }
 boot();
 })();
