@@ -27,8 +27,9 @@ env:
   READING_ROOM_DESK_MODEL: ${{ vars.READING_ROOM_DESK_MODEL }}
   READING_ROOM_DESK_MAX: ${{ vars.READING_ROOM_DESK_MAX }}
   READING_ROOM_DESK_TOKENS: ${{ vars.READING_ROOM_DESK_TOKENS }}
-  CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
-  CROSSREF_MAILTO: ${{ vars.CONTACT_EMAIL }}
+  # A secret, not a variable: this repository's run logs are public and only secrets are masked in them.
+  CONTACT_EMAIL: ${{ secrets.CONTACT_EMAIL }}
+  CROSSREF_MAILTO: ${{ secrets.CONTACT_EMAIL }}
 
 jobs:
   check:

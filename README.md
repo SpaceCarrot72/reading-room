@@ -28,8 +28,9 @@ papers, a reserve of classics and near-misses, and a board for your own notes.
    repository secret.
    - `ANTHROPIC_API_KEY`: your Claude API key.
    - `NOTES_TOKEN`: the token from step 3, so the weekly run can read your threads and notes.
-5. **Add one variable** in the same place, under the Variables tab: `CONTACT_EMAIL`, your email
-   address. Unpaywall needs it to look up open copies; without it the desk finds far fewer.
+5. **Add a third secret** in the same place: `CONTACT_EMAIL`, your email address. Unpaywall
+   needs it to look up open copies; without it the desk finds far fewer. Make it a secret, not
+   a variable: this repository's run logs are public, and only secrets are masked in them.
 6. **Connect the site to your notes.** Open the site, go to Ledger, paste the token under
    "Notes sync" and press Connect. Repeat on each browser you use.
 7. **Run it once.** In `reading-room`: Actions, Weekly check, Run workflow. When it finishes,
@@ -56,7 +57,6 @@ Set these as repository variables: Settings, Secrets and variables, Actions, Var
 
 | Variable | Effect | Default |
 | --- | --- | --- |
-| `CONTACT_EMAIL` | Contact address for Unpaywall and Crossref | none |
 | `READING_ROOM_MODEL` | Model for the check | `claude-sonnet-5-5` |
 | `READING_ROOM_CLASSICS` | `0` stops the check adding classics | on |
 | `READING_ROOM_DESK_MODEL` | Model for the desk | `claude-opus-5-5` |
