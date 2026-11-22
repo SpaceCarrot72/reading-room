@@ -236,7 +236,11 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 .paper-authors{margin:10px 0 0;font-weight:500;font-size:14px}
 .paper-summary{font:400 14px/1.72 var(--text);margin:18px 0 0}
 .paper-note{margin:14px 0 0;font-size:13px;line-height:1.5;color:var(--ink-soft)}
-.paper-why{margin:16px 0 0;border-left:2px solid var(--desk);padding-left:12px;color:var(--desk);font-size:13.5px;line-height:1.5}
+.paper-why{margin:16px 0 0;border-left:2px solid var(--j,var(--desk));padding-left:12px;color:var(--j,var(--desk));font-size:13.5px;line-height:1.5}
+.paper .paper-foot a{color:var(--j,var(--desk))}
+.entry .gloss{border-left-color:var(--j,var(--desk));color:var(--j,var(--desk))}
+.entry .ticks i{background:var(--j,var(--desk))}
+.entry .open a{color:var(--j,var(--desk))}
 .paper-fill{flex:1;min-height:16px}
 .paper-foot{display:flex;justify-content:space-between;gap:12px;margin:0;padding-top:12px;border-top:1px solid var(--rule);font-size:12.5px;color:var(--ink-soft);white-space:pre-wrap}
 .paper-foot a{color:var(--desk);text-underline-offset:3px}
@@ -269,7 +273,7 @@ var MONTHS=['January','February','March','April','May','June','July','August','S
 var ONES=['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
 var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
 
-var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoNote:'',outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],
+var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoNote:'',outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
   form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},layout:'sheets'};
 var U=blankUser();
@@ -524,7 +528,8 @@ function initials(v){
 function journalOf(venue){
   if(!S.jmap){S.jmap={};arr(S.journals&&S.journals.list).concat(arr(S.journals&&S.journals.other)).forEach(function(j){S.jmap[venueKey(j.name)]=j;});}
   var j=obj(S.jmap[venueKey(venue)]);
-  return {abbr:str(j.abbr).slice(0,4)||initials(venue),color:/^#[0-9a-f]{6}$/i.test(str(j.color))?str(j.color):''};
+  var own=/^#[0-9a-f]{6}$/i.test(str(j.color))?str(j.color):'';
+  return {abbr:str(j.abbr).slice(0,4)||initials(venue),color:S.logoColor[venueKey(venue)]||own};
 }
 function jmark(venue,swatch){
   var j=journalOf(venue),logo=!swatch&&S.logos[venueKey(venue)];
@@ -542,7 +547,8 @@ function entry(p,num,kind,showArea){
   var gloss=h('aside',{class:'gloss'},h('p',null,str(p.why)));
   if(p.basis==='title')gloss.append(h('span',{class:'basis'},'Judged on the title; no abstract was deposited'));
   gloss.append(actions(p,kind));
-  return h('li',{class:num?'entry':'entry flat'},num?h('span',{class:'num'},num):null,text,gloss);
+  var jc=journalOf(p.venue).color;
+  return h('li',{class:num?'entry':'entry flat',style:jc?'--j:'+jc:null},num?h('span',{class:'num'},num):null,text,gloss);
 }
 function areaSection(name,n,sub){
   return h('section',{class:'area'},h('h2',{class:'area-h'},name,n==null?null:h('span',{class:'n'},String(n))),sub?h('p',{class:'area-sub'},sub):null);
@@ -660,7 +666,8 @@ function deskEntry(d,num){
   var links=arr(d.links).filter(function(l){return l&&safeUrl(l.url);});
   if(links.length){var lw=h('div',{class:'links'});links.forEach(function(l){lw.append(h('a',{href:safeUrl(l.url),target:'_blank',rel:'noopener'},str(l.label)||'Link'));});gloss.append(lw);}
   gloss.append(actions(d,'desk'));
-  return h('li',{class:'entry'},h('span',{class:'num'},num),text,gloss);
+  var jc=dv?journalOf(dv).color:'';
+  return h('li',{class:'entry',style:jc?'--j:'+jc:null},h('span',{class:'num'},num),text,gloss);
 }
 function viewDesk(){
   var v=h('div');if(waiting(v))return v;
@@ -1064,9 +1071,45 @@ function logoTargets(){
 }
 function logoCache(){try{return window.caches?caches.open('rr-logos'):Promise.resolve(null);}catch(e){return Promise.resolve(null);}}
 function logoKey(sha){return 'https://logos.invalid/'+encodeURIComponent(sha);}
-function setLogo(key,blob){
+function setLogo(key,blob,color){
   if(S.logos[key])URL.revokeObjectURL(S.logos[key]);
   S.logos[key]=URL.createObjectURL(blob);
+  if(color){S.logoColor[key]=color;return Promise.resolve(color);}
+  return primaryColor(S.logos[key]).then(function(c){if(c)S.logoColor[key]=c;else delete S.logoColor[key];return c;});
+}
+function lum(r,g,b){
+  var v=[r,g,b].map(function(c){c/=255;return c<=0.03928?c/12.92:Math.pow((c+0.055)/1.055,2.4);});
+  return 0.2126*v[0]+0.7152*v[1]+0.0722*v[2];
+}
+/* The colour that covers most of a logo, ignoring white, greys and black, darkened until it reads as text on white.
+   Empty when the logo has no real colour, so the journal keeps the colour set for it. */
+function primaryColor(url){
+  return new Promise(function(done){
+    var im=new Image();
+    im.onerror=function(){done('');};
+    im.onload=function(){
+      try{
+        var n=48,c=document.createElement('canvas');c.width=n;c.height=n;
+        var x=c.getContext('2d');x.drawImage(im,0,0,n,n);
+        var d=x.getImageData(0,0,n,n).data,bins={},seen=0,best=null,i,r,g,b,mx,mn,k,o;
+        for(i=0;i<d.length;i+=4){
+          if(d[i+3]<128)continue;
+          r=d[i];g=d[i+1];b=d[i+2];mx=Math.max(r,g,b);mn=Math.min(r,g,b);
+          if(mn>225)continue;
+          seen++;
+          if(mx<40||(mx-mn)/mx<0.25)continue;
+          k=(r>>5)+'.'+(g>>5)+'.'+(b>>5);
+          o=bins[k]||(bins[k]={n:0,r:0,g:0,b:0});o.n++;o.r+=r;o.g+=g;o.b+=b;
+        }
+        for(k in bins)if(!best||bins[k].n>best.n)best=bins[k];
+        if(!best||best.n<seen*0.08){done('');return;}
+        r=best.r/best.n;g=best.g/best.n;b=best.b/best.n;
+        for(i=0;i<60&&1.05/(lum(r,g,b)+0.05)<4.5;i++){r*=0.94;g*=0.94;b*=0.94;}
+        done('#'+[r,g,b].map(function(v){return ('0'+Math.round(v).toString(16)).slice(-2);}).join(''));
+      }catch(e){done('');}
+    };
+    im.src=url;
+  });
 }
 function logosFromCache(){
   var idx=arr(parseStored('rr.logos'));
@@ -1074,7 +1117,7 @@ function logosFromCache(){
   return logoCache().then(function(c){
     if(!c)return;
     return Promise.all(idx.map(function(x){
-      return c.match(logoKey(x.sha)).then(function(r){return r?r.blob():null;}).then(function(b){if(b)setLogo(str(x.key),b);});
+      return c.match(logoKey(x.sha)).then(function(r){return r?r.blob():null;}).then(function(b){if(b)return setLogo(str(x.key),b,/^#[0-9a-f]{6}$/i.test(str(x.color))?x.color:'');});
     })).then(schedule);
   }).catch(function(){});
 }
@@ -1104,13 +1147,13 @@ function loadLogos(){
             if(c)c.put(logoKey(x.sha),new Response(blob,{headers:{'Content-Type':x.mime}})).catch(function(){});
             return blob;
           });
-        }).then(function(blob){setLogo(x.key,blob);return x;},function(){return null;});
+        }).then(function(blob){return setLogo(x.key,blob).then(function(col){x.color=col;return x;});}).catch(function(){return null;});
       }));
     }).then(function(done){
       done=done.filter(Boolean);
       var keep={};done.forEach(function(x){keep[x.key]=1;});
-      Object.keys(S.logos).forEach(function(k){if(!keep[k]){URL.revokeObjectURL(S.logos[k]);delete S.logos[k];}});
-      lsSet('rr.logos',JSON.stringify(done.map(function(x){return {key:x.key,sha:x.sha};})));
+      Object.keys(S.logos).forEach(function(k){if(!keep[k]){URL.revokeObjectURL(S.logos[k]);delete S.logos[k];delete S.logoColor[k];}});
+      lsSet('rr.logos',JSON.stringify(done.map(function(x){return {key:x.key,sha:x.sha,color:x.color||''};})));
       S.logoNote=done.length?count(done.length,'journal logo','journal logos')+' shown from the logos folder.'+(skipped?' '+count(skipped,'file was','files were')+' skipped: the name matches no journal, or the file is over 600 KB.':'')
         :'No journal logos yet. Add image files to a logos folder in the repository, each named by the journal’s ISSN, for example 0048-3915.png.';
       schedule();
