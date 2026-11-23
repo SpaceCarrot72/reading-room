@@ -47,6 +47,8 @@ button,input,textarea,select{font:inherit;color:inherit}
 .tab:hover{color:var(--ink)}
 .tab[aria-current="page"]{color:var(--ink);background:var(--well)}
 .tab .n{margin-left:6px;font-weight:400;font-variant-numeric:tabular-nums;color:var(--ink-soft)}
+.tab.gear{padding:6px 9px;margin-left:6px;display:inline-grid;place-items:center}
+.tab.gear svg{width:19px;height:19px;display:block;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linejoin:round}
 .status{margin-left:auto;font-size:13px;color:var(--ink-soft);white-space:nowrap}
 
 /* lede */
@@ -275,6 +277,9 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 .entry .open a{color:var(--j,var(--desk))}
 @media (max-width:480px){.paper{padding:16px 17px 15px;min-height:540px;border-width:6px;border-radius:18px}.paper-title{font-size:22px}.paper-box{padding:12px 13px}.deck{gap:20px}}
 .wider{margin-top:20px}
+.history{margin-top:56px;border-top:1px solid var(--ink);padding-top:14px}
+.history>summary{cursor:pointer;font:500 14px/1.4 var(--ui)}
+.history>.ledger{margin-top:30px}
 .jlist .jtail{display:flex;align-items:baseline;gap:12px;white-space:nowrap}
 .jsc{color:var(--ink-soft);font-size:12.5px;font-variant-numeric:tabular-nums;cursor:default}
 .wider summary{cursor:pointer;color:var(--ink-soft);font-size:13.5px;margin-bottom:10px}
@@ -301,7 +306,8 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 var AREAS=[];
 var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog','stock-log','spend','journal-scores'];
 var COLS=[['queue','To read'],['reading','Reading'],['done','Finished']];
-var VIEWS=[['new','New'],['desk','Desk'],['reserve','Reserve'],['board','Board'],['ledger','Ledger']];
+var VIEWS=[['new','New'],['desk','Desk'],['board','Board']];
+var GEAR='M10.64 4.93 L10.85 2.47 L13.15 2.47 L13.36 4.93 L16.04 6.04 L17.93 4.45 L19.55 6.07 L17.96 7.96 L19.07 10.64 L21.53 10.85 L21.53 13.15 L19.07 13.36 L17.96 16.04 L19.55 17.93 L17.93 19.55 L16.04 17.96 L13.36 19.07 L13.15 21.53 L10.85 21.53 L10.64 19.07 L7.96 17.96 L6.07 19.55 L4.45 17.93 L6.04 16.04 L4.93 13.36 L2.47 13.15 L2.47 10.85 L4.93 10.64 L6.04 7.96 L4.45 6.07 L6.07 4.45 L7.96 6.04 Z';
 var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 var ONES=['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
 var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
@@ -369,6 +375,7 @@ function dismissed(id){var d=U.dismissed[id];return !!(d&&d.v);}
 function now(){return new Date().toISOString();}
 function byRank(a,b){return (a.rank||999)-(b.rank||999);}
 function isOpen(p){return !dismissed(p.id)&&!onBoard(p.id);}
+function isNew(p){return p.lane==='new'||p.lane==='reserve'||p.lane==='classic';}   /* the last two are how older data marked what is now simply New */
 function later(x,y){return str(x)>str(y);}
 
 var toastT=0;
@@ -673,7 +680,7 @@ function waiting(v){
     h('div',{class:'acts'},h('button',{class:'btn',type:'button',onclick:function(){location.reload();}},'Try again'),
       h('button',{class:'btn quiet',type:'button',onclick:function(){S.outArmed=true;signOut();}},'Sign out')));return true;}
   if(!S.ready){v.append(lede('Opening the reading room.',''));return true;}
-  if(S.nodata&&S.view!=='ledger'){v.append(lede('No papers yet.','The weekly check has not written a data folder to '+Sync.repo+' yet.'));return true;}
+  if(S.nodata&&S.view!=='settings'){v.append(lede('No papers yet.','The weekly check has not written a data folder to '+Sync.repo+' yet.'));return true;}
   return false;
 }
 function actions(p,kind){
@@ -965,7 +972,7 @@ function deck(key,groups,kind){
 }
 function viewNew(){
   var v=h('div');if(waiting(v))return v;
-  var items=S.papers.filter(function(p){return p.lane==='new'&&isOpen(p);});
+  var items=S.papers.filter(function(p){return isNew(p)&&isOpen(p);});
   var run=latestRun();
   var list=areas(),known={},groups=[];
   list.forEach(function(a){known[a]=1;});
@@ -987,7 +994,7 @@ function viewNew(){
     });
     v.append(wrap);
   }
-  var gone=S.papers.filter(function(p){return p.lane==='new'&&dismissed(p.id)&&!onBoard(p.id);});
+  var gone=S.papers.filter(function(p){return isNew(p)&&dismissed(p.id)&&!onBoard(p.id);});
   if(gone.length){
     v.append(h('div',{class:'foot'},h('button',{class:'btn quiet',type:'button',onclick:function(){S.showDismissed=!S.showDismissed;schedule();}},
       S.showDismissed?'Hide dismissed':'Show '+gone.length+' dismissed')));
@@ -1042,29 +1049,6 @@ function viewDesk(){
     sec.append(ol);v.append(sec);
   });
   if(meta.note)v.append(h('p',{class:'foot'},str(meta.note)));
-  return v;
-}
-
-function viewReserve(){
-  var v=h('div');if(waiting(v))return v;
-  var classics=S.papers.filter(function(p){return p.lane==='classic'&&isOpen(p);}).sort(function(a,b){return str(b.run).localeCompare(str(a.run))||byRank(a,b);});
-  var near=S.papers.filter(function(p){return p.lane==='reserve'&&isOpen(p);});
-  var order=areas();
-  near.sort(function(a,b){var x=order.indexOf(a.area),y=order.indexOf(b.area);return (x<0?99:x)-(y<0?99:y)||str(b.run).localeCompare(str(a.run))||byRank(a,b);});
-  var n=classics.length+near.length;
-  var head=lede(n?cap(word(n))+' held in reserve.':'Nothing in reserve.','Older work tied to your threads, and near-misses from the journals. None of it has been reviewed.');
-  if(n)head.append(h('div',{class:'lede-row'},layoutToggle()));
-  v.append(head);
-  var groups=[
-    {name:'Classics',title:'Classics queue',sub:'Older papers picked against the threads in your profile.',none:'No classics queued.',items:classics.map(function(p){return {p:p,num:''};})},
-    {name:'Near-misses',title:'Near-misses',sub:'In your areas, further from your threads.',none:'No near-misses held.',items:near.map(function(p){return {p:p,num:''};})}];
-  if(n&&S.layout==='sheets')v.append(deck('reserve',groups,'reserve'));
-  else groups.forEach(function(g){
-    var sec=areaSection(g.title,g.items.length,g.sub);
-    if(g.items.length){var ol=h('ol',{class:'entries'});g.items.forEach(function(x){ol.append(entry(x.p,'','reserve',true));});sec.append(ol);}
-    else sec.append(h('p',{class:'none'},g.none));
-    v.append(sec);
-  });
   return v;
 }
 
@@ -1146,7 +1130,7 @@ function viewBoard(){
   var all=boardList(),n=all.length,withNotes=all.filter(function(b){return str(b.note).trim();}).length;
   var head=lede(n?count(n,'paper','papers')+' on your board.':'Your board is empty.',
     n?(withNotes?count(withNotes,'has','have')+' notes. ':'No notes yet. ')+'Open a paper to write in its margin or attach its PDF, and move it between columns as you read. Every paper here raises its authors a level, shown beside their name on every card. Star a favourite and it counts for three, and the morning run looks for more by its authors. Unfinished papers here are first in line for a desk review when an open copy exists.'
-     :'Save a paper from New, Desk or Reserve, or add one yourself.');
+     :'Save a paper from New or the Desk, or add one yourself.');
   if(!S.adding)head.append(h('div',{class:'lede-row'},h('button',{class:'btn solid',type:'button',onclick:function(){S.adding=true;render(true);}},'Add a paper')));
   v.append(head);
   if(S.adding)v.append(addForm());
@@ -1212,6 +1196,15 @@ function viewSignIn(){
     h('p',{class:'hint'},'The token is kept in this browser and sent only to GitHub. A password manager can save it so that signing in on another device is one tap.'));
   return h('div',{class:'signin'},h('h1',null,'Reading Room'),h('p',{class:'signin-sub'},'Nothing is shown until you sign in.'),form);
 }
+function monthSpend(){
+  /* what the runs have spent in the credit month so far, from the spend file the morning run keeps */
+  var sp=obj(S.spend);if(sp.budget==null)return null;
+  var day=Number(sp.day)||1,dn=new Date(),cy=dn.getUTCFullYear(),cm=dn.getUTCMonth()-(dn.getUTCDate()<day?1:0);
+  var from=new Date(Date.UTC(cy,cm,day)).toISOString().slice(0,10),until=new Date(Date.UTC(cy,cm+1,day)).toISOString().slice(0,10);
+  var by={check:0,stock:0,desk:0},tot=0;
+  arr(sp.log).forEach(function(e){var a=str(e&&e.at);if(a>=from&&a<until){var u=Number(e.usd)||0;tot+=u;if(by[e.part]!=null)by[e.part]+=u;}});
+  return {tot:tot,by:by,from:from,until:until,ceiling:Number(sp.budget)||0,sh:obj(sp.shares),usd:function(x){return '$'+x.toFixed(2);}};
+}
 function jscore(issn){
   /* the journal's quiet score, kept by the morning run; shown only here, never on a card */
   var r=S.jscores[str(issn).toUpperCase()];
@@ -1226,8 +1219,14 @@ function jscore(issn){
 function jtail(j){return h('span',{class:'jtail'},jscore(j.issn),h('span',{class:'issn'},str(j.issn)));}
 function viewLedger(){
   var v=h('div');if(waiting(v))return v;
-  v.append(lede('Ledger','What the checks look for, which journals they read, where everything is kept, and what each run did.'));
-  var grid=h('div',{class:'ledger'});
+  var ms=monthSpend(),lastStock=S.stocklog.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at));})[0],lastRun=latestRun();
+  var when=[lastStock&&str(lastStock.at),lastRun&&str(lastRun.at)].filter(Boolean).sort().pop();
+  var bits=[];
+  if(when)bits.push('Last run '+fmtDate(when)+'.');
+  if(ms)bits.push(ms.usd(ms.tot)+(ms.ceiling?' of '+ms.usd(ms.ceiling):'')+' spent this credit month.');
+  bits.push((lastStock?count(Number(lastStock.stock)||0,'paper','papers')+' in stock, ':'')+S.papers.filter(function(p){return isNew(p)&&isOpen(p);}).length+' open on New.');
+  v.append(lede('Settings',bits.join(' ')));
+  var grid=h('div',{class:'ledger'}),hist=h('div',{class:'ledger'});
   var b1=h('section',{class:'block'},h('h2',null,'What it looks for'));
   var chips=h('div',{class:'chips'});areas().forEach(function(a){chips.append(h('span',{class:'chip'},a));});
   b1.append(chips);
@@ -1274,24 +1273,18 @@ function viewLedger(){
     var tb=h('tbody');
     runs.forEach(function(r){tb.append(h('tr',null,
       h('td',null,fmtDate(r.at,true)),h('td',null,str(r.kind)),
-      h('td',{class:'r'},str(r.checked)),h('td',{class:'r'},str(r.kept)),h('td',{class:'r'},str(r.reserve)),
+      h('td',{class:'r'},str(r.checked)),h('td',{class:'r'},str(r.kept)),
       h('td',{class:'note'},str(r.note))));});
     b3.append(h('div',{class:'tablewrap'},h('table',{class:'runs'},
-      h('thead',null,h('tr',null,h('th',null,'Date'),h('th',null,'How'),h('th',{class:'r'},'Checked'),h('th',{class:'r'},'Kept'),h('th',{class:'r'},'Reserve'),h('th',null,'Notes'))),tb)));
+      h('thead',null,h('tr',null,h('th',null,'Date'),h('th',null,'How'),h('th',{class:'r'},'Checked'),h('th',{class:'r'},'Kept'),h('th',null,'Notes'))),tb)));
   }
-  grid.append(b3);
+  hist.append(b3);
 
-  var sp=obj(S.spend);
-  if(sp.budget!=null){
-    var day=Number(sp.day)||1,dn=new Date(),cy=dn.getUTCFullYear(),cm=dn.getUTCMonth()-(dn.getUTCDate()<day?1:0);
-    var from=new Date(Date.UTC(cy,cm,day)).toISOString().slice(0,10),until=new Date(Date.UTC(cy,cm+1,day)).toISOString().slice(0,10);
-    var by={check:0,stock:0,desk:0},tot=0;
-    arr(sp.log).forEach(function(e){var a=str(e&&e.at);if(a>=from&&a<until){var u=Number(e.usd)||0;tot+=u;if(by[e.part]!=null)by[e.part]+=u;}});
-    var usd=function(x){return '$'+x.toFixed(2);},ceiling=Number(sp.budget)||0,sh=obj(sp.shares);
+  if(ms){
     var pct=function(x){return Math.round((Number(x)||0)*100)+'%';};
-    grid.append(h('section',{class:'block wide'},h('h2',null,'Spending'),
-      h('p',{class:'area-sub'},usd(tot)+(ceiling?' of '+usd(ceiling):'')+' spent on the model since '+fmtDate(from)+': weekly check '+usd(by.check)+', stock '+usd(by.stock)+', desk '+usd(by.desk)+'. '
-        +(ceiling?'The runs stop for the month when the budget is reached and start again on '+fmtDate(until)+'. '+(sh.stock!=null&&sh.desk!=null?'The stock has '+pct(sh.stock)+' of it and the desk '+pct(sh.desk)+', released a week at a time.':''):'No budget is set.'))));
+    hist.append(h('section',{class:'block wide'},h('h2',null,'Spending'),
+      h('p',{class:'area-sub'},ms.usd(ms.tot)+(ms.ceiling?' of '+ms.usd(ms.ceiling):'')+' spent on the model since '+fmtDate(ms.from)+': weekly check '+ms.usd(ms.by.check)+', stock '+ms.usd(ms.by.stock)+', desk '+ms.usd(ms.by.desk)+'. '
+        +(ms.ceiling?'The runs stop for the month when the budget is reached and start again on '+fmtDate(ms.until)+'. '+(ms.sh.stock!=null&&ms.sh.desk!=null?'The stock has '+pct(ms.sh.stock)+' of it and the desk '+pct(ms.sh.desk)+', released a week at a time.':''):'No budget is set.'))));
   }
   var slog=S.stocklog.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at));}),sl=slog[0];
   var b5=h('section',{class:'block wide'},h('h2',null,'Stock'),
@@ -1306,7 +1299,7 @@ function viewLedger(){
     b5.append(h('div',{class:'tablewrap'},h('table',{class:'runs'},
       h('thead',null,h('tr',null,h('th',null,'Date'),h('th',{class:'r'},'Judged'),h('th',{class:'r'},'Kept'),h('th',{class:'r'},'To New'),h('th',{class:'r'},'In stock'),h('th',{class:'r'},'Watched journals'),h('th',{class:'r'},'Tokens'),h('th',{class:'r'},'Cost'),h('th',null,'Notes'))),tb5)));
   }
-  grid.append(b5);
+  hist.append(b5);
 
   var dlog=S.desklog.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at))||str(b.id).localeCompare(str(a.id));});
   var b4=h('section',{class:'block wide'},h('h2',null,'Desk runs'),
@@ -1323,8 +1316,8 @@ function viewLedger(){
     b4.append(h('div',{class:'tablewrap'},h('table',{class:'runs'},
       h('thead',null,h('tr',null,h('th',null,'Date'),h('th',{class:'r'},'Chosen'),h('th',{class:'r'},'Reviewed'),h('th',{class:'r'},'Tokens read'),h('th',{class:'r'},'Tokens written'),h('th',null,'Notes'))),tb2)));
   }
-  grid.append(b4);
-  v.append(grid);
+  hist.append(b4);
+  v.append(grid,h('details',{class:'history'},h('summary',null,'Run history and spending'),hist));
   return v;
 }
 
@@ -1393,7 +1386,7 @@ document.addEventListener('keydown',function(e){
 window.addEventListener('resize',function(){if(S.deck)S.deck.fix();});
 
 /* rendering */
-var VIEWFN={new:viewNew,desk:viewDesk,reserve:viewReserve,board:viewBoard,ledger:viewLedger};
+var VIEWFN={new:viewNew,desk:viewDesk,board:viewBoard,settings:viewLedger};
 function renderStatus(){
   var run=latestRun(),parts=[];
   if(run)parts.push('Checked '+fmtDate(run.at,true));
@@ -1404,11 +1397,16 @@ function renderStatus(){
     S.sheet.saved.textContent=Sync.state==='saving'?'Saving':Sync.state==='synced'?'Synced':Sync.state==='error'?'Saved here, not synced':'Saved in this browser';
   }
 }
+function gearIcon(){
+  var NS='http://www.w3.org/2000/svg',svg=document.createElementNS(NS,'svg'),cog=document.createElementNS(NS,'path'),hub=document.createElementNS(NS,'circle');
+  svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');
+  cog.setAttribute('d',GEAR);hub.setAttribute('cx','12');hub.setAttribute('cy','12');hub.setAttribute('r','2.9');
+  svg.append(cog,hub);return svg;
+}
 function renderTabs(){
   var counts={};
   if(S.ready){
-    counts.new=S.papers.filter(function(p){return p.lane==='new'&&isOpen(p);}).length;
-    counts.reserve=S.papers.filter(function(p){return (p.lane==='reserve'||p.lane==='classic')&&isOpen(p);}).length;
+    counts.new=S.papers.filter(function(p){return isNew(p)&&isOpen(p);}).length;
     counts.board=Object.keys(U.board).length;
   }
   [$('tabs'),$('tabs2')].forEach(function(nav){
@@ -1417,6 +1415,7 @@ function renderTabs(){
       nav.append(h('button',{class:'tab',type:'button','aria-current':S.view===v[0]?'page':null,onclick:function(){go(v[0]);}},
         v[1],counts[v[0]]!=null?h('span',{class:'n'},String(counts[v[0]])):null));
     });
+    nav.append(h('button',{class:'tab gear',type:'button','aria-label':'Settings',title:'Settings','aria-current':S.view==='settings'?'page':null,onclick:function(){go('settings');}},gearIcon()));
   });
   document.body.setAttribute('data-view',Sync.token?S.view:'signin');
   var extra=$('footextra');extra.replaceChildren();
@@ -1434,7 +1433,7 @@ function render(force){
 }
 function schedule(){if(S.raf)return;S.raf=requestAnimationFrame(function(){S.raf=0;render(false);});}
 document.addEventListener('focusout',function(){if(S.stale)setTimeout(schedule,0);});
-function route(){var k=location.hash.replace('#','');S.view=VIEWFN[k]?k:'new';}
+function route(){var k=location.hash.replace('#','');if(k==='ledger')k='settings';S.view=VIEWFN[k]?k:'new';}
 function go(v){if(location.hash==='#'+v)return;location.hash=v;}
 window.addEventListener('hashchange',function(){route();window.scrollTo(0,0);render(true);});
 document.addEventListener('visibilitychange',function(){
