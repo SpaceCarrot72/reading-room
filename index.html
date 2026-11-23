@@ -275,6 +275,8 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 .entry .open a{color:var(--j,var(--desk))}
 @media (max-width:480px){.paper{padding:16px 17px 15px;min-height:540px;border-width:6px;border-radius:18px}.paper-title{font-size:22px}.paper-box{padding:12px 13px}.deck{gap:20px}}
 .wider{margin-top:20px}
+.jlist .jtail{display:flex;align-items:baseline;gap:12px;white-space:nowrap}
+.jsc{color:var(--ink-soft);font-size:12.5px;font-variant-numeric:tabular-nums;cursor:default}
 .wider summary{cursor:pointer;color:var(--ink-soft);font-size:13.5px;margin-bottom:10px}
 .plus{font-size:15px}
 </style>
@@ -297,14 +299,14 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 'use strict';
 
 var AREAS=[];
-var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog','stock-log','spend'];
+var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog','stock-log','spend','journal-scores'];
 var COLS=[['queue','To read'],['reading','Reading'],['done','Finished']];
 var VIEWS=[['new','New'],['desk','Desk'],['reserve','Reserve'],['board','Board'],['ledger','Ledger']];
 var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 var ONES=['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
 var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
 
-var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoNote:'',lv:{},pop:{},outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],stocklog:[],spend:{},q:'',pdfIndex:null,pdfIndexAt:0,pdfIndexBusy:false,pdfBusy:{},
+var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoNote:'',lv:{},pop:{},outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],stocklog:[],spend:{},jscores:{},q:'',pdfIndex:null,pdfIndexAt:0,pdfIndexBusy:false,pdfBusy:{},
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
   form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},layout:'sheets'};
 var U=blankUser();
@@ -1210,6 +1212,18 @@ function viewSignIn(){
     h('p',{class:'hint'},'The token is kept in this browser and sent only to GitHub. A password manager can save it so that signing in on another device is one tap.'));
   return h('div',{class:'signin'},h('h1',null,'Reading Room'),h('p',{class:'signin-sub'},'Nothing is shown until you sign in.'),form);
 }
+function jscore(issn){
+  /* the journal's quiet score, kept by the morning run; shown only here, never on a card */
+  var r=S.jscores[str(issn).toUpperCase()];
+  if(!r||!(r.judged||r.trail_judged||r.saved||r.dismissed))return null;
+  var bits=[];
+  if(r.judged)bits.push('Kept '+r.kept+' of '+r.judged+' judged from its own pages.');
+  if(r.trail_judged)bits.push('Kept '+r.trail_kept+' of '+r.trail_judged+' reached through your board.');
+  if(r.saved||r.dismissed)bits.push('On your board: '+r.saved+(r.starred?' ('+r.starred+' starred)':'')+'. Dismissed: '+r.dismissed+'.');
+  var n=(Number(r.score)*100).toFixed(1);
+  return h('span',{class:'jsc',title:bits.join(' '),'aria-label':'Score '+n+'. '+bits.join(' ')},n);
+}
+function jtail(j){return h('span',{class:'jtail'},jscore(j.issn),h('span',{class:'issn'},str(j.issn)));}
 function viewLedger(){
   var v=h('div');if(waiting(v))return v;
   v.append(lede('Ledger','What the checks look for, which journals they read, where everything is kept, and what each run did.'));
@@ -1239,15 +1253,16 @@ function viewLedger(){
   groups.forEach(function(g){
     b2.append(h('p',{class:'jgroup'},g.name));
     var ul=h('ul',{class:'jlist'});
-    g.items.forEach(function(j){ul.append(h('li',null,h('span',{class:'jname'},jmark(j.name,false,[j.issn]),h('span',null,str(j.name))),h('span',{class:'issn'},str(j.issn))));});
+    g.items.forEach(function(j){ul.append(h('li',null,h('span',{class:'jname'},jmark(j.name,false,[j.issn]),h('span',null,str(j.name))),jtail(j)));});
     b2.append(ul);
   });
   var wider=arr(S.journals&&S.journals.wide);
   if(wider.length){
     var wl=h('ul',{class:'jlist'});
-    wider.forEach(function(j){wl.append(h('li',null,h('span',{class:'jname'},jmark(j.name,false,arr(j.issns).length?j.issns:[j.issn]),h('span',null,str(j.name))),h('span',{class:'issn'},str(j.issn))));});
+    wider.forEach(function(j){wl.append(h('li',null,h('span',{class:'jname'},jmark(j.name,false,arr(j.issns).length?j.issns:[j.issn]),h('span',null,str(j.name))),jtail(j)));});
     b2.append(h('details',{class:'wider'},h('summary',null,count(wider.length,'more journal feeds','more journals feed')+' the stock. They are not checked every week.'),wl));
   }
+  if(Object.keys(S.jscores).length)b2.append(h('p',{class:'hint',style:'margin-top:16px'},'The small number beside a journal is its score: roughly papers kept per hundred judged, raised by what you save from it and lowered by what you dismiss. It steers where the stock looks and which papers reach New first. It is not shown on cards.'));
   grid.append(b2);
 
   var runs=S.runs.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at))||str(b.id).localeCompare(str(a.id));});
@@ -1446,7 +1461,7 @@ function applyData(d){
   S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.jmap=null;S.profile=d[5];S.seed=d[6];
   S.full=obj(d[7]);S.desklog=arr(d[8]);
   artworkIndex=buildArtworkIndex(d[9]);
-  S.stocklog=arr(d[10]);S.spend=obj(d[11]);
+  S.stocklog=arr(d[10]);S.spend=obj(d[11]);S.jscores=obj(obj(d[12]).journals);
 }
 function parseStored(k){try{return JSON.parse(lsGet(k)||'null');}catch(e){return null;}}
 function loadData(){
