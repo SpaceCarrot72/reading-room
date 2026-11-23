@@ -1520,6 +1520,12 @@ function viewPaper(){
   var head=h('header',{class:'phead-wrap',style:journal.color?'--j:'+journal.color:null},
     h('div',{class:'phead'},p.venue?jmark(p.venue,false,paperSerials(p)):null,h('span',null,citeLine({venue:p.venue,cite:cite,date:p.date}))),
     h('h1',{class:'ptitle'},str(p.title)),by);
+  if(b&&b.from==='history'){
+    /* a paper from the reader's list of past reading says which course it was read for, and how sure the list was */
+    var how=b.read==='assigned'?', assigned and not confirmed as read':b.read==='optional'?', an optional course copy':'';
+    head.append(h('p',{class:'ctx-meta phist'},'Past reading'+(str(b.course)?' for '+str(b.course):'')+how+'.'+
+      (b.part==='excerpt'?' Read as an excerpt.':b.part==='manuscript'?' A course manuscript.':'')));
+  }
 
   var ctl=h('div',{class:'pctl'});
   if(b){
