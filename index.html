@@ -40,16 +40,19 @@ button,input,textarea,select{font:inherit;color:inherit}
 .wrap{max-width:1180px;margin:0 auto;padding:0 var(--gutter) 96px}
 
 /* masthead */
-.mast{display:flex;flex-wrap:wrap;align-items:center;gap:10px 28px;padding:20px 0 0}
-.mark{font:400 22px/1 var(--display);margin:0;white-space:nowrap}
+.mast{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 28px;padding:16px 0 0}
 .tabs{display:flex;gap:2px;overflow-x:auto;margin:0 -6px;padding:3px 6px}
-.tab{appearance:none;border:0;background:none;color:var(--ink-soft);font:500 14px/1 var(--ui);padding:9px 13px;border-radius:999px;cursor:pointer;white-space:nowrap}
-.tab:hover{color:var(--ink)}
-.tab[aria-current="page"]{color:var(--ink);background:var(--well)}
+.tab{appearance:none;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);font:500 14px/1 var(--ui);padding:9px 14px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.tab:hover{border-color:var(--ink)}
+.tab[aria-current="page"]{background:var(--well)}
 .tab .n{margin-left:6px;font-weight:400;font-variant-numeric:tabular-nums;color:var(--ink-soft)}
-.tab.gear{padding:6px 9px;margin-left:6px;display:inline-grid;place-items:center}
+.tab.gear{padding:7px 8px;border-color:transparent;background:none;color:var(--ink-soft);display:inline-grid;place-items:center}
+.tab.gear:hover{color:var(--ink);border-color:var(--rule)}
+.tab.gear[aria-current="page"]{background:var(--well);color:var(--ink)}
+.tabs{gap:6px;align-items:center}
+.deck-nav .tabs{margin:0 0 0 8px;padding:0;overflow:visible}
 .tab.gear svg{width:19px;height:19px;display:block;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linejoin:round}
-.status{margin-left:auto;font-size:13px;color:var(--ink-soft);white-space:nowrap}
+.status{margin:0;font-size:13px;color:var(--ink-soft)}
 
 /* lede */
 .lede{padding:clamp(36px,7vw,76px) 0 8px;max-width:47rem}
@@ -170,7 +173,6 @@ a.btn{text-decoration:none;display:inline-block}
   .col{min-height:0}
   .ledger{grid-template-columns:1fr;gap:36px}
   .grid2{grid-template-columns:1fr}
-  .status{margin-left:0;width:100%}
 }
 @media (max-width:480px){
   .entry{grid-template-columns:minmax(0,1fr)}
@@ -188,13 +190,16 @@ a.btn{text-decoration:none;display:inline-block}
 .runs td:first-child{white-space:nowrap}
 .summary{font:400 14px/1.68 var(--text);margin:12px 0 0;max-width:37rem}
 .footnav{display:none;flex-wrap:wrap;align-items:center;gap:10px 24px;margin-top:56px;padding-top:16px;border-top:1px solid var(--rule)}
-body[data-view="new"] .mast{display:none}
+body[data-ownbar] .mast{display:none}
 body[data-view="new"] .footnav{display:flex}
 body[data-view="new"] #main{padding-top:22px}
 .deck-wrap{margin-top:0}
 .lede+.deck-wrap{margin-top:32px}
 .deck-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px}
-.deck-chips{display:flex;flex-wrap:wrap;gap:6px}
+.deck-chips{position:relative;display:flex;flex:1 1 0;min-width:0;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px}
+.deck-chips::-webkit-scrollbar{display:none}
+.chipbtn{flex:none;white-space:nowrap}
+@media (max-width:700px){.deck-chips{flex-basis:100%}}
 .chipbtn{appearance:none;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);border-radius:999px;padding:7px 13px;font:500 13.5px/1 var(--ui);cursor:pointer}
 .chipbtn .n{margin-left:7px;font-weight:400;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 .chipbtn:hover{border-color:var(--ink)}
@@ -287,12 +292,11 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 <body>
 <div class="wrap">
   <header class="mast">
-    <p class="mark">Reading Room</p>
-    <nav class="tabs" id="tabs" aria-label="Views"></nav>
     <p class="status" id="status"></p>
+    <nav class="tabs" id="tabs" aria-label="Places"></nav>
   </header>
   <main id="main"></main>
-  <footer class="footnav" id="footnav"><nav class="tabs" id="tabs2" aria-label="Views"></nav><p class="status" id="status2"></p></footer>
+  <footer class="footnav" id="footnav"><p class="status" id="status2"></p></footer>
 </div>
 <div id="layer" hidden></div>
 <div class="toast" id="toast" role="status" hidden></div>
@@ -304,7 +308,6 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 var AREAS=[];
 var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog','stock-log','spend','journal-scores'];
 var COLS=[['queue','To read'],['reading','Reading'],['done','Finished']];
-var VIEWS=[['new','New'],['desk','Desk'],['board','Board']];
 var GEAR='M10.64 4.93 L10.85 2.47 L13.15 2.47 L13.36 4.93 L16.04 6.04 L17.93 4.45 L19.55 6.07 L17.96 7.96 L19.07 10.64 L21.53 10.85 L21.53 13.15 L19.07 13.36 L17.96 16.04 L19.55 17.93 L17.93 19.55 L16.04 17.96 L13.36 19.07 L13.15 21.53 L10.85 21.53 L10.64 19.07 L7.96 17.96 L6.07 19.55 L4.45 17.93 L6.04 16.04 L4.93 13.36 L2.47 13.15 L2.47 10.85 L4.93 10.64 L6.04 7.96 L4.45 6.07 L6.07 4.45 L7.96 6.04 Z';
 var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 var ONES=['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
@@ -953,16 +956,21 @@ function deck(key,groups,kind){
   function sync(){
     var i=current();S.deckAt[key]=i;
     counter.textContent=sheets.length?(i+1)+' of '+sheets.length:'';
-    chipEls.forEach(function(c,gi){c.setAttribute('aria-pressed',String(!!flat[i]&&flat[i].gi===gi));});
+    chipEls.forEach(function(c,gi){
+      var on=!!flat[i]&&flat[i].gi===gi;c.setAttribute('aria-pressed',String(on));
+      /* the areas sit in one row that scrolls sideways; keep the current one in sight */
+      if(on){if(c.offsetLeft<chips.scrollLeft)chips.scrollLeft=c.offsetLeft-2;else if(c.offsetLeft+c.offsetWidth>chips.scrollLeft+chips.clientWidth)chips.scrollLeft=c.offsetLeft+c.offsetWidth-chips.clientWidth+2;}
+    });
     prev.disabled=i<=0;next.disabled=i>=sheets.length-1;
   }
   var t=0;
   track.addEventListener('scroll',function(){clearTimeout(t);t=setTimeout(sync,70);});
   S.deck={move:function(d){center(current()+d,true);},fix:function(){center(S.deckAt[key]||0,false);sync();}};
-  return h('section',{class:'deck-wrap'},h('div',{class:'deck-bar'},chips,h('div',{class:'deck-nav'},counter,prev,next)),track);
+  return h('section',{class:'deck-wrap'},h('div',{class:'deck-bar'},chips,h('div',{class:'deck-nav'},counter,prev,next,h('nav',{class:'tabs','aria-label':'Places'},places()))),track);
 }
 function viewNew(){
   var v=h('div');if(waiting(v))return v;
+  S.ownBar=true;
   var items=S.papers.filter(function(p){return isNew(p)&&isOpen(p);});
   var run=latestRun();
   var list=areas(),known={},groups=[];
@@ -973,7 +981,8 @@ function viewNew(){
   });
   var other=items.filter(function(p){return !known[p.area];}).sort(byRank);
   if(other.length)groups.push({name:'Other areas',items:other.map(function(p){return {p:p,num:''};})});
-  if(!items.length)v.append(h('p',{class:'none',style:'margin-top:40px'},'Nothing waiting.'+(run?' Last checked '+fmtDate(run.at)+'.':'')));
+  if(!items.length)v.append(h('div',{class:'deck-bar'},h('span'),h('div',{class:'deck-nav'},h('nav',{class:'tabs','aria-label':'Places'},places()))),
+    h('p',{class:'none',style:'margin-top:40px'},'Nothing waiting.'+(run?' Last checked '+fmtDate(run.at)+'.':'')));
   else v.append(deck('new',groups,'new'));
   var gone=S.papers.filter(function(p){return isNew(p)&&dismissed(p.id)&&!onBoard(p.id);});
   if(gone.length){
@@ -1110,8 +1119,8 @@ function viewBoard(){
   var v=h('div');if(waiting(v))return v;
   var all=boardList(),n=all.length,withNotes=all.filter(function(b){return str(b.note).trim();}).length;
   var head=lede(n?count(n,'paper','papers')+' on your board.':'Your board is empty.',
-    n?(withNotes?count(withNotes,'has','have')+' notes. ':'No notes yet. ')+'Open a paper to write in its margin or attach its PDF, and move it between columns as you read. Every paper here raises its authors a level, shown beside their name on every card. Star a favourite and it counts for three, and the morning run looks for more by its authors. Unfinished papers here are first in line for a desk review when an open copy exists.'
-     :'Save a paper from New or the Desk, or add one yourself.');
+    n?(withNotes?count(withNotes,'has','have')+' notes. ':'No notes yet. ')+'Open a paper to write in its margin or attach its PDF, and move it between columns as you read. Every paper here raises its authors a level, shown beside their name on every card. Star a favourite and it counts for three, and the morning run looks for more by its authors.'
+     :'Save a paper from New, or add one yourself.');
   if(!S.adding)head.append(h('div',{class:'lede-row'},h('button',{class:'btn solid',type:'button',onclick:function(){S.adding=true;render(true);}},'Add a paper')));
   v.append(head);
   if(S.adding)v.append(addForm());
@@ -1284,7 +1293,7 @@ function viewLedger(){
 
   var dlog=S.desklog.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at))||str(b.id).localeCompare(str(a.id));});
   var b4=h('section',{class:'block wide'},h('h2',null,'Desk runs'),
-    h('p',{class:'area-sub'},'After each check the desk picks at most two papers per area that have an open copy, reads them in full and reviews them twice, for as long as its share of the budget lasts.'));
+    h('p',{class:'area-sub'},'The desk is switched off. It used to read a few papers in full each week and review them twice. ',h('a',{href:'#desk'},'The reviews it wrote'),' are kept.'));
   if(!dlog.length)b4.append(h('p',{class:'none'},'The desk has not run yet.'));
   else{
     var tb2=h('tbody');
@@ -1384,20 +1393,18 @@ function gearIcon(){
   cog.setAttribute('d',GEAR);hub.setAttribute('cx','12');hub.setAttribute('cy','12');hub.setAttribute('r','2.9');
   svg.append(cog,hub);return svg;
 }
+function places(){
+  /* The way out of the page you are on. New offers the Board and the Board offers New; Settings is the gear. */
+  var n={},out=[];
+  if(S.ready){n.new=S.papers.filter(function(p){return isNew(p)&&isOpen(p);}).length;n.board=Object.keys(U.board).length;}
+  function to(view,label){out.push(h('button',{class:'tab',type:'button',onclick:function(){go(view);}},label,n[view]!=null?h('span',{class:'n'},String(n[view])):null));}
+  if(S.view!=='new')to('new','New');
+  if(S.view!=='board')to('board','Board');
+  out.push(h('button',{class:'tab gear',type:'button','aria-label':'Settings',title:'Settings','aria-current':S.view==='settings'?'page':null,onclick:function(){go('settings');}},gearIcon()));
+  return out;
+}
 function renderTabs(){
-  var counts={};
-  if(S.ready){
-    counts.new=S.papers.filter(function(p){return isNew(p)&&isOpen(p);}).length;
-    counts.board=Object.keys(U.board).length;
-  }
-  [$('tabs'),$('tabs2')].forEach(function(nav){
-    nav.replaceChildren();
-    VIEWS.forEach(function(v){
-      nav.append(h('button',{class:'tab',type:'button','aria-current':S.view===v[0]?'page':null,onclick:function(){go(v[0]);}},
-        v[1],counts[v[0]]!=null?h('span',{class:'n'},String(counts[v[0]])):null));
-    });
-    nav.append(h('button',{class:'tab gear',type:'button','aria-label':'Settings',title:'Settings','aria-current':S.view==='settings'?'page':null,onclick:function(){go('settings');}},gearIcon()));
-  });
+  var nav=$('tabs');nav.replaceChildren();places().forEach(function(b){nav.append(b);});
   document.body.setAttribute('data-view',Sync.token?S.view:'signin');
   renderStatus();
 }
@@ -1405,9 +1412,10 @@ function render(force){
   renderTabs();
   var main=$('main'),a=document.activeElement;
   if(!force&&a&&main.contains(a)&&(a.tagName==='TEXTAREA'||a.tagName==='INPUT')){S.stale=true;return;}
-  S.stale=false;S.deck=null;S.lv=levels();
+  S.stale=false;S.deck=null;S.lv=levels();S.ownBar=false;
   if(!Sync.token){main.replaceChildren(viewSignIn());return;}
   main.replaceChildren(VIEWFN[S.view]());
+  document.body.toggleAttribute('data-ownbar',!!S.ownBar);   /* New carries the buttons in its own top row */
   if(S.deck)S.deck.fix();
 }
 function schedule(){if(S.raf)return;S.raf=requestAnimationFrame(function(){S.raf=0;render(false);});}
