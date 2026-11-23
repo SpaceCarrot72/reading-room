@@ -1272,22 +1272,24 @@ function viewLedger(){
     var from=new Date(Date.UTC(cy,cm,day)).toISOString().slice(0,10),until=new Date(Date.UTC(cy,cm+1,day)).toISOString().slice(0,10);
     var by={check:0,stock:0,desk:0},tot=0;
     arr(sp.log).forEach(function(e){var a=str(e&&e.at);if(a>=from&&a<until){var u=Number(e.usd)||0;tot+=u;if(by[e.part]!=null)by[e.part]+=u;}});
-    var usd=function(x){return '$'+x.toFixed(2);},ceiling=Number(sp.budget)||0;
+    var usd=function(x){return '$'+x.toFixed(2);},ceiling=Number(sp.budget)||0,sh=obj(sp.shares);
+    var pct=function(x){return Math.round((Number(x)||0)*100)+'%';};
     grid.append(h('section',{class:'block wide'},h('h2',null,'Spending'),
       h('p',{class:'area-sub'},usd(tot)+(ceiling?' of '+usd(ceiling):'')+' spent on the model since '+fmtDate(from)+': weekly check '+usd(by.check)+', stock '+usd(by.stock)+', desk '+usd(by.desk)+'. '
-        +(ceiling?'The runs stop for the month when the budget is reached and start again on '+fmtDate(until)+'. The stock has 30% of it and the desk 60%, released a week at a time.':'No budget is set.'))));
+        +(ceiling?'The runs stop for the month when the budget is reached and start again on '+fmtDate(until)+'. '+(sh.stock!=null&&sh.desk!=null?'The stock has '+pct(sh.stock)+' of it and the desk '+pct(sh.desk)+', released a week at a time.':''):'No budget is set.'))));
   }
   var slog=S.stocklog.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at));}),sl=slog[0];
   var b5=h('section',{class:'block wide'},h('h2',null,'Stock'),
-    h('p',{class:'area-sub'},sl?count(Number(sl.stock)||0,'paper is','papers are')+' judged and waiting. New holds '+(Number(sl.open)||0)+' open cards of at most 100; it is topped up on Mondays and on any morning it falls below 75. Papers come from back issues, the wider journal list, authors on your board and what your board cites.'
+    h('p',{class:'area-sub'},sl?count(Number(sl.stock)||0,'paper is','papers are')+' judged and waiting. New holds '+(Number(sl.open)||0)+' open cards of at most 100; it is topped up on Mondays and on any morning it falls below 75. Each refill takes one more page of back issues from every watched journal, then the wider journal list; before those, authors on your board and what your board cites.'
       :'Nothing is in stock yet. The first morning run starts filling it from back issues, the wider journal list, authors on your board and what your board cites.'));
   if(slog.length){
     var tb5=h('tbody');
     slog.slice(0,10).forEach(function(r){tb5.append(h('tr',null,
       h('td',null,fmtDate(r.at,true)),h('td',{class:'r'},str(r.judged)),h('td',{class:'r'},str(r.kept)),h('td',{class:'r'},str(r.released)),
-      h('td',{class:'r'},str(r.stock)),h('td',{class:'r'},(Number(r.tokens)||0).toLocaleString('en-US')),h('td',{class:'note'},str(r.note))));});
+      h('td',{class:'r'},str(r.stock)),h('td',{class:'r'},r.watched_due?r.watched+' of '+r.watched_due:''),
+      h('td',{class:'r'},(Number(r.tokens)||0).toLocaleString('en-US')),h('td',{class:'r'},r.usd!=null&&Number(r.tokens)?'$'+Number(r.usd).toFixed(2):''),h('td',{class:'note'},str(r.note))));});
     b5.append(h('div',{class:'tablewrap'},h('table',{class:'runs'},
-      h('thead',null,h('tr',null,h('th',null,'Date'),h('th',{class:'r'},'Judged'),h('th',{class:'r'},'Kept'),h('th',{class:'r'},'To New'),h('th',{class:'r'},'In stock'),h('th',{class:'r'},'Tokens'),h('th',null,'Notes'))),tb5)));
+      h('thead',null,h('tr',null,h('th',null,'Date'),h('th',{class:'r'},'Judged'),h('th',{class:'r'},'Kept'),h('th',{class:'r'},'To New'),h('th',{class:'r'},'In stock'),h('th',{class:'r'},'Watched journals'),h('th',{class:'r'},'Tokens'),h('th',{class:'r'},'Cost'),h('th',null,'Notes'))),tb5)));
   }
   grid.append(b5);
 
