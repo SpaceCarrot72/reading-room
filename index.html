@@ -381,7 +381,7 @@ body[data-view="board"] #main{padding-top:6px}
 
 var AREAS=[];
 var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog','stock-log','spend','journal-scores','context-log'];
-var COLS=[['queue','To read'],['reading','Reading'],['done','Finished']];
+var COLS=[['queue','To Read'],['reading','In Use'],['done','Keepers']];      /* the keys are older than the names */
 var GEAR='M10.64 4.93 L10.85 2.47 L13.15 2.47 L13.36 4.93 L16.04 6.04 L17.93 4.45 L19.55 6.07 L17.96 7.96 L19.07 10.64 L21.53 10.85 L21.53 13.15 L19.07 13.36 L17.96 16.04 L19.55 17.93 L17.93 19.55 L16.04 17.96 L13.36 19.07 L13.15 21.53 L10.85 21.53 L10.64 19.07 L7.96 17.96 L6.07 19.55 L4.45 17.93 L6.04 16.04 L4.93 13.36 L2.47 13.15 L2.47 10.85 L4.93 10.64 L6.04 7.96 L4.45 6.07 L6.07 4.45 L7.96 6.04 Z';
 var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 var ONES=['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
@@ -1565,6 +1565,11 @@ function viewPaper(){
     var how=b.read==='assigned'?', assigned and not confirmed as read':b.read==='optional'?', an optional course copy':'';
     head.append(h('p',{class:'ctx-meta phist'},'Past reading'+(str(b.course)?' for '+str(b.course):'')+how+'.'+
       (b.part==='excerpt'?' Read as an excerpt.':b.part==='manuscript'?' A course manuscript.':'')));
+  }
+  if(b&&b.from==='list'){
+    /* a paper from the reader's own list of things gathered to read says when and for what */
+    head.append(h('p',{class:'ctx-meta phist'},'Gathered '+fmtDate(b.addedAt)+(str(b.topic)?' for '+str(b.topic):'')+'.'+
+      (b.print==='printed'?' Printed.':b.print==='likely'?' Probably printed.':'')+(str(b.form)?' '+str(b.form)+'.':'')));
   }
 
   var ctl=h('div',{class:'pctl'});
