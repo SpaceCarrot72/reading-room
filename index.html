@@ -103,7 +103,7 @@ a.btn{text-decoration:none;display:inline-block}
 .btn:disabled{opacity:.45;cursor:default}
 
 /* board */
-.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin-top:40px;align-items:start}
+.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin-top:28px;align-items:stretch}
 .col{border-top:1px solid var(--ink);padding:12px 0 28px;min-height:160px;border-radius:0 0 8px 8px}
 .col.over{background:var(--desk-wash)}
 .col-h{display:flex;align-items:baseline;gap:10px;margin:0 0 14px;font:600 14px/1.3 var(--ui)}
@@ -357,6 +357,11 @@ body[data-view="paper"] #main{padding-top:14px}
   .backbtn .bk-short{display:inline}
   .ctx-row{align-items:flex-start}
 }
+.slip:active{cursor:grabbing}
+.dropmark{height:3px;margin:-2px 0 7px;border-radius:2px;background:var(--desk);pointer-events:none}
+.find .addbtn{margin-left:auto}
+body[data-view="board"] #main{padding-top:6px}
+@media (max-width:860px){.board{align-items:start}}
 </style>
 </head>
 <body>
@@ -384,7 +389,7 @@ var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ni
 
 var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoNote:'',lv:{},pop:{},outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],stocklog:[],spend:{},jscores:{},q:'',pdfIndex:null,pdfIndexAt:0,pdfIndexBusy:false,pdfBusy:{},
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
-  form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},deckIds:[],boardIds:[],paper:null,back:null,tab:null,auto:null,list:[],shown:'',context:null,contextAt:0,contextBusy:false,ctxSlot:null,ctxlog:[],bf:'all',pdfUrls:[]};
+  form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},deckIds:[],boardIds:[],paper:null,back:null,tab:null,auto:null,drag:null,list:[],shown:'',context:null,contextAt:0,contextBusy:false,ctxSlot:null,ctxlog:[],bf:'all',pdfUrls:[]};
 var U=blankUser();
 var artworkIndex=buildArtworkIndex([]),artworkBySha=new Map();
 var Sync={repo:'',token:'',sha:null,state:'local',msg:'',timer:0,busy:false,again:false,pulled:0};
@@ -1187,7 +1192,7 @@ function slip(b,ci,hit){
   var journal=journalOf(b.venue,b.issns),jc=journal.color;
   var plus=h('button',{class:'plus',type:'button','aria-pressed':String(isStar(b)),'aria-label':isStar(b)?'Remove the star from this paper':'Star this paper',
     title:isStar(b)?'Starred. Press to remove.':'Star a favourite: it counts three levels for each author',onclick:function(ev){ev.stopPropagation();togglePlus(b.id);}},isStar(b)?'\u2605':'\u2606');
-  var e=h('div',{class:isStar(b)?'slip plussed':'slip',role:'button',tabindex:'0',draggable:'true','aria-label':'Open '+str(b.title),style:jc?'--j:'+jc:null},
+  var e=h('div',{class:isStar(b)?'slip plussed':'slip',role:'button',tabindex:'0',draggable:'true','data-id':b.id,'aria-label':'Open '+str(b.title),style:jc?'--j:'+jc:null},
     plus,
     journal.url?jmark(b.venue,true,b.issns):null,
     h('h3',{class:'slip-title'},str(b.title)),
@@ -1203,18 +1208,51 @@ function slip(b,ci,hit){
   e.addEventListener('click',function(){openPaper(b.id,S.boardIds);});
   e.addEventListener('keydown',function(ev){if(ev.target===e&&(ev.key==='Enter'||ev.key===' ')){ev.preventDefault();openPaper(b.id,S.boardIds);}});
   plus.addEventListener('keydown',function(ev){ev.stopPropagation();});
-  e.addEventListener('dragstart',function(ev){ev.dataTransfer.setData('text/plain',b.id);ev.dataTransfer.effectAllowed='move';e.classList.add('dragging');});
-  e.addEventListener('dragend',function(){e.classList.remove('dragging');});
+  e.addEventListener('dragstart',function(ev){ev.dataTransfer.setData('text/plain',b.id);ev.dataTransfer.effectAllowed='move';S.drag=b.id;
+    setTimeout(function(){e.classList.add('dragging');},0);});      /* after the browser has taken its picture of the slip */
+  e.addEventListener('dragend',endDrag);
   return e;
 }
+/* dragging a slip: a line shows where it will land, in any column and at any height */
+var dropMark=null;
+function endDrag(){
+  S.drag=null;if(dropMark)dropMark.remove();
+  Array.prototype.forEach.call(document.querySelectorAll('.col.over,.slip.dragging'),function(x){x.classList.remove('over','dragging');});
+  if(S.stale)schedule();
+}
+function placeMark(col,y){
+  if(!dropMark)dropMark=h('div',{class:'dropmark','aria-hidden':'true'});
+  var slips=Array.prototype.filter.call(col.querySelectorAll('.slip'),function(x){return x.getAttribute('data-id')!==S.drag;}),before=null,i,r;
+  for(i=0;i<slips.length;i++){r=slips[i].getBoundingClientRect();if(y<r.top+r.height/2){before=slips[i];break;}}
+  if(before){if(dropMark.nextElementSibling!==before||dropMark.parentNode!==col)col.insertBefore(dropMark,before);}
+  else{
+    var last=slips[slips.length-1]||col.querySelector('.col-h');
+    if(dropMark.previousElementSibling!==last||dropMark.parentNode!==col)last.after(dropMark);
+  }
+}
+function dropSlip(id,key,col){
+  var b=U.board[id];if(!b)return;
+  /* its place in the column is between the slips on either side of the line */
+  function near(x,step){while(x&&!(x.classList.contains('slip')&&x.getAttribute('data-id')!==id))x=x[step];return x&&U.board[x.getAttribute('data-id')]||null;}
+  var marked=dropMark&&dropMark.parentNode===col;
+  var prev=marked?near(dropMark.previousElementSibling,'previousElementSibling'):null,next=marked?near(dropMark.nextElementSibling,'nextElementSibling'):null;
+  var op=prev?Number(prev.order)||0:null,on=next?Number(next.order)||0:null,mine=Number(b.order)||0;
+  var moved=colKey(b)!==key;
+  if(!moved&&(op==null||op<=mine)&&(on==null||on>=mine))return;      /* dropped where it already was */
+  b.column=key;b.order=op!=null&&on!=null?(op+on)/2:op!=null?op+1:on!=null?on-1:Date.now();b.updatedAt=now();changed();
+  if(moved)toast('Moved to '+COLS.filter(function(c){return c[0]===key;})[0][1]);
+}
+document.addEventListener('dragover',function(ev){
+  /* the Board is long: near the top or bottom of the window a drag scrolls the page */
+  if(!S.drag)return;
+  var y=ev.clientY,edge=90;
+  if(y<edge)window.scrollBy(0,-Math.ceil((edge-y)/3));
+  else if(y>window.innerHeight-edge)window.scrollBy(0,Math.ceil((y-(window.innerHeight-edge))/3));
+});
 function viewBoard(){
   var v=h('div');if(waiting(v))return v;
-  var all=boardList(),n=all.length,withNotes=all.filter(function(b){return str(b.note).trim();}).length;
-  var head=lede(n?count(n,'paper','papers')+' on your board.':'Your board is empty.',
-    n?(withNotes?count(withNotes,'has','have')+' notes. ':'No notes yet. ')+'Open a paper to read it, see where it sits in its debate and write your notes, and move it between columns as you read. Every paper here raises its authors a level, shown beside their name on every card. Star a favourite and it counts for three, and the morning run looks for more by its authors.'
-     :'Save a paper from New, or add one yourself.');
-  if(!S.adding)head.append(h('div',{class:'lede-row'},h('button',{class:'btn solid',type:'button',onclick:function(){S.adding=true;render(true);}},'Add a paper')));
-  v.append(head);
+  var all=boardList(),n=all.length;
+  var addBtn=S.adding?null:h('button',{class:'btn addbtn',type:'button',onclick:function(){S.adding=true;render(true);}},'Add a paper');
   if(S.adding)v.append(addForm());
   var find=h('input',{type:'search',id:'board-find',placeholder:'Search titles, authors, notes and PDFs','aria-label':'Search the board',autocomplete:'off',spellcheck:'false'});
   find.value=S.q;
@@ -1223,7 +1261,8 @@ function viewBoard(){
   var chips=h('div',{class:'bfilters',role:'group','aria-label':'Show'});
   FILTERS.forEach(function(f){chips.append(h('button',{class:'chipbtn',type:'button','aria-pressed':String(S.bf===f[0]),onclick:function(){S.bf=f[0];
     Array.prototype.forEach.call(chips.children,function(x){x.setAttribute('aria-pressed','false');});this.setAttribute('aria-pressed','true');draw();}},f[1]));});
-  if(n)v.append(h('div',{class:'find',role:'search'},find,chips,findN));
+  if(n)v.append(h('div',{class:'find',role:'search'},find,chips,findN,addBtn));
+  else v.append(h('div',{class:'find'},h('p',{class:'none'},'Nothing on your board yet. Save a paper from New, or add one yourself.'),addBtn));
   var grid=h('div',{class:'board'});
   function draw(){
     var toks=terms(S.q),shown=0,keep=(FILTERS.filter(function(f){return f[0]===S.bf;})[0]||FILTERS[0])[2],order=[];
@@ -1235,11 +1274,12 @@ function viewBoard(){
       var col=h('section',{class:'col','aria-label':c[1]},h('h2',{class:'col-h'},c[1],h('span',{class:'n'},String(rows.length))));
       if(rows.length)rows.forEach(function(x){col.append(slip(x[0],ci,x[1]));});
       else col.append(h('p',{class:'col-empty'},toks.length||S.bf!=='all'?'No match here.':'Nothing here yet.'));
-      col.addEventListener('dragover',function(ev){ev.preventDefault();col.classList.add('over');});
-      col.addEventListener('dragleave',function(){col.classList.remove('over');});
-      col.addEventListener('drop',function(ev){ev.preventDefault();col.classList.remove('over');
-        var id=ev.dataTransfer.getData('text/plain');
-        if(id&&onBoard(id))move(id,c[0]);});
+      col.addEventListener('dragover',function(ev){if(!S.drag)return;ev.preventDefault();ev.dataTransfer.dropEffect='move';col.classList.add('over');placeMark(col,ev.clientY);});
+      col.addEventListener('dragleave',function(ev){if(!col.contains(ev.relatedTarget))col.classList.remove('over');});
+      col.addEventListener('drop',function(ev){ev.preventDefault();
+        var id=ev.dataTransfer.getData('text/plain')||S.drag;
+        if(id&&onBoard(id))dropSlip(id,c[0],col);
+        endDrag();});
       grid.append(col);
     });
     S.boardIds=order;
@@ -1249,8 +1289,8 @@ function viewBoard(){
   }
   find.addEventListener('input',function(){S.q=find.value;draw();});
   draw();
-  loadPdfIndex().then(function(fresh){if(fresh&&grid.isConnected)draw();});
-  loadContext().then(function(fresh){if(fresh&&grid.isConnected)draw();});
+  loadPdfIndex().then(function(fresh){if(fresh&&grid.isConnected&&!S.drag)draw();});
+  loadContext().then(function(fresh){if(fresh&&grid.isConnected&&!S.drag)draw();});
   v.append(grid);
   return v;
 }
@@ -1547,7 +1587,8 @@ function viewPaper(){
         :h('button',{class:'btn quiet',type:'button',onclick:function(){dismiss(p,true);leavePaper();}},'Dismiss'));
   }
   var url=safeUrl(p.url),oa=obj(S.full[id]),oaUrl=safeUrl(oa.url);
-  if(url)ctl.append(h('a',{href:url,target:'_blank',rel:'noopener'},'Publisher’s page'));
+  /* a DOI leads to the publisher; older papers and drafts are linked to where they are kept */
+  if(url)ctl.append(h('a',{href:url,target:'_blank',rel:'noopener'},/\/\/(dx\.)?doi\.org\//i.test(url)?'Publisher’s page':/jstor\.org\//i.test(url)?'JSTOR':'Link'));
   if(oaUrl)ctl.append(h('a',{href:oaUrl,target:'_blank',rel:'noopener'},'Open copy'+(oa.version?' ('+str(oa.version)+')':'')));
 
   var side=h('aside',{class:'pside'});
@@ -1661,6 +1702,7 @@ function render(force){
   renderTabs();
   var main=$('main'),a=document.activeElement;
   if(!force&&a&&main.contains(a)&&(a.tagName==='TEXTAREA'||a.tagName==='INPUT')){S.stale=true;return;}
+  if(!force&&S.drag){S.stale=true;return;}
   /* while the paper itself is showing nothing is redrawn under the reader: a PDF being read or sent keeps its place, and the page makes its own small changes */
   if(!force&&S.view==='paper'&&S.shown==='paper/'+S.paper&&S.tab==='pdf'){S.stale=true;return;}
   S.pdfUrls.forEach(function(u){URL.revokeObjectURL(u);});S.pdfUrls=[];
