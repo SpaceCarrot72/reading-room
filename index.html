@@ -129,12 +129,7 @@ a.btn{text-decoration:none;display:inline-block}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .hint{color:var(--ink-soft);font-size:13px;margin:0}
 
-/* sheet */
-.scrim{position:fixed;inset:0;background:rgba(8,10,16,.42);z-index:10}
-.sheet{position:fixed;top:0;right:0;bottom:0;width:min(580px,100%);background:var(--sheet);border-left:1px solid var(--rule);z-index:11;overflow:auto;padding:22px clamp(18px,4vw,32px) 40px;animation:slide .2s ease-out}
-@keyframes slide{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
-.sheet-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
-.sheet h2{font:400 28px/1.15 var(--display);margin:20px 0 0;text-wrap:balance}
+/* notes */
 .seg{display:inline-flex;border:1px solid var(--rule);border-radius:999px;padding:2px;margin-top:20px}
 .seg button{appearance:none;border:0;background:none;font:500 13px/1 var(--ui);padding:7px 12px;border-radius:999px;color:var(--ink-soft);cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
@@ -260,8 +255,6 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 .plus{position:absolute;top:9px;right:10px;width:26px;height:26px;display:grid;place-items:center;padding:0 0 1px;border:1px solid var(--rule);border-radius:50%;background:var(--sheet);color:var(--ink-soft);font:500 17px/1 var(--ui);cursor:pointer}
 .plus:hover{border-color:var(--ink-soft);color:var(--ink)}
 .plus[aria-pressed="true"]{background:var(--j,var(--ink));border-color:var(--j,var(--ink));color:#fff}
-.sheet-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:20px}
-.sheet-row .seg{margin-top:0}
 .find{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:26px}
 .find input{flex:0 1 420px;min-width:0;appearance:none;font:400 15px/1.3 var(--ui);background:var(--well);border:1px solid var(--rule);border-radius:999px;padding:9px 16px;color:var(--ink)}
 .find input::placeholder{color:var(--ink-soft)}
@@ -287,6 +280,83 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 .jsc{color:var(--ink-soft);font-size:12.5px;font-variant-numeric:tabular-nums;cursor:default}
 .wider summary{cursor:pointer;color:var(--ink-soft);font-size:13.5px;margin-bottom:10px}
 .plus{font-size:15px}
+
+/* the paper's own page */
+body[data-view="paper"] .wrap{max-width:1320px}
+body[data-view="paper"] #main{padding-top:14px}
+.pbar{display:flex;align-items:center;gap:8px;min-height:44px}
+.pbar .backbtn{margin-right:auto}
+.backbtn .bk-short{display:none}
+.pstep{display:flex;align-items:center;gap:6px}
+.pbar .tab:disabled{opacity:.4;cursor:default;border-color:var(--rule)}
+.pgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,360px);gap:40px 48px;align-items:start;margin-top:22px}
+.pmain{min-width:0;display:flex;flex-direction:column;gap:18px}
+.phead-wrap{display:flex;flex-direction:column;gap:14px}
+.phead{display:flex;align-items:flex-end;gap:11px;font-size:13px;color:var(--ink-soft)}
+.phead>span:last-child{padding-bottom:6px}
+.ptitle{margin:0;font:400 clamp(28px,3.6vw,40px)/1.1 var(--display);text-wrap:balance}
+.phead-wrap .byline{margin:0;font-size:15px}
+.pctl{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.pctl .seg{margin-top:0}
+.pctl a{font-size:13.5px;color:var(--desk);text-underline-offset:3px}
+.seg.pswitch{align-self:flex-start;margin-top:6px}
+.pswitch button{font-size:14px;padding:10px 16px}
+.pswitch .ctxb[aria-pressed="true"]{background:var(--desk)}
+.pswitch .notesb{display:none}
+.ctx{display:flex;flex-direction:column;gap:20px;max-width:42rem}
+.ctx-meta{margin:0;font-size:13px;line-height:1.5;color:var(--ink-soft)}
+.ctx-part{display:flex;flex-direction:column;gap:6px}
+.ctx h2{margin:0;font:600 14px/1.3 var(--ui);color:var(--desk)}
+.ctx-part p{margin:0;font:400 15px/1.75 var(--text)}
+.ctx-around h2{margin-bottom:8px}
+.ctx-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--rule)}
+.ctx-row p{margin:0;min-width:0}
+.ctx-row .t{display:block;font:400 17px/1.25 var(--display)}
+.ctx-row .t a{color:inherit;text-decoration:none}
+.ctx-row .t a:hover{text-decoration:underline;text-underline-offset:3px}
+.ctx-row .m{display:block;margin-top:3px;font-size:12.5px;line-height:1.4;color:var(--ink-soft)}
+.ctx-row .btn,.ctx-on{flex:none}
+.ctx-on{font-size:12.5px;color:var(--ink-soft)}
+.ctx-warn{margin:0;padding:10px 12px;background:var(--well);border-radius:8px;font-size:13px;line-height:1.5}
+.ctx-sum .paper-summary{font-size:15px;line-height:1.75;margin:0}
+.ctx-why{margin:10px 0 0;font-size:13.5px;line-height:1.5;color:var(--ink-soft)}
+.pdfbox .pdfrow{margin-top:0}
+.pdfview{margin-top:12px;border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--well);height:calc(100vh - 110px);min-height:560px;display:grid}
+.pdfview iframe{width:100%;height:100%;border:0;display:block}
+.pdfview .ctx-meta{place-self:center}
+.pside{min-width:0;position:sticky;top:16px}
+.pside .notes-h{margin-top:0}
+.pside .notes{min-height:420px;max-height:calc(100vh - 150px)}
+.pside .acts{justify-content:flex-end}
+.slip-ctx{margin:8px 0 0;font:500 12px/1.3 var(--ui);color:var(--desk)}
+.bfilters{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px}
+.bfilters::-webkit-scrollbar{display:none}
+.paper .openbtn{margin-left:auto}
+.keys{margin:0;font-size:12.5px;color:var(--ink-soft)}
+.keys kbd{font:500 11.5px/1 var(--ui);border:1px solid var(--rule);border-radius:4px;padding:2px 5px;margin:0 2px 0 6px;background:var(--well)}
+@media (pointer:coarse),(hover:none),(max-width:700px){.keys{display:none}}
+.toast.has-acts{display:flex;align-items:center;gap:6px;padding:7px 8px 7px 18px;border-radius:14px;width:max-content}
+.toast.has-acts span{margin-right:8px;line-height:1.4}
+.tbtn{appearance:none;flex:none;border:1px solid rgba(255,255,255,.4);background:none;color:inherit;font:500 13px/1 var(--ui);padding:8px 12px;border-radius:999px;cursor:pointer}
+.tbtn.quiet{border-color:transparent;text-decoration:underline;text-underline-offset:3px}
+.tbtn:focus-visible{outline-color:#fff}
+@media (max-width:900px){
+  .pgrid{grid-template-columns:minmax(0,1fr);gap:0}
+  .pside{position:static;display:none}
+  .pside.inslot{display:block}
+  .seg.pswitch{align-self:stretch;display:flex}
+  .pswitch button{flex:1;padding:10px 8px}
+  .pswitch .notesb{display:block}
+  .pside .notes{min-height:52vh;max-height:none}
+  .pstep .deck-count{display:none}
+  .pdfview{height:78vh}
+}
+@media (max-width:700px){.toast{bottom:auto;top:10px}}
+@media (max-width:520px){
+  .backbtn .bk-long{display:none}
+  .backbtn .bk-short{display:inline}
+  .ctx-row{align-items:flex-start}
+}
 </style>
 </head>
 <body>
@@ -296,9 +366,8 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
     <nav class="tabs" id="tabs" aria-label="Places"></nav>
   </header>
   <main id="main"></main>
-  <footer class="footnav" id="footnav"><p class="status" id="status2"></p></footer>
+  <footer class="footnav" id="footnav"><p class="status" id="status2"></p><p class="keys" aria-label="Keys on New"><kbd>←</kbd><kbd>→</kbd>move<kbd>S</kbd>save<kbd>D</kbd>dismiss<kbd>Enter</kbd>open</p></footer>
 </div>
-<div id="layer" hidden></div>
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script>
@@ -306,7 +375,7 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 'use strict';
 
 var AREAS=[];
-var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog','stock-log','spend','journal-scores'];
+var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog','stock-log','spend','journal-scores','context-log'];
 var COLS=[['queue','To read'],['reading','Reading'],['done','Finished']];
 var GEAR='M10.64 4.93 L10.85 2.47 L13.15 2.47 L13.36 4.93 L16.04 6.04 L17.93 4.45 L19.55 6.07 L17.96 7.96 L19.07 10.64 L21.53 10.85 L21.53 13.15 L19.07 13.36 L17.96 16.04 L19.55 17.93 L17.93 19.55 L16.04 17.96 L13.36 19.07 L13.15 21.53 L10.85 21.53 L10.64 19.07 L7.96 17.96 L6.07 19.55 L4.45 17.93 L6.04 16.04 L4.93 13.36 L2.47 13.15 L2.47 10.85 L4.93 10.64 L6.04 7.96 L4.45 6.07 L6.07 4.45 L7.96 6.04 Z';
 var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -315,7 +384,7 @@ var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ni
 
 var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoNote:'',lv:{},pop:{},outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],stocklog:[],spend:{},jscores:{},q:'',pdfIndex:null,pdfIndexAt:0,pdfIndexBusy:false,pdfBusy:{},
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
-  form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{}};
+  form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},deckIds:[],boardIds:[],paper:null,back:null,tab:null,auto:null,list:[],shown:'',context:null,contextAt:0,contextBusy:false,ctxSlot:null,ctxlog:[],bf:'all',pdfUrls:[]};
 var U=blankUser();
 var artworkIndex=buildArtworkIndex([]),artworkBySha=new Map();
 var Sync={repo:'',token:'',sha:null,state:'local',msg:'',timer:0,busy:false,again:false,pulled:0};
@@ -380,7 +449,13 @@ function isNew(p){return p.lane==='new'||p.lane==='reserve'||p.lane==='classic';
 function later(x,y){return str(x)>str(y);}
 
 var toastT=0;
-function toast(msg){var t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true;},3600);}
+function toast(msg){var t=$('toast');t.className='toast';t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true;},3600);}
+function offer(msg,acts){
+  /* a message with something to press: Open and Undo after a save, Undo after a dismissal */
+  var t=$('toast');t.className='toast has-acts';t.replaceChildren(h('span',null,msg));
+  acts.forEach(function(a){t.append(h('button',{class:a.quiet?'tbtn quiet':'tbtn',type:'button',onclick:function(){t.hidden=true;a.fn();}},a.label));});
+  t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true;},8000);
+}
 
 /* storage in this browser */
 function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
@@ -523,9 +598,17 @@ function boardDoc(p,from){
 function save(p,from){
   U.board[p.id]=boardDoc(p,from);delete U.gone[p.id];S.lv=levels();
   var said=people(p.authors).slice(0,3).map(function(x){return x.name+' is now level '+S.lv[authorKey(x.name)];});
-  changed();toast('Saved to board.'+(said.length?' '+said.join('. ')+'.':''));
+  changed();
+  var msg='Saved to the Board.'+(said.length?' '+said.join('. ')+'.':'');
+  if(S.view==='paper'){toast(msg);return;}
+  offer(msg,[{label:'Open',fn:function(){openPaper(p.id);}},{label:'Undo',quiet:true,fn:function(){unsave(p.id);}}]);
 }
-function dismiss(p,flag){U.dismissed[p.id]={v:!!flag,at:now()};changed();toast(flag?'Dismissed':'Restored');}
+function unsave(id){if(!U.board[id])return;delete U.board[id];U.gone[id]=now();S.lv=levels();changed();toast('Taken off the Board');}
+function dismiss(p,flag){
+  U.dismissed[p.id]={v:!!flag,at:now()};changed();
+  if(flag)offer('Dismissed.',[{label:'Undo',fn:function(){dismiss(p,false);}}]);
+  else toast(flag?'Dismissed':'Restored');
+}
 function move(id,col){if(!U.board[id])return;U.board[id].column=col;U.board[id].updatedAt=now();changed();}
 function removeFromBoard(id){delete U.board[id];U.gone[id]=now();changed();toast('Removed from board');}
 
@@ -583,8 +666,8 @@ function attachPdf(id,file){
     var b=U.board[id];if(!b)return;
     if(hasPdf(b))pdfForget(b.pdf);
     b.pdf={path:path,name:str(file.name).slice(0,120),size:file.size,at:now()};b.updatedAt=now();
-    pdfKeep(b.pdf,file);
     S.pdfIndexAt=0;changed();
+    return pdfKeep(b.pdf,file);
   });
 }
 function removePdf(id){
@@ -621,7 +704,7 @@ function openPdf(id){
     setTimeout(function(){URL.revokeObjectURL(url);},600000);
   },function(e){if(w)try{w.close();}catch(x){}toast(pdfMsg(e));});
 }
-function pdfRow(id){
+function pdfRow(id,after,shown){
   var row=h('div',{class:'pdfrow'});
   function draw(msg){
     var b=U.board[id];row.replaceChildren();if(!b)return;
@@ -630,7 +713,7 @@ function pdfRow(id){
     pick.addEventListener('change',function(){
       var f=pick.files&&pick.files[0];if(!f)return;
       S.pdfBusy[id]='Uploading '+mb(f.size);draw();
-      attachPdf(id,f).then(function(){delete S.pdfBusy[id];draw('Saved to your private repository.');toast('PDF attached');},
+      attachPdf(id,f).then(function(){delete S.pdfBusy[id];draw('Saved to your private repository.');toast('PDF attached');if(after)after();},
         function(e){delete S.pdfBusy[id];draw(pdfMsg(e));});
     });
     if(hasPdf(b)){
@@ -638,9 +721,9 @@ function pdfRow(id){
       rm.addEventListener('click',function(){
         if(!armed){armed=true;rm.textContent='Press again to remove';setTimeout(function(){armed=false;rm.textContent='Remove PDF';},4000);return;}
         S.pdfBusy[id]='Removing the PDF';draw();
-        removePdf(id).then(function(){delete S.pdfBusy[id];draw('PDF removed.');},function(e){delete S.pdfBusy[id];draw(pdfMsg(e));});
+        removePdf(id).then(function(){delete S.pdfBusy[id];draw('PDF removed.');if(after)after();},function(e){delete S.pdfBusy[id];draw(pdfMsg(e));});
       });
-      row.append(h('button',{class:'btn solid',type:'button',onclick:function(){openPdf(id);}},'Open PDF'),
+      row.append(h('button',{class:shown?'btn':'btn solid',type:'button',onclick:function(){openPdf(id);}},shown?'Open in its own tab':'Open PDF'),
         h('span',{class:'pdfname'},h('b',null,str(b.pdf.name)||'PDF'),mb(b.pdf.size)+', added '+fmtDate(b.pdf.at,true)),
         h('button',{class:'btn',type:'button',onclick:function(){pick.click();}},'Replace'),rm,pick);
     }else{
@@ -667,6 +750,13 @@ function boardMatch(b,toks){
   }
   return inPdf?2:1;
 }
+function loadContext(){
+  /* the desk's pieces, one per board paper; fetched apart from the rest because the file grows with the board */
+  if(!Sync.token||S.contextBusy||(S.context&&Date.now()-S.contextAt<300000))return Promise.resolve(false);
+  S.contextBusy=true;
+  return ghData('context').then(function(d){S.context=obj(d);S.contextAt=Date.now();return true;},function(){if(!S.context)S.context={};return false;})
+    .then(function(x){S.contextBusy=false;if(S.ctxSlot)S.ctxSlot.redraw();return x;});
+}
 function loadPdfIndex(){
   if(!Sync.token||S.pdfIndexBusy||(S.pdfIndex&&Date.now()-S.pdfIndexAt<300000)||!boardList().some(hasPdf))return Promise.resolve(false);
   S.pdfIndexBusy=true;
@@ -688,7 +778,7 @@ function actions(p,kind){
   var row=h('div',{class:'acts'});
   if(onBoard(p.id)){
     row.append(h('span',{class:'onboard'},'On your board'),
-      h('button',{class:'btn quiet',type:'button',onclick:function(){go('board');openSheet(p.id);}},'Open notes'));
+      h('button',{class:'btn quiet',type:'button',onclick:function(){openPaper(p.id);}},'Open'));
     return row;
   }
   row.append(h('button',{class:'btn',type:'button',onclick:function(){save(p,kind);}},'Save to board'));
@@ -917,7 +1007,7 @@ function sheet(p,num,kind){
   else if(!p.summary&&p.basis==='title')note=Number(p.fit)>=5?'No abstract could be found. Kept on its title alone, as a likely must-read.':'No abstract was deposited, so this was judged on the title.';
   else if(!p.summary&&p.basis==='abstract')note='A fuller summary is added at the next check.';
   var journal=journalOf(p.venue,paperSerials(p)),jc=journal.color,acts=actions(p,kind);
-  if(oaUrl)acts.append(h('a',{class:'open-copy',href:oaUrl,target:'_blank',rel:'noopener'},'Open copy'+(oa.version?' ('+str(oa.version)+')':'')));
+  if(!onBoard(p.id))acts.append(h('button',{class:'btn openbtn',type:'button',onclick:function(){openPaper(p.id,S.deckIds);}},'Open'));
   return h('article',{class:'paper',style:jc?'--j:'+jc:null},
     h('div',{class:'paper-head'},h('span',{class:journal.url&&journal.wide?'paper-venue wordmark':'paper-venue'},jmark(p.venue,false,paperSerials(p)),h('span',null,str(p.venue))),h('span',{class:'paper-when'},right)),
     h('h3',{class:'paper-title'},url?h('a',{href:url,target:'_blank',rel:'noopener'},str(p.title)):str(p.title)),
@@ -965,7 +1055,8 @@ function deck(key,groups,kind){
   }
   var t=0;
   track.addEventListener('scroll',function(){clearTimeout(t);t=setTimeout(sync,70);});
-  S.deck={move:function(d){center(current()+d,true);},fix:function(){center(S.deckAt[key]||0,false);sync();}};
+  S.deckIds=flat.map(function(x){return x.p.id;});
+  S.deck={move:function(d){center(current()+d,true);},fix:function(){center(S.deckAt[key]||0,false);sync();},cur:function(){var x=flat[current()];return x?x.p:null;}};
   return h('section',{class:'deck-wrap'},h('div',{class:'deck-bar'},chips,h('div',{class:'deck-nav'},counter,prev,next,h('nav',{class:'tabs','aria-label':'Places'},places()))),track);
 }
 function viewNew(){
@@ -1102,14 +1193,15 @@ function slip(b,ci,hit){
     h('h3',{class:'slip-title'},str(b.title)),
     (b.authors||b.year)?byline(b.authors,'slip-meta',true,str(b.year)):null,
     str(b.note).trim()?h('p',{class:'slip-note'},str(b.note).trim()):h('p',{class:'slip-nonote'},'No notes yet'),
-    hit===2?h('p',{class:'slip-hit'},'Found in the PDF'):null);
+    hit===2?h('p',{class:'slip-hit'},'Found in the PDF'):null,
+    S.context&&S.context[b.id]&&S.context[b.id].debate?h('p',{class:'slip-ctx'},'Placed in its debate'):null);
   var foot=h('div',{class:'slip-foot'});
   if(hasPdf(b))foot.append(h('button',{class:'mini pdf',type:'button',onclick:function(ev){ev.stopPropagation();openPdf(b.id);}},'Open PDF'));
   if(ci>0)foot.append(h('button',{class:'mini',type:'button',onclick:function(ev){ev.stopPropagation();move(b.id,COLS[ci-1][0]);}},'Move to '+COLS[ci-1][1]));
   if(ci<COLS.length-1)foot.append(h('button',{class:'mini',type:'button',onclick:function(ev){ev.stopPropagation();move(b.id,COLS[ci+1][0]);}},'Move to '+COLS[ci+1][1]));
   e.append(foot);
-  e.addEventListener('click',function(){openSheet(b.id);});
-  e.addEventListener('keydown',function(ev){if(ev.target===e&&(ev.key==='Enter'||ev.key===' ')){ev.preventDefault();openSheet(b.id);}});
+  e.addEventListener('click',function(){openPaper(b.id,S.boardIds);});
+  e.addEventListener('keydown',function(ev){if(ev.target===e&&(ev.key==='Enter'||ev.key===' ')){ev.preventDefault();openPaper(b.id,S.boardIds);}});
   plus.addEventListener('keydown',function(ev){ev.stopPropagation();});
   e.addEventListener('dragstart',function(ev){ev.dataTransfer.setData('text/plain',b.id);ev.dataTransfer.effectAllowed='move';e.classList.add('dragging');});
   e.addEventListener('dragend',function(){e.classList.remove('dragging');});
@@ -1119,7 +1211,7 @@ function viewBoard(){
   var v=h('div');if(waiting(v))return v;
   var all=boardList(),n=all.length,withNotes=all.filter(function(b){return str(b.note).trim();}).length;
   var head=lede(n?count(n,'paper','papers')+' on your board.':'Your board is empty.',
-    n?(withNotes?count(withNotes,'has','have')+' notes. ':'No notes yet. ')+'Open a paper to write in its margin or attach its PDF, and move it between columns as you read. Every paper here raises its authors a level, shown beside their name on every card. Star a favourite and it counts for three, and the morning run looks for more by its authors.'
+    n?(withNotes?count(withNotes,'has','have')+' notes. ':'No notes yet. ')+'Open a paper to read it, see where it sits in its debate and write your notes, and move it between columns as you read. Every paper here raises its authors a level, shown beside their name on every card. Star a favourite and it counts for three, and the morning run looks for more by its authors.'
      :'Save a paper from New, or add one yourself.');
   if(!S.adding)head.append(h('div',{class:'lede-row'},h('button',{class:'btn solid',type:'button',onclick:function(){S.adding=true;render(true);}},'Add a paper')));
   v.append(head);
@@ -1127,18 +1219,22 @@ function viewBoard(){
   var find=h('input',{type:'search',id:'board-find',placeholder:'Search titles, authors, notes and PDFs','aria-label':'Search the board',autocomplete:'off',spellcheck:'false'});
   find.value=S.q;
   var findN=h('span',{class:'find-n','aria-live':'polite'});
-  if(n)v.append(h('div',{class:'find',role:'search'},find,findN));
+  var FILTERS=[['all','All',function(){return true;}],['pdf','With a PDF',hasPdf],['notes','With notes',function(b){return !!str(b.note).trim();}],['star','Starred',isStar]];
+  var chips=h('div',{class:'bfilters',role:'group','aria-label':'Show'});
+  FILTERS.forEach(function(f){chips.append(h('button',{class:'chipbtn',type:'button','aria-pressed':String(S.bf===f[0]),onclick:function(){S.bf=f[0];
+    Array.prototype.forEach.call(chips.children,function(x){x.setAttribute('aria-pressed','false');});this.setAttribute('aria-pressed','true');draw();}},f[1]));});
+  if(n)v.append(h('div',{class:'find',role:'search'},find,chips,findN));
   var grid=h('div',{class:'board'});
   function draw(){
-    var toks=terms(S.q),shown=0;
+    var toks=terms(S.q),shown=0,keep=(FILTERS.filter(function(f){return f[0]===S.bf;})[0]||FILTERS[0])[2],order=[];
     grid.replaceChildren();
     COLS.forEach(function(c,ci){
-      var rows=all.filter(function(b){return colKey(b)===c[0];}).sort(function(a,b){return (a.order||0)-(b.order||0);})
+      var rows=all.filter(function(b){return colKey(b)===c[0]&&keep(b);}).sort(function(a,b){return (a.order||0)-(b.order||0);})
         .map(function(b){return [b,boardMatch(b,toks)];}).filter(function(x){return x[1];});
-      shown+=rows.length;
+      shown+=rows.length;rows.forEach(function(x){order.push(x[0].id);});
       var col=h('section',{class:'col','aria-label':c[1]},h('h2',{class:'col-h'},c[1],h('span',{class:'n'},String(rows.length))));
       if(rows.length)rows.forEach(function(x){col.append(slip(x[0],ci,x[1]));});
-      else col.append(h('p',{class:'col-empty'},toks.length?'No match here.':'Nothing here yet.'));
+      else col.append(h('p',{class:'col-empty'},toks.length||S.bf!=='all'?'No match here.':'Nothing here yet.'));
       col.addEventListener('dragover',function(ev){ev.preventDefault();col.classList.add('over');});
       col.addEventListener('dragleave',function(){col.classList.remove('over');});
       col.addEventListener('drop',function(ev){ev.preventDefault();col.classList.remove('over');
@@ -1146,6 +1242,7 @@ function viewBoard(){
         if(id&&onBoard(id))move(id,c[0]);});
       grid.append(col);
     });
+    S.boardIds=order;
     var pdfs=all.filter(hasPdf),unread=S.pdfIndex?pdfs.filter(function(b){var e=S.pdfIndex[b.pdf.path];return !e||!e.words;}).length:0;
     findN.textContent=toks.length?(shown?count(shown,'paper matches','papers match')+'.':'No paper on the board matches.')
       :pdfs.length?count(pdfs.length,'PDF','PDFs')+' attached'+(unread?', '+word(unread)+' not searchable yet.':'.'):'';
@@ -1153,6 +1250,7 @@ function viewBoard(){
   find.addEventListener('input',function(){S.q=find.value;draw();});
   draw();
   loadPdfIndex().then(function(fresh){if(fresh&&grid.isConnected)draw();});
+  loadContext().then(function(fresh){if(fresh&&grid.isConnected)draw();});
   v.append(grid);
   return v;
 }
@@ -1291,70 +1389,211 @@ function viewLedger(){
   }
   hist.append(b5);
 
-  var dlog=S.desklog.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at))||str(b.id).localeCompare(str(a.id));});
-  var b4=h('section',{class:'block wide'},h('h2',null,'Desk runs'),
-    h('p',{class:'area-sub'},'The desk is switched off. It used to read a few papers in full each week and review them twice. ',h('a',{href:'#desk'},'The reviews it wrote'),' are kept.'));
-  if(!dlog.length)b4.append(h('p',{class:'none'},'The desk has not run yet.'));
+  var clog=S.ctxlog.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at));});
+  var b4=h('section',{class:'block wide'},h('h2',null,'The desk'),
+    h('p',{class:'area-sub'},'Each morning the desk takes papers from your board and places each in its debate: the question, the positions, where the paper sits and what to read around it. Open a paper to read its piece. ',
+      S.desk.length?h('a',{href:'#desk'},'The reviews the old desk wrote'):null,S.desk.length?' are kept.':null));
+  if(!clog.length)b4.append(h('p',{class:'none'},'The desk has not written anything yet. It starts on the next morning run.'));
   else{
     var tb2=h('tbody');
-    dlog.forEach(function(r){
-      var t=obj(r.tokens),read=(Number(t.input)||0)+(Number(t.cache_write)||0)+(Number(t.cache_read)||0);
+    clog.forEach(function(r){
       tb2.append(h('tr',null,
-        h('td',null,fmtDate(r.at,true)),h('td',{class:'r'},str(r.selected)),h('td',{class:'r'},str(r.reviewed)),
-        h('td',{class:'r'},read?read.toLocaleString('en-US'):''),h('td',{class:'r'},t.output?Number(t.output).toLocaleString('en-US'):''),
+        h('td',null,fmtDate(r.at,true)),h('td',{class:'r'},str(r.written||0)),h('td',{class:'r'},str((Number(r.skipped)||0)+(Number(r.failed)||0))),
+        h('td',{class:'r'},str(r.waiting||0)),h('td',{class:'r'},r.usd!=null?'$'+Number(r.usd).toFixed(2):''),
         h('td',{class:'note'},str(r.note))));});
     b4.append(h('div',{class:'tablewrap'},h('table',{class:'runs'},
-      h('thead',null,h('tr',null,h('th',null,'Date'),h('th',{class:'r'},'Chosen'),h('th',{class:'r'},'Reviewed'),h('th',{class:'r'},'Tokens read'),h('th',{class:'r'},'Tokens written'),h('th',null,'Notes'))),tb2)));
+      h('thead',null,h('tr',null,h('th',null,'Date'),h('th',{class:'r'},'Written'),h('th',{class:'r'},'Not written'),h('th',{class:'r'},'Still waiting'),h('th',{class:'r'},'Cost'),h('th',null,'Note'))),tb2)));
   }
   hist.append(b4);
   v.append(grid,h('details',{class:'history'},h('summary',null,'Run history and spending'),hist));
   return v;
 }
 
-/* notes sheet */
-function openSheet(id){
-  var b=U.board[id];
-  if(!b)return;
-  closeSheet();
-  var ta=h('textarea',{class:'notes',id:'sheet-notes',placeholder:'Objections, uses, page references.'});
-  ta.value=str(b.note);
-  var saved=h('span',{class:'saved','aria-live':'polite'},'');
-  var seg=h('div',{class:'seg',role:'group','aria-label':'Column'});
-  COLS.forEach(function(c){
-    var bt=h('button',{type:'button','aria-pressed':String(colKey(b)===c[0])},c[1]);
-    bt.addEventListener('click',function(){move(id,c[0]);
-      Array.prototype.forEach.call(seg.children,function(x){x.setAttribute('aria-pressed','false');});bt.setAttribute('aria-pressed','true');});
-    seg.append(bt);
-  });
-  var close=h('button',{class:'btn',type:'button',onclick:closeSheet},'Close');
-  var url=safeUrl(b.url);
-  var plusBtn=h('button',{class:'btn plusbtn',type:'button','aria-pressed':String(isStar(b))},isStar(b)?'\u2605 Starred':'\u2606 Star');
-  plusBtn.addEventListener('click',function(){togglePlus(id);var on=isStar(U.board[id]);
-    plusBtn.setAttribute('aria-pressed',String(on));plusBtn.textContent=on?'\u2605 Starred':'\u2606 Star';});
-  var gone=h('button',{class:'btn quiet',type:'button'},'Remove from board'),goneArmed=false;
-  gone.addEventListener('click',function(){
-    var cur=U.board[id],hasOne=hasPdf(cur);
-    if(hasOne&&!goneArmed){goneArmed=true;gone.textContent='Press again to remove the paper and its PDF';return;}
-    function finish(){var x=S.sheet;if(x)clearTimeout(x.timer);S.sheet=null;hideLayer();removeFromBoard(id);}
-    if(!hasOne){finish();return;}
-    gone.disabled=true;gone.textContent='Removing';
-    removePdf(id).then(finish,function(e){gone.disabled=false;goneArmed=false;gone.textContent='Remove from board';toast(pdfMsg(e)+' The paper was left on the board.');});
-  });
-  var panel=h('aside',{class:'sheet',role:'dialog','aria-modal':'true','aria-label':str(b.title)},
-    h('div',{class:'sheet-top'},close,url?h('a',{class:'btn',href:url,target:'_blank',rel:'noopener'},'Open the paper'):null),
-    h('h2',null,str(b.title)),
-    byline(b.authors),
-    h('p',{class:'cite'},b.venue?jmark(b.venue,true,b.issns):null,citeLine({venue:b.venue,cite:b.cite||str(b.year)})),
-    h('div',{class:'sheet-row'},seg,plusBtn),
-    pdfRow(id),
-    h('div',{class:'notes-h'},h('label',{for:'sheet-notes'},'Your notes'),saved),
-    ta,
-    h('div',{class:'acts'},gone));
-  var scrim=h('div',{class:'scrim',onclick:closeSheet});
-  S.sheet={id:id,ta:ta,saved:saved,timer:0,last:str(b.note),touched:false};
-  ta.addEventListener('input',function(){S.sheet.touched=true;saved.textContent='Editing';clearTimeout(S.sheet.timer);S.sheet.timer=setTimeout(flushNote,600);});
-  var layer=$('layer');layer.replaceChildren(scrim,panel);layer.hidden=false;
-  close.focus();
+/* the paper's own page: what the desk wrote, or the paper itself, on the left; the reader's notes on the right */
+function paperOf(id){
+  /* everything known about a paper: what the checks recorded, overlaid with the reader's own entry when it is on the board */
+  var p=S.papers.filter(function(x){return x.id===id;})[0]||null,b=U.board[id]||null,o={id:id},k;
+  if(!p&&!b)return null;
+  if(p)for(k in p)o[k]=p[k];
+  if(b){['title','authors','venue','year','cite','url'].forEach(function(f){if(str(b[f]))o[f]=b[f];});if(!arr(o.issns).length&&arr(b.issns).length)o.issns=b.issns;}
+  return o;
+}
+function openPaper(id,list){
+  if(S.view!=='paper')S.back={view:S.view,y:window.scrollY};
+  S.list=arr(list).indexOf(id)>=0?list.slice():[id];S.tab=null;
+  location.hash='paper/'+encodeURIComponent(id);
+}
+function leavePaper(){go((S.back&&S.back.view)||'new');}
+function stepPaper(d){
+  var n=S.list[S.list.indexOf(S.paper)+d];if(n==null)return;
+  if(S.sheet){flushNote();S.sheet=null;}
+  history.replaceState(null,'','#paper/'+encodeURIComponent(n));
+  S.paper=n;S.tab=null;render(true);window.scrollTo(0,0);
+}
+function inlinePdf(){
+  /* a computer's browser can show a PDF inside the page; a phone's hands it to its own viewer */
+  try{return !!navigator.pdfViewerEnabled&&window.matchMedia('(pointer:fine) and (min-width:900px)').matches;}catch(e){return false;}
+}
+function saveAround(x,btn){
+  var id=str(x.id)||('m-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+  if(!U.board[id]){
+    U.board[id]={title:str(x.title),authors:str(x.authors),venue:str(x.venue),issns:[],cite:'',year:str(x.year),url:safeUrl(x.url),
+      column:'queue',note:'',order:Date.now(),addedAt:now(),updatedAt:now(),from:'context'};
+    delete U.gone[id];S.lv=levels();changed();toast('Saved to the Board');
+  }
+  btn.replaceWith(h('span',{class:'ctx-on'},'On your board'));
+}
+function contextBlock(id,p){
+  var b=U.board[id]||null,c=S.context?S.context[id]:null,box=h('div',{class:'ctx'});
+  if(c&&c.debate){
+    var from=c.basis==='text'?'from '+(str(c.source)||'the paper’s text')+', its references and the literature'
+      :c.basis==='abstract'?'from its abstract and references, without the full text':'from general knowledge of the paper, without its text';
+    box.append(h('p',{class:'ctx-meta'},'Written by the desk on '+fmtDate(c.at)+', '+from+'.'));
+    [['debate','The debate'],['positions','The positions'],['place','Where this paper sits'],['after','What followed']].forEach(function(x){
+      if(str(c[x[0]]))box.append(h('section',{class:'ctx-part'},h('h2',null,x[1]),h('p',null,str(c[x[0]]))));});
+    var around=arr(c.around).filter(function(x){return x&&x.title;});
+    if(around.length){
+      var sec=h('section',{class:'ctx-around'},h('h2',null,'Read around it'));
+      around.forEach(function(x){
+        var xid=str(x.id),act;
+        if(xid&&onBoard(xid))act=h('button',{class:'btn quiet',type:'button',onclick:function(){openPaper(xid);}},'On your board');
+        else if(xid&&paperOf(xid))act=h('button',{class:'btn quiet',type:'button',onclick:function(){openPaper(xid);}},'On New');
+        else{act=h('button',{class:'btn',type:'button'},'Save');act.addEventListener('click',function(){saveAround(x,act);});}
+        var url=safeUrl(x.url),meta=[str(x.authors),str(x.venue),str(x.year)].filter(Boolean).join(', ');
+        sec.append(h('div',{class:'ctx-row'},h('p',null,h('span',{class:'t'},url?h('a',{href:url,target:'_blank',rel:'noopener'},str(x.title)):str(x.title)),
+          h('span',{class:'m'},meta+(x.why?'. '+str(x.why):''))),act));
+      });
+      box.append(sec);
+    }
+    var un=arr(c.unconfirmed);
+    if(un.length)box.append(h('p',{class:'ctx-warn'},'The desk could not confirm that '+(un.length===1?'this exists: ':'these exist: ')+un.join('; ')+'. Treat what the piece says about '+(un.length===1?'it':'them')+' with care.'));
+    return box;
+  }
+  if(p.summary||p.why)box.append(h('div',{class:'ctx-sum'},p.summary?h('p',{class:'paper-summary'},str(p.summary)):null,p.why?h('p',{class:'ctx-why'},str(p.why)):null));
+  var line=!S.context?'Looking for the desk’s piece on this paper.'
+    :c&&c.skipped?str(c.skipped)+(b&&!hasPdf(b)?' Attach its PDF and the desk will try again.':'')
+    :c&&c.failed?'The desk tried to place this paper and could not'+(c.failed>=2?', and has stopped trying':'')+'. Attaching a PDF gives it another go.'
+    :b?'The desk places this paper in its debate on the next morning run: the question, the positions, where the paper sits, and what to read around it.'
+    :'Save this paper and the desk places it in its debate the next morning.';
+  box.append(h('p',{class:'ctx-meta'},line));
+  return box;
+}
+function pdfBlock(id,p){
+  var box=h('div',{class:'pdfbox'});
+  if(!U.board[id]){box.append(h('p',{class:'ctx-meta'},'Save the paper to keep its PDF here and read it on any device.'));return box;}
+  var inl=inlinePdf(),holder=h('div');
+  function view(){
+    S.pdfUrls.forEach(function(u){URL.revokeObjectURL(u);});S.pdfUrls=[];
+    var b=U.board[id];
+    if(!inl||!hasPdf(b)){holder.replaceChildren();return;}
+    var frame=h('div',{class:'pdfview'},h('p',{class:'ctx-meta'},'Opening the PDF.'));
+    holder.replaceChildren(frame);
+    pdfBlob(b.pdf).then(function(blob){
+      if(!frame.isConnected)return;
+      var url=URL.createObjectURL(blob);S.pdfUrls.push(url);
+      frame.replaceChildren(h('iframe',{src:url+'#navpanes=0&view=FitH',title:'PDF of '+str(p.title)}));
+    },function(e){if(frame.isConnected)frame.replaceChildren(h('p',{class:'ctx-meta'},pdfMsg(e)));});
+  }
+  box.append(pdfRow(id,view,inl),holder);
+  view();
+  return box;
+}
+function viewPaper(){
+  var v=h('div',{class:'ppage'});if(waiting(v))return v;
+  S.ownBar=true;
+  if(S.sheet){flushNote();S.sheet=null;}
+  var id=S.paper,p=paperOf(id),b=U.board[id]||null;
+  var from=(S.back&&S.back.view)||'new',fromName=from==='board'?'the Board':from==='settings'?'Settings':from==='desk'?'the reviews':'New';
+  var i=S.list.indexOf(id);
+  var shortName=from==='board'?'Board':from==='settings'?'Settings':from==='desk'?'Reviews':'New';
+  var bar=h('div',{class:'pbar'},h('button',{class:'tab backbtn',type:'button','aria-label':'Back to '+fromName,onclick:leavePaper},
+    '‹ ',h('span',{class:'bk-long'},'Back to '+fromName),h('span',{class:'bk-short'},shortName)));
+  if(S.list.length>1&&i>=0)bar.append(h('span',{class:'pstep'},h('span',{class:'deck-count'},(i+1)+' of '+S.list.length),
+    h('button',{class:'tab',type:'button',disabled:i<=0,onclick:function(){stepPaper(-1);}},'Previous'),
+    h('button',{class:'tab',type:'button',disabled:i>=S.list.length-1,onclick:function(){stepPaper(1);}},'Next')));
+  bar.append(places().pop());
+  v.append(bar);
+  if(!p){S.sheet=null;v.append(lede('That paper is not here.','It may have been taken off the board on another device.'));return v;}
+  var journal=journalOf(p.venue,paperSerials(p));
+  var by=byline(p.authors);
+  var cite=str(p.cite)||(p.date?'':str(p.year||''));
+  var head=h('header',{class:'phead-wrap',style:journal.color?'--j:'+journal.color:null},
+    h('div',{class:'phead'},p.venue?jmark(p.venue,false,paperSerials(p)):null,h('span',null,citeLine({venue:p.venue,cite:cite,date:p.date}))),
+    h('h1',{class:'ptitle'},str(p.title)),by);
+
+  var ctl=h('div',{class:'pctl'});
+  if(b){
+    var seg=h('div',{class:'seg',role:'group','aria-label':'Where it is on the Board'});
+    COLS.forEach(function(c){
+      var bt=h('button',{type:'button','aria-pressed':String(colKey(b)===c[0])},c[1]);
+      bt.addEventListener('click',function(){move(id,c[0]);
+        Array.prototype.forEach.call(seg.children,function(x){x.setAttribute('aria-pressed','false');});bt.setAttribute('aria-pressed','true');});
+      seg.append(bt);
+    });
+    var star=h('button',{class:'btn plusbtn',type:'button','aria-pressed':String(isStar(b))},isStar(b)?'★ Starred':'☆ Star');
+    star.addEventListener('click',function(){togglePlus(id);var on=isStar(U.board[id]);
+      star.setAttribute('aria-pressed',String(on));star.textContent=on?'★ Starred':'☆ Star';
+      var nb=byline(p.authors);by.replaceWith(nb);by=nb;});
+    ctl.append(seg,star);
+  }else{
+    ctl.append(h('button',{class:'btn solid',type:'button',onclick:function(){save(p,'paper');render(true);}},'Save to board'),
+      dismissed(id)?h('button',{class:'btn quiet',type:'button',onclick:function(){dismiss(p,false);render(true);}},'Restore')
+        :h('button',{class:'btn quiet',type:'button',onclick:function(){dismiss(p,true);leavePaper();}},'Dismiss'));
+  }
+  var url=safeUrl(p.url),oa=obj(S.full[id]),oaUrl=safeUrl(oa.url);
+  if(url)ctl.append(h('a',{href:url,target:'_blank',rel:'noopener'},'Publisher’s page'));
+  if(oaUrl)ctl.append(h('a',{href:oaUrl,target:'_blank',rel:'noopener'},'Open copy'+(oa.version?' ('+str(oa.version)+')':'')));
+
+  var side=h('aside',{class:'pside'});
+  if(b){
+    var ta=h('textarea',{class:'notes',id:'sheet-notes',placeholder:'Objections, uses, page references.'});
+    ta.value=str(b.note);
+    var saved=h('span',{class:'saved','aria-live':'polite'},'');
+    S.sheet={id:id,ta:ta,saved:saved,timer:0,last:str(b.note),touched:false};
+    ta.addEventListener('input',function(){S.sheet.touched=true;saved.textContent='Editing';clearTimeout(S.sheet.timer);S.sheet.timer=setTimeout(flushNote,600);});
+    var gone=h('button',{class:'btn quiet',type:'button'},'Remove from board'),goneArmed=false;
+    gone.addEventListener('click',function(){
+      var cur=U.board[id],hasOne=hasPdf(cur);
+      if(hasOne&&!goneArmed){goneArmed=true;gone.textContent='Press again to remove the paper and its PDF';return;}
+      function finish(){var x=S.sheet;if(x)clearTimeout(x.timer);S.sheet=null;removeFromBoard(id);leavePaper();}
+      if(!hasOne){finish();return;}
+      gone.disabled=true;gone.textContent='Removing';
+      removePdf(id).then(finish,function(e){gone.disabled=false;goneArmed=false;gone.textContent='Remove from board';toast(pdfMsg(e)+' The paper was left on the board.');});
+    });
+    side.append(h('div',{class:'notes-h'},h('label',{for:'sheet-notes'},'Your notes'),saved),ta,h('div',{class:'acts'},gone));
+  }else{
+    S.sheet=null;
+    side.append(h('div',{class:'notes-h'},h('span',null,'Your notes')),h('p',{class:'hint'},'Save the paper to keep notes on it.'));
+  }
+
+  var c=S.context?S.context[id]:null;
+  var slot=h('div',{class:'pslot'}),main=h('section',{class:'pmain'}),grid=h('div',{class:'pgrid'});
+  var bc=h('button',{type:'button',class:'ctxb',onclick:function(){S.auto=null;show('context');}},'In context');
+  var bp=h('button',{type:'button',onclick:function(){S.auto=null;show('pdf');}},'The paper');
+  var bn=h('button',{type:'button',class:'notesb',onclick:function(){S.auto=null;show('notes');}},'Notes');
+  function show(t){
+    if(t==='notes'&&window.matchMedia('(min-width:901px)').matches)t='context';     /* on a wide screen the notes are already alongside */
+    S.tab=t;
+    bc.setAttribute('aria-pressed',String(t==='context'));bp.setAttribute('aria-pressed',String(t==='pdf'));bn.setAttribute('aria-pressed',String(t==='notes'));
+    S.pdfUrls.forEach(function(u){URL.revokeObjectURL(u);});S.pdfUrls=[];
+    if(t==='notes'){side.classList.add('inslot');slot.replaceChildren(side);return;}
+    side.classList.remove('inslot');grid.append(side);
+    slot.replaceChildren(t==='pdf'?pdfBlock(id,p):contextBlock(id,p));
+    if(S.stale)schedule();
+  }
+  main.append(head,ctl,h('div',{class:'seg pswitch',role:'group','aria-label':'What to read'},bc,bp,bn),slot);
+  grid.append(main,side);
+  /* a paper opens on the desk's piece when there is one, otherwise on its PDF when one is attached */
+  if(!S.tab&&!S.context)S.auto=id;
+  show(S.tab||(c&&c.debate?'context':(S.context&&hasPdf(b)?'pdf':'context')));
+  S.ctxSlot={redraw:function(){
+      if(S.view!=='paper'||S.paper!==id||!slot.isConnected)return;
+      if(S.auto===id){S.auto=null;var got=S.context&&S.context[id];if(!(got&&got.debate)&&hasPdf(U.board[id])){show('pdf');return;}}
+      if(S.tab==='context')slot.replaceChildren(contextBlock(id,p));},
+    widen:function(){if(S.view==='paper'&&S.paper===id&&S.tab==='notes'&&slot.isConnected)show('notes');}};
+  loadContext();
+  v.append(grid);
+  return v;
 }
 function flushNote(){
   var sh=S.sheet;if(!sh)return;
@@ -1363,20 +1602,24 @@ function flushNote(){
   sh.last=val;U.board[sh.id].note=val;U.board[sh.id].updatedAt=now();
   changed();renderStatus();
 }
-function hideLayer(){var layer=$('layer');layer.hidden=true;layer.replaceChildren();}
-function closeSheet(){if(!S.sheet)return;flushNote();S.sheet=null;hideLayer();}
 document.addEventListener('keydown',function(e){
-  if(e.key==='Escape'&&S.sheet){closeSheet();return;}
-  if(!S.deck||S.sheet||e.altKey||e.ctrlKey||e.metaKey)return;
-  var tag=e.target&&e.target.tagName;
-  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return;
-  if(e.key==='ArrowRight'){e.preventDefault();S.deck.move(1);}
-  else if(e.key==='ArrowLeft'){e.preventDefault();S.deck.move(-1);}
+  if(e.altKey||e.ctrlKey||e.metaKey)return;
+  if(S.view==='paper'){if(e.key==='Escape'){e.preventDefault();leavePaper();}return;}
+  if(S.view!=='new'||!S.deck)return;
+  var el=e.target,tag=el&&el.tagName;
+  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||(el&&el.isContentEditable))return;
+  var p=S.deck.cur(),k=e.key.length===1?e.key.toLowerCase():e.key;
+  if(k==='ArrowRight'){e.preventDefault();S.deck.move(1);}
+  else if(k==='ArrowLeft'){e.preventDefault();S.deck.move(-1);}
+  else if(tag==='BUTTON'||tag==='A')return;             /* Enter and letters on a focused control belong to that control */
+  else if(k==='s'&&p&&isOpen(p)){e.preventDefault();save(p,'new');}
+  else if(k==='d'&&p&&isOpen(p)){e.preventDefault();dismiss(p,true);}
+  else if(k==='Enter'&&p){e.preventDefault();openPaper(p.id,S.deckIds);}
 });
-window.addEventListener('resize',function(){if(S.deck)S.deck.fix();});
+window.addEventListener('resize',function(){if(S.deck)S.deck.fix();if(S.ctxSlot&&S.ctxSlot.widen)S.ctxSlot.widen();});
 
 /* rendering */
-var VIEWFN={new:viewNew,desk:viewDesk,board:viewBoard,settings:viewLedger};
+var VIEWFN={new:viewNew,desk:viewDesk,board:viewBoard,settings:viewLedger,paper:viewPaper};
 function renderStatus(){
   var run=latestRun(),parts=[];
   if(run)parts.push('Checked '+fmtDate(run.at,true));
@@ -1412,17 +1655,35 @@ function render(force){
   renderTabs();
   var main=$('main'),a=document.activeElement;
   if(!force&&a&&main.contains(a)&&(a.tagName==='TEXTAREA'||a.tagName==='INPUT')){S.stale=true;return;}
+  /* while the paper itself is showing nothing is redrawn under the reader: a PDF being read or sent keeps its place, and the page makes its own small changes */
+  if(!force&&S.view==='paper'&&S.shown==='paper/'+S.paper&&S.tab==='pdf'){S.stale=true;return;}
+  S.pdfUrls.forEach(function(u){URL.revokeObjectURL(u);});S.pdfUrls=[];
   S.stale=false;S.deck=null;S.lv=levels();S.ownBar=false;
   if(!Sync.token){main.replaceChildren(viewSignIn());return;}
   main.replaceChildren(VIEWFN[S.view]());
+  S.shown=S.view==='paper'?'paper/'+S.paper:S.view;
   document.body.toggleAttribute('data-ownbar',!!S.ownBar);   /* New carries the buttons in its own top row */
   if(S.deck)S.deck.fix();
 }
 function schedule(){if(S.raf)return;S.raf=requestAnimationFrame(function(){S.raf=0;render(false);});}
 document.addEventListener('focusout',function(){if(S.stale)setTimeout(schedule,0);});
-function route(){var k=location.hash.replace('#','');if(k==='ledger')k='settings';S.view=VIEWFN[k]?k:'new';}
+function route(){
+  var k=location.hash.replace('#','');if(k==='ledger')k='settings';
+  if(k.indexOf('paper/')===0){
+    var id=k.slice(6);try{id=decodeURIComponent(id);}catch(e){}
+    if(id!==S.paper)S.tab=null;      /* another paper opens on its own best side */
+    S.view='paper';S.paper=id;return;
+  }
+  S.view=VIEWFN[k]&&k!=='paper'?k:'new';
+}
 function go(v){if(location.hash==='#'+v)return;location.hash=v;}
-window.addEventListener('hashchange',function(){route();window.scrollTo(0,0);render(true);});
+window.addEventListener('hashchange',function(){
+  var was=S.view;
+  if(S.sheet){flushNote();S.sheet=null;}
+  route();render(true);
+  /* coming back from a paper, return to where the reader was: the same card on New, the same place on the Board */
+  window.scrollTo(0,was==='paper'&&S.view!=='paper'&&S.back&&S.back.view===S.view?S.back.y:0);
+});
 document.addEventListener('visibilitychange',function(){
   if(document.visibilityState!=='visible'||!Sync.token||Sync.busy||S.sheet)return;
   if(lsGet('rr.dirty')==='1'||Date.now()-Sync.pulled<60000)return;
@@ -1447,7 +1708,7 @@ function applyData(d){
   S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.jmap=null;S.profile=d[5];S.seed=d[6];
   S.full=obj(d[7]);S.desklog=arr(d[8]);
   artworkIndex=buildArtworkIndex(d[9]);
-  S.stocklog=arr(d[10]);S.spend=obj(d[11]);S.jscores=obj(obj(d[12]).journals);
+  S.stocklog=arr(d[10]);S.spend=obj(d[11]);S.jscores=obj(obj(d[12]).journals);S.ctxlog=arr(d[13]);
 }
 function parseStored(k){try{return JSON.parse(lsGet(k)||'null');}catch(e){return null;}}
 function loadData(){
@@ -1475,7 +1736,7 @@ function start(){
     if(!ok)return;
     if(!local){U=normUser(S.seed);cacheUser();}
     render(true);
-    return initialSync().then(function(){S.ready=true;render(true);return loadLogos();});
+    return initialSync().then(function(){S.ready=true;render(true);loadContext().then(function(fresh){if(fresh)schedule();});return loadLogos();});
   });
 }
 
