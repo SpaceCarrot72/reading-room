@@ -191,8 +191,6 @@ a.btn{text-decoration:none;display:inline-block}
 body[data-view="new"] .mast{display:none}
 body[data-view="new"] .footnav{display:flex}
 body[data-view="new"] #main{padding-top:22px}
-.seg.tight{margin-top:0}
-.flush>.area:first-child{margin-top:0}
 .deck-wrap{margin-top:0}
 .lede+.deck-wrap{margin-top:32px}
 .deck-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px}
@@ -294,7 +292,7 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
     <p class="status" id="status"></p>
   </header>
   <main id="main"></main>
-  <footer class="footnav" id="footnav"><nav class="tabs" id="tabs2" aria-label="Views"></nav><div id="footextra"></div><p class="status" id="status2"></p></footer>
+  <footer class="footnav" id="footnav"><nav class="tabs" id="tabs2" aria-label="Views"></nav><p class="status" id="status2"></p></footer>
 </div>
 <div id="layer" hidden></div>
 <div class="toast" id="toast" role="status" hidden></div>
@@ -314,7 +312,7 @@ var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ni
 
 var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoNote:'',lv:{},pop:{},outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],stocklog:[],spend:{},jscores:{},q:'',pdfIndex:null,pdfIndexAt:0,pdfIndexBusy:false,pdfBusy:{},
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
-  form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},layout:'sheets'};
+  form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{}};
 var U=blankUser();
 var artworkIndex=buildArtworkIndex([]),artworkBySha=new Map();
 var Sync={repo:'',token:'',sha:null,state:'local',msg:'',timer:0,busy:false,again:false,pulled:0};
@@ -907,13 +905,6 @@ function areaSection(name,n,sub){
 }
 
 /* views */
-function layoutToggle(){
-  var seg=h('div',{class:'seg tight',role:'group','aria-label':'Layout'});
-  [['sheets','Sheets'],['list','List']].forEach(function(o){
-    seg.append(h('button',{type:'button','aria-pressed':String(S.layout===o[0]),onclick:function(){S.layout=o[0];lsSet('rr.layout',o[0]);render(true);}},o[1]));
-  });
-  return seg;
-}
 function sheet(p,num,kind){
   var url=safeUrl(p.url),oa=obj(S.full[p.id]),oaUrl=safeUrl(oa.url);
   var right=p.cite?str(p.cite):(p.date?fmtDate(p.date,true):'');
@@ -983,17 +974,7 @@ function viewNew(){
   var other=items.filter(function(p){return !known[p.area];}).sort(byRank);
   if(other.length)groups.push({name:'Other areas',items:other.map(function(p){return {p:p,num:''};})});
   if(!items.length)v.append(h('p',{class:'none',style:'margin-top:40px'},'Nothing waiting.'+(run?' Last checked '+fmtDate(run.at)+'.':'')));
-  else if(S.layout==='sheets')v.append(deck('new',groups,'new'));
-  else{
-    var wrap=h('div',{class:'flush'});
-    groups.forEach(function(g){
-      var sec=areaSection(g.name,g.items.length);
-      if(!g.items.length)sec.append(h('p',{class:'none'},run&&run.since?'No new papers in this area since '+fmtDate(run.since)+'.':'No new papers in this area.'));
-      else{var ol=h('ol',{class:'entries'});g.items.forEach(function(x){ol.append(entry(x.p,x.num,'new',!x.num));});sec.append(ol);}
-      wrap.append(sec);
-    });
-    v.append(wrap);
-  }
+  else v.append(deck('new',groups,'new'));
   var gone=S.papers.filter(function(p){return isNew(p)&&dismissed(p.id)&&!onBoard(p.id);});
   if(gone.length){
     v.append(h('div',{class:'foot'},h('button',{class:'btn quiet',type:'button',onclick:function(){S.showDismissed=!S.showDismissed;schedule();}},
@@ -1418,8 +1399,6 @@ function renderTabs(){
     nav.append(h('button',{class:'tab gear',type:'button','aria-label':'Settings',title:'Settings','aria-current':S.view==='settings'?'page':null,onclick:function(){go('settings');}},gearIcon()));
   });
   document.body.setAttribute('data-view',Sync.token?S.view:'signin');
-  var extra=$('footextra');extra.replaceChildren();
-  if(S.ready&&S.view==='new')extra.append(layoutToggle());
   renderStatus();
 }
 function render(force){
@@ -1607,7 +1586,7 @@ function loadLogos(){
 }
 
 function boot(){
-  S.layout=lsGet('rr.layout')==='list'?'list':'sheets';
+  lsDel('rr.layout');   /* left over from the list view, which is gone */
   route();
   var saved=parseStored('rr.sync');
   if(saved&&saved.repo&&saved.token){Sync.repo=str(saved.repo);Sync.token=str(saved.token);start();}
