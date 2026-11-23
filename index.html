@@ -257,6 +257,18 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 .plus[aria-pressed="true"]{background:var(--j,var(--ink));border-color:var(--j,var(--ink));color:#fff}
 .sheet-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:20px}
 .sheet-row .seg{margin-top:0}
+.find{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:26px}
+.find input{flex:0 1 420px;min-width:0;appearance:none;font:400 15px/1.3 var(--ui);background:var(--well);border:1px solid var(--rule);border-radius:999px;padding:9px 16px;color:var(--ink)}
+.find input::placeholder{color:var(--ink-soft)}
+.find-n{font:400 13px/1.3 var(--ui);color:var(--ink-soft)}
+.pdfrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-top:18px;padding:12px 14px;background:var(--well);border-radius:8px}
+.pdfname{flex:1 1 170px;min-width:0;font:400 13px/1.4 var(--ui);color:var(--ink-soft);overflow-wrap:anywhere}
+.pdfname b{display:block;font-weight:500;color:var(--ink)}
+.pdfmsg{flex-basis:100%;margin:2px 0 0;font:400 13px/1.4 var(--ui);color:var(--ink)}
+.mini.pdf{border-color:var(--ink-soft);color:var(--ink)}
+.slip-hit{margin:8px 0 0;font:500 12px/1.3 var(--ui);color:var(--desk)}
+.slip-foot{flex-wrap:wrap}
+@media (max-width:480px){.find input{flex-basis:100%}}
 .plusbtn[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
 .entry .gloss{border-left-color:var(--j,var(--desk));color:var(--j,var(--desk))}
 .entry .ticks i{background:var(--j,var(--desk))}
@@ -285,14 +297,14 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 'use strict';
 
 var AREAS=[];
-var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog','stock-log'];
+var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog','stock-log','spend'];
 var COLS=[['queue','To read'],['reading','Reading'],['done','Finished']];
 var VIEWS=[['new','New'],['desk','Desk'],['reserve','Reserve'],['board','Board'],['ledger','Ledger']];
 var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 var ONES=['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
 var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
 
-var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoNote:'',lv:{},pop:{},outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],stocklog:[],
+var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoNote:'',lv:{},pop:{},outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],stocklog:[],spend:{},q:'',pdfIndex:null,pdfIndexAt:0,pdfIndexBusy:false,pdfBusy:{},
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
   form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},layout:'sheets'};
 var U=blankUser();
@@ -392,13 +404,19 @@ function merge(a,b){
     var da=a.board[k],db=b.board[k];
     var best=da&&db?(later(db.updatedAt,da.updatedAt)?db:da):(da||db);
     var gone=later(b.gone[k],a.gone[k])?b.gone[k]:(a.gone[k]||b.gone[k]);
-    if(best&&!(gone&&later(gone,best.updatedAt)))o.board[k]=best;
+    if(best&&!(gone&&later(gone,best.updatedAt)))o.board[k]=withPdf(best,da,db);
     else if(gone)o.gone[k]=gone;
   }
   for(k in a.dismissed)o.dismissed[k]=a.dismissed[k];
   for(k in b.dismissed){var x=o.dismissed[k],y=b.dismissed[k];if(!x||later(y&&y.at,x&&x.at))o.dismissed[k]=y;}
   o.updatedAt=later(b.updatedAt,a.updatedAt)?b.updatedAt:a.updatedAt;
   return o;
+}
+function withPdf(best,da,db){
+  /* the PDF link has its own time, so a note saved on one device cannot drop a PDF attached on another */
+  var pa=da&&da.pdf,pb=db&&db.pdf,pdf=pa&&pb?(later(pb.at,pa.at)?pb:pa):(pa||pb);
+  if(!pdf||(best.pdf&&JSON.stringify(best.pdf)===JSON.stringify(pdf)))return best;
+  var o={};for(var k in best)o[k]=best[k];o.pdf=pdf;return o;
 }
 function same(a,b){
   function strip(u){var o={};for(var k in u)if(k!=='updatedAt')o[k]=u[k];return JSON.stringify(o);}
@@ -475,7 +493,7 @@ function signOut(){
     return;
   }
   ['rr.sync','rr.dirty','rr.user','rr.data','rr.logos'].forEach(lsDel);
-  try{if(window.caches)caches.delete('rr-logos');}catch(e){}
+  try{if(window.caches){caches.delete('rr-logos');caches.delete('rr-pdfs');}}catch(e){}
   history.replaceState(null,'',location.pathname);
   location.reload();
 }
@@ -500,6 +518,151 @@ function save(p,from){
 function dismiss(p,flag){U.dismissed[p.id]={v:!!flag,at:now()};changed();toast(flag?'Dismissed':'Restored');}
 function move(id,col){if(!U.board[id])return;U.board[id].column=col;U.board[id].updatedAt=now();changed();}
 function removeFromBoard(id){delete U.board[id];U.gone[id]=now();changed();toast('Removed from board');}
+
+/* PDFs: kept in pdfs/ in the private repository, attached to a paper on the board */
+var PDF_MAX=25*1024*1024;
+function hasPdf(b){return !!(b&&b.pdf&&b.pdf.path&&!b.pdf.gone);}
+function mb(n){n=Number(n)||0;return n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';}
+function pdfPath(id){return 'pdfs/'+(str(id).toLowerCase().replace(/[^a-z0-9._-]+/g,'_').replace(/^[._]+/,'').slice(0,120)||'paper')+'.pdf';}
+function ghFile(path){return 'https://api.github.com/repos/'+Sync.repo+'/contents/'+path.split('/').map(encodeURIComponent).join('/');}
+function netFail(){throw {status:0};}
+function pdfMsg(e){
+  if(e&&e.text)return e.text;
+  var s=e&&e.status;
+  if(s===401||s===403)return ghMsg(e);
+  if(s===404)return 'The PDF is not in the repository any more.';
+  if(s===413||s===422)return 'GitHub would not take the file. It may be too large.';
+  return 'Could not reach GitHub. Check the connection and try again.';
+}
+function pdfSha(path){
+  /* the file's current id on GitHub, which GitHub asks for before it replaces or deletes a file; null when it is not there */
+  var hd=ghHeaders(false);hd.Accept='application/vnd.github.object+json';
+  return fetch(ghFile(path),{headers:hd,cache:'no-store'}).then(function(r){
+    if(r.status===404)return null;
+    if(!r.ok)throw {status:r.status};
+    return r.json().then(function(j){return str(j&&j.sha)||null;});
+  },netFail);
+}
+function fileB64(file){
+  return new Promise(function(res,rej){var r=new FileReader();
+    r.onload=function(){res(str(r.result).split(',')[1]||'');};r.onerror=function(){rej({text:'The file could not be read.'});};r.readAsDataURL(file);});
+}
+function looksLikePdf(file){
+  return file.slice(0,1024).arrayBuffer().then(function(buf){
+    var b=new Uint8Array(buf),t='';for(var i=0;i<b.length;i++)t+=String.fromCharCode(b[i]);
+    return t.indexOf('%PDF')>=0;},function(){return false;});
+}
+function pdfCache(){try{return window.caches?caches.open('rr-pdfs').catch(function(){return null;}):Promise.resolve(null);}catch(e){return Promise.resolve(null);}}
+function pdfKey(p){return 'https://pdfs.invalid/'+encodeURIComponent(p.path)+'?at='+encodeURIComponent(str(p.at));}
+function pdfKeep(p,blob){
+  return pdfCache().then(function(c){if(c)return c.put(pdfKey(p),new Response(blob,{headers:{'Content-Type':'application/pdf'}}));}).catch(function(){});
+}
+function pdfForget(p){return pdfCache().then(function(c){if(c)return c.delete(pdfKey(p));}).catch(function(){});}
+function attachPdf(id,file){
+  if(!U.board[id])return Promise.reject({text:'That paper is no longer on the board.'});
+  if(file.size>PDF_MAX)return Promise.reject({text:'That file is '+mb(file.size)+'. The most a PDF can be here is 25 MB.'});
+  var path=pdfPath(id);
+  return looksLikePdf(file).then(function(ok){
+    if(!ok)throw {text:'That file is not a PDF.'};
+    return Promise.all([fileB64(file),pdfSha(path)]);
+  }).then(function(x){
+    var body={message:'Add PDF: '+str(U.board[id]&&U.board[id].title).slice(0,70),content:x[0]};
+    if(x[1])body.sha=x[1];
+    return fetch(ghFile(path),{method:'PUT',headers:ghHeaders(true),body:JSON.stringify(body)}).then(function(r){if(!r.ok)throw {status:r.status};},netFail);
+  }).then(function(){
+    var b=U.board[id];if(!b)return;
+    if(hasPdf(b))pdfForget(b.pdf);
+    b.pdf={path:path,name:str(file.name).slice(0,120),size:file.size,at:now()};b.updatedAt=now();
+    pdfKeep(b.pdf,file);
+    S.pdfIndexAt=0;changed();
+  });
+}
+function removePdf(id){
+  var b=U.board[id];if(!hasPdf(b))return Promise.resolve();
+  var p=b.pdf;
+  return pdfSha(p.path).then(function(sha){
+    if(!sha)return;
+    return fetch(ghFile(p.path),{method:'DELETE',headers:ghHeaders(true),body:JSON.stringify({message:'Remove PDF: '+str(b.title).slice(0,70),sha:sha})})
+      .then(function(r){if(!r.ok&&r.status!==404)throw {status:r.status};},netFail);
+  }).then(function(){
+    pdfForget(p);
+    var cur=U.board[id];if(!cur)return;
+    cur.pdf={gone:true,at:now()};cur.updatedAt=now();changed();
+  });
+}
+function pdfBlob(p){
+  /* the copy kept on this device if there is one, otherwise from GitHub, and then kept */
+  return pdfCache().then(function(c){return c?c.match(pdfKey(p)):null;}).catch(function(){return null;}).then(function(hit){
+    if(hit)return hit.blob();
+    return ghRaw(p.path).then(function(r){if(!r.ok)throw {status:r.status};return r.blob();},netFail).then(function(blob){
+      blob=new Blob([blob],{type:'application/pdf'});pdfKeep(p,blob);return blob;});
+  });
+}
+function openPdf(id){
+  var b=U.board[id];if(!hasPdf(b))return;
+  /* the window has to be opened in the same breath as the press, or the browser blocks it; the PDF follows */
+  var w=null;try{w=window.open('','_blank');}catch(e){}
+  if(w){try{w.document.title=str(b.title);w.document.body.textContent='Opening the PDF.';}catch(e){}}
+  else toast('Opening the PDF');
+  return pdfBlob(b.pdf).then(function(blob){
+    var url=URL.createObjectURL(blob);
+    if(w&&!w.closed)w.location.replace(url);
+    else{var a=h('a',{href:url,download:str(b.pdf.name)||'paper.pdf'});document.body.append(a);a.click();a.remove();}
+    setTimeout(function(){URL.revokeObjectURL(url);},600000);
+  },function(e){if(w)try{w.close();}catch(x){}toast(pdfMsg(e));});
+}
+function pdfRow(id){
+  var row=h('div',{class:'pdfrow'});
+  function draw(msg){
+    var b=U.board[id];row.replaceChildren();if(!b)return;
+    if(S.pdfBusy[id]){row.append(h('span',{class:'pdfname',role:'status'},h('b',null,S.pdfBusy[id]),'Keep this page open until it finishes.'));return;}
+    var pick=h('input',{type:'file',accept:'application/pdf,.pdf',hidden:true,tabindex:'-1','aria-label':'Choose a PDF'});
+    pick.addEventListener('change',function(){
+      var f=pick.files&&pick.files[0];if(!f)return;
+      S.pdfBusy[id]='Uploading '+mb(f.size);draw();
+      attachPdf(id,f).then(function(){delete S.pdfBusy[id];draw('Saved to your private repository.');toast('PDF attached');},
+        function(e){delete S.pdfBusy[id];draw(pdfMsg(e));});
+    });
+    if(hasPdf(b)){
+      var rm=h('button',{class:'btn quiet',type:'button'},'Remove PDF'),armed=false;
+      rm.addEventListener('click',function(){
+        if(!armed){armed=true;rm.textContent='Press again to remove';setTimeout(function(){armed=false;rm.textContent='Remove PDF';},4000);return;}
+        S.pdfBusy[id]='Removing the PDF';draw();
+        removePdf(id).then(function(){delete S.pdfBusy[id];draw('PDF removed.');},function(e){delete S.pdfBusy[id];draw(pdfMsg(e));});
+      });
+      row.append(h('button',{class:'btn solid',type:'button',onclick:function(){openPdf(id);}},'Open PDF'),
+        h('span',{class:'pdfname'},h('b',null,str(b.pdf.name)||'PDF'),mb(b.pdf.size)+', added '+fmtDate(b.pdf.at,true)),
+        h('button',{class:'btn',type:'button',onclick:function(){pick.click();}},'Replace'),rm,pick);
+    }else{
+      row.append(h('button',{class:'btn',type:'button',onclick:function(){pick.click();}},'Attach a PDF'),
+        h('span',{class:'pdfname'},'Kept in your private repository and opened from any device you are signed in on. 25 MB at most.'),pick);
+    }
+    if(msg)row.append(h('p',{class:'pdfmsg',role:'status'},msg));
+  }
+  draw();return row;
+}
+/* searching the board, and inside its PDFs through the word index the repository builds */
+function fold(v){var t=str(v);try{t=t.normalize('NFKD');}catch(e){}return t.replace(/[\u0300-\u036f]/g,'').toLowerCase();}
+function terms(q){return fold(q).split(/[^a-z0-9]+/).filter(function(t){return t;});}
+function boardMatch(b,toks){
+  /* 0: no match. 1: every word is on the card or in its notes. 2: some words were found only in the PDF. */
+  if(!toks.length)return 1;
+  var own=fold([b.title,b.authors,b.venue,b.year,b.cite,b.note,hasPdf(b)?b.pdf.name:''].join(' '));
+  var entry=hasPdf(b)&&S.pdfIndex?S.pdfIndex[b.pdf.path]:null,words=entry&&entry.words?' '+str(entry.words):'',inPdf=false;
+  for(var i=0;i<toks.length;i++){
+    if(own.indexOf(toks[i])>=0)continue;
+    if(words&&toks[i].length<3)continue;      /* the index holds words of three letters or more */
+    if(words&&words.indexOf(' '+toks[i])>=0){inPdf=true;continue;}
+    return 0;
+  }
+  return inPdf?2:1;
+}
+function loadPdfIndex(){
+  if(!Sync.token||S.pdfIndexBusy||(S.pdfIndex&&Date.now()-S.pdfIndexAt<300000)||!boardList().some(hasPdf))return Promise.resolve(false);
+  S.pdfIndexBusy=true;
+  return ghData('pdf-index').then(function(d){S.pdfIndex=obj(obj(d).files);S.pdfIndexAt=Date.now();return true;},function(){return false;})
+    .then(function(x){S.pdfIndexBusy=false;return x;});
+}
 
 /* shared pieces */
 function lede(title,sub){return h('header',{class:'lede'},h('h1',null,title),sub?h('p',null,sub):null);}
@@ -953,7 +1116,7 @@ function addPaper(){
   S.form=blankForm();S.adding=false;changed();toast('Added to board');render(true);
 }
 function colKey(b){return COLS.some(function(c){return c[0]===b.column;})?b.column:'queue';}
-function slip(b,ci){
+function slip(b,ci,hit){
   var journal=journalOf(b.venue,b.issns),jc=journal.color;
   var plus=h('button',{class:'plus',type:'button','aria-pressed':String(isStar(b)),'aria-label':isStar(b)?'Remove the star from this paper':'Star this paper',
     title:isStar(b)?'Starred. Press to remove.':'Star a favourite: it counts three levels for each author',onclick:function(ev){ev.stopPropagation();togglePlus(b.id);}},isStar(b)?'\u2605':'\u2606');
@@ -962,8 +1125,10 @@ function slip(b,ci){
     journal.url?jmark(b.venue,true,b.issns):null,
     h('h3',{class:'slip-title'},str(b.title)),
     (b.authors||b.year)?byline(b.authors,'slip-meta',true,str(b.year)):null,
-    str(b.note).trim()?h('p',{class:'slip-note'},str(b.note).trim()):h('p',{class:'slip-nonote'},'No notes yet'));
+    str(b.note).trim()?h('p',{class:'slip-note'},str(b.note).trim()):h('p',{class:'slip-nonote'},'No notes yet'),
+    hit===2?h('p',{class:'slip-hit'},'Found in the PDF'):null);
   var foot=h('div',{class:'slip-foot'});
+  if(hasPdf(b))foot.append(h('button',{class:'mini pdf',type:'button',onclick:function(ev){ev.stopPropagation();openPdf(b.id);}},'Open PDF'));
   if(ci>0)foot.append(h('button',{class:'mini',type:'button',onclick:function(ev){ev.stopPropagation();move(b.id,COLS[ci-1][0]);}},'Move to '+COLS[ci-1][1]));
   if(ci<COLS.length-1)foot.append(h('button',{class:'mini',type:'button',onclick:function(ev){ev.stopPropagation();move(b.id,COLS[ci+1][0]);}},'Move to '+COLS[ci+1][1]));
   e.append(foot);
@@ -978,24 +1143,40 @@ function viewBoard(){
   var v=h('div');if(waiting(v))return v;
   var all=boardList(),n=all.length,withNotes=all.filter(function(b){return str(b.note).trim();}).length;
   var head=lede(n?count(n,'paper','papers')+' on your board.':'Your board is empty.',
-    n?(withNotes?count(withNotes,'has','have')+' notes. ':'No notes yet. ')+'Open a paper to write in its margin, and move it between columns as you read. Every paper here raises its authors a level, shown beside their name on every card. Star a favourite and it counts for three, and the morning run looks for more by its authors. Unfinished papers here are first in line for a desk review when an open copy exists.'
+    n?(withNotes?count(withNotes,'has','have')+' notes. ':'No notes yet. ')+'Open a paper to write in its margin or attach its PDF, and move it between columns as you read. Every paper here raises its authors a level, shown beside their name on every card. Star a favourite and it counts for three, and the morning run looks for more by its authors. Unfinished papers here are first in line for a desk review when an open copy exists.'
      :'Save a paper from New, Desk or Reserve, or add one yourself.');
   if(!S.adding)head.append(h('div',{class:'lede-row'},h('button',{class:'btn solid',type:'button',onclick:function(){S.adding=true;render(true);}},'Add a paper')));
   v.append(head);
   if(S.adding)v.append(addForm());
+  var find=h('input',{type:'search',id:'board-find',placeholder:'Search titles, authors, notes and PDFs','aria-label':'Search the board',autocomplete:'off',spellcheck:'false'});
+  find.value=S.q;
+  var findN=h('span',{class:'find-n','aria-live':'polite'});
+  if(n)v.append(h('div',{class:'find',role:'search'},find,findN));
   var grid=h('div',{class:'board'});
-  COLS.forEach(function(c,ci){
-    var rows=all.filter(function(b){return colKey(b)===c[0];}).sort(function(a,b){return (a.order||0)-(b.order||0);});
-    var col=h('section',{class:'col','aria-label':c[1]},h('h2',{class:'col-h'},c[1],h('span',{class:'n'},String(rows.length))));
-    if(rows.length)rows.forEach(function(b){col.append(slip(b,ci));});
-    else col.append(h('p',{class:'col-empty'},'Nothing here yet.'));
-    col.addEventListener('dragover',function(ev){ev.preventDefault();col.classList.add('over');});
-    col.addEventListener('dragleave',function(){col.classList.remove('over');});
-    col.addEventListener('drop',function(ev){ev.preventDefault();col.classList.remove('over');
-      var id=ev.dataTransfer.getData('text/plain');
-      if(id&&onBoard(id))move(id,c[0]);});
-    grid.append(col);
-  });
+  function draw(){
+    var toks=terms(S.q),shown=0;
+    grid.replaceChildren();
+    COLS.forEach(function(c,ci){
+      var rows=all.filter(function(b){return colKey(b)===c[0];}).sort(function(a,b){return (a.order||0)-(b.order||0);})
+        .map(function(b){return [b,boardMatch(b,toks)];}).filter(function(x){return x[1];});
+      shown+=rows.length;
+      var col=h('section',{class:'col','aria-label':c[1]},h('h2',{class:'col-h'},c[1],h('span',{class:'n'},String(rows.length))));
+      if(rows.length)rows.forEach(function(x){col.append(slip(x[0],ci,x[1]));});
+      else col.append(h('p',{class:'col-empty'},toks.length?'No match here.':'Nothing here yet.'));
+      col.addEventListener('dragover',function(ev){ev.preventDefault();col.classList.add('over');});
+      col.addEventListener('dragleave',function(){col.classList.remove('over');});
+      col.addEventListener('drop',function(ev){ev.preventDefault();col.classList.remove('over');
+        var id=ev.dataTransfer.getData('text/plain');
+        if(id&&onBoard(id))move(id,c[0]);});
+      grid.append(col);
+    });
+    var pdfs=all.filter(hasPdf),unread=S.pdfIndex?pdfs.filter(function(b){var e=S.pdfIndex[b.pdf.path];return !e||!e.words;}).length:0;
+    findN.textContent=toks.length?(shown?count(shown,'paper matches','papers match')+'.':'No paper on the board matches.')
+      :pdfs.length?count(pdfs.length,'PDF','PDFs')+' attached'+(unread?', '+word(unread)+' not searchable yet.':'.'):'';
+  }
+  find.addEventListener('input',function(){S.q=find.value;draw();});
+  draw();
+  loadPdfIndex().then(function(fresh){if(fresh&&grid.isConnected)draw();});
   v.append(grid);
   return v;
 }
@@ -1085,6 +1266,17 @@ function viewLedger(){
   }
   grid.append(b3);
 
+  var sp=obj(S.spend);
+  if(sp.budget!=null){
+    var day=Number(sp.day)||1,dn=new Date(),cy=dn.getUTCFullYear(),cm=dn.getUTCMonth()-(dn.getUTCDate()<day?1:0);
+    var from=new Date(Date.UTC(cy,cm,day)).toISOString().slice(0,10),until=new Date(Date.UTC(cy,cm+1,day)).toISOString().slice(0,10);
+    var by={check:0,stock:0,desk:0},tot=0;
+    arr(sp.log).forEach(function(e){var a=str(e&&e.at);if(a>=from&&a<until){var u=Number(e.usd)||0;tot+=u;if(by[e.part]!=null)by[e.part]+=u;}});
+    var usd=function(x){return '$'+x.toFixed(2);},ceiling=Number(sp.budget)||0;
+    grid.append(h('section',{class:'block wide'},h('h2',null,'Spending'),
+      h('p',{class:'area-sub'},usd(tot)+(ceiling?' of '+usd(ceiling):'')+' spent on the model since '+fmtDate(from)+': weekly check '+usd(by.check)+', stock '+usd(by.stock)+', desk '+usd(by.desk)+'. '
+        +(ceiling?'The runs stop for the month when the budget is reached and start again on '+fmtDate(until)+'. The stock has 30% of it and the desk 60%, released a week at a time.':'No budget is set.'))));
+  }
   var slog=S.stocklog.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at));}),sl=slog[0];
   var b5=h('section',{class:'block wide'},h('h2',null,'Stock'),
     h('p',{class:'area-sub'},sl?count(Number(sl.stock)||0,'paper is','papers are')+' judged and waiting. New holds '+(Number(sl.open)||0)+' open cards of at most 100; it is topped up on Mondays and on any morning it falls below 75. Papers come from back issues, the wider journal list, authors on your board and what your board cites.'
@@ -1101,7 +1293,7 @@ function viewLedger(){
 
   var dlog=S.desklog.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at))||str(b.id).localeCompare(str(a.id));});
   var b4=h('section',{class:'block wide'},h('h2',null,'Desk runs'),
-    h('p',{class:'area-sub'},'After each check the desk picks at most two papers per area that have an open copy, reads them in full and reviews them twice.'));
+    h('p',{class:'area-sub'},'After each check the desk picks at most two papers per area that have an open copy, reads them in full and reviews them twice, for as long as its share of the budget lasts.'));
   if(!dlog.length)b4.append(h('p',{class:'none'},'The desk has not run yet.'));
   else{
     var tb2=h('tbody');
@@ -1139,15 +1331,25 @@ function openSheet(id){
   var plusBtn=h('button',{class:'btn plusbtn',type:'button','aria-pressed':String(isStar(b))},isStar(b)?'\u2605 Starred':'\u2606 Star');
   plusBtn.addEventListener('click',function(){togglePlus(id);var on=isStar(U.board[id]);
     plusBtn.setAttribute('aria-pressed',String(on));plusBtn.textContent=on?'\u2605 Starred':'\u2606 Star';});
+  var gone=h('button',{class:'btn quiet',type:'button'},'Remove from board'),goneArmed=false;
+  gone.addEventListener('click',function(){
+    var cur=U.board[id],hasOne=hasPdf(cur);
+    if(hasOne&&!goneArmed){goneArmed=true;gone.textContent='Press again to remove the paper and its PDF';return;}
+    function finish(){var x=S.sheet;if(x)clearTimeout(x.timer);S.sheet=null;hideLayer();removeFromBoard(id);}
+    if(!hasOne){finish();return;}
+    gone.disabled=true;gone.textContent='Removing';
+    removePdf(id).then(finish,function(e){gone.disabled=false;goneArmed=false;gone.textContent='Remove from board';toast(pdfMsg(e)+' The paper was left on the board.');});
+  });
   var panel=h('aside',{class:'sheet',role:'dialog','aria-modal':'true','aria-label':str(b.title)},
     h('div',{class:'sheet-top'},close,url?h('a',{class:'btn',href:url,target:'_blank',rel:'noopener'},'Open the paper'):null),
     h('h2',null,str(b.title)),
     byline(b.authors),
     h('p',{class:'cite'},b.venue?jmark(b.venue,true,b.issns):null,citeLine({venue:b.venue,cite:b.cite||str(b.year)})),
     h('div',{class:'sheet-row'},seg,plusBtn),
+    pdfRow(id),
     h('div',{class:'notes-h'},h('label',{for:'sheet-notes'},'Your notes'),saved),
     ta,
-    h('div',{class:'acts'},h('button',{class:'btn quiet',type:'button',onclick:function(){var x=S.sheet;if(x)clearTimeout(x.timer);S.sheet=null;hideLayer();removeFromBoard(id);}},'Remove from board')));
+    h('div',{class:'acts'},gone));
   var scrim=h('div',{class:'scrim',onclick:closeSheet});
   S.sheet={id:id,ta:ta,saved:saved,timer:0,last:str(b.note),touched:false};
   ta.addEventListener('input',function(){S.sheet.touched=true;saved.textContent='Editing';clearTimeout(S.sheet.timer);S.sheet.timer=setTimeout(flushNote,600);});
@@ -1242,7 +1444,7 @@ function applyData(d){
   S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.jmap=null;S.profile=d[5];S.seed=d[6];
   S.full=obj(d[7]);S.desklog=arr(d[8]);
   artworkIndex=buildArtworkIndex(d[9]);
-  S.stocklog=arr(d[10]);
+  S.stocklog=arr(d[10]);S.spend=obj(d[11]);
 }
 function parseStored(k){try{return JSON.parse(lsGet(k)||'null');}catch(e){return null;}}
 function loadData(){
