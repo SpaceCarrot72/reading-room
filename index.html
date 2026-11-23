@@ -262,6 +262,9 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 .entry .ticks i{background:var(--j,var(--desk))}
 .entry .open a{color:var(--j,var(--desk))}
 @media (max-width:480px){.paper{padding:16px 17px 15px;min-height:540px;border-width:6px;border-radius:18px}.paper-title{font-size:22px}.paper-box{padding:12px 13px}.deck{gap:20px}}
+.wider{margin-top:20px}
+.wider summary{cursor:pointer;color:var(--ink-soft);font-size:13.5px;margin-bottom:10px}
+.plus{font-size:15px}
 </style>
 </head>
 <body>
@@ -282,14 +285,14 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 'use strict';
 
 var AREAS=[];
-var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog'];
+var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog','stock-log'];
 var COLS=[['queue','To read'],['reading','Reading'],['done','Finished']];
 var VIEWS=[['new','New'],['desk','Desk'],['reserve','Reserve'],['board','Board'],['ledger','Ledger']];
 var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 var ONES=['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
 var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
 
-var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoNote:'',lv:{},pop:{},outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],
+var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoNote:'',lv:{},pop:{},outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],stocklog:[],
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
   form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},layout:'sheets'};
 var U=blankUser();
@@ -489,7 +492,11 @@ function boardDoc(p,from){
     year:p.year||str(p.date).slice(0,4)||'',url:safeUrl(p.url),column:'queue',note:'',
     order:Date.now(),addedAt:now(),updatedAt:now(),from:from};
 }
-function save(p,from){U.board[p.id]=boardDoc(p,from);delete U.gone[p.id];changed();toast('Saved to board');}
+function save(p,from){
+  U.board[p.id]=boardDoc(p,from);delete U.gone[p.id];S.lv=levels();
+  var said=people(p.authors).slice(0,3).map(function(x){return x.name+' is now level '+S.lv[authorKey(x.name)];});
+  changed();toast('Saved to board.'+(said.length?' '+said.join('. ')+'.':''));
+}
 function dismiss(p,flag){U.dismissed[p.id]={v:!!flag,at:now()};changed();toast(flag?'Dismissed':'Restored');}
 function move(id,col){if(!U.board[id])return;U.board[id].column=col;U.board[id].updatedAt=now();changed();}
 function removeFromBoard(id){delete U.board[id];U.gone[id]=now();changed();toast('Removed from board');}
@@ -576,18 +583,21 @@ function authorKey(n){
   return str(n).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z\s-]/g,' ').split(/\s+/)
     .filter(function(t){return t.length>1;}).join(' ');
 }
+/* Every paper on the board raises its authors one level; a starred paper raises them three. */
+function isStar(b){return !!(b&&(b.star||b.plus));}
 function levels(){
   var m={};
   Object.keys(U.board).forEach(function(id){
-    var b=U.board[id];if(!b||!b.plus)return;
-    people(b.authors).forEach(function(x){var k=authorKey(x.name);if(k)m[k]=(m[k]||0)+1;});
+    var b=U.board[id];if(!b)return;
+    var gain=isStar(b)?3:1;
+    people(b.authors).forEach(function(x){var k=authorKey(x.name);if(k)m[k]=(m[k]||0)+gain;});
   });
   return m;
 }
 function lvChip(name){
   var k=authorKey(name),lv=S.lv[k];
   if(!lv)return null;
-  return h('span',{class:S.pop[k]?'lv pop':'lv',title:'Level '+lv+': '+count(lv,'paper','papers')+' on your board marked +'},'Lv '+lv);
+  return h('span',{class:S.pop[k]?'lv pop':'lv',title:'Level '+lv+': one for each of their papers on your board, three for a starred one'},'Lv '+lv);
 }
 function byline(a,cls,compact,tail){
   var p=h('p',{class:cls||'byline'});
@@ -603,13 +613,12 @@ function byline(a,cls,compact,tail){
 }
 function togglePlus(id){
   var b=U.board[id];if(!b)return;
-  b.plus=!b.plus;b.updatedAt=now();
+  var on=!isStar(b);
+  b.star=on;delete b.plus;b.updatedAt=now();
   S.lv=levels();S.pop={};
-  if(b.plus){
-    var said=people(b.authors).map(function(x){var k=authorKey(x.name);S.pop[k]=true;return x.name+' is now level '+S.lv[k];});
-    toast(said.length?said.join('. ')+'.':'Marked +.');
-    setTimeout(function(){S.pop={};},1500);
-  }else toast('Removed the +.');
+  var said=people(b.authors).slice(0,3).map(function(x){var k=authorKey(x.name);if(on)S.pop[k]=true;return x.name+' is now level '+S.lv[k];});
+  toast((on?'Starred. ':'Star removed. ')+(said.length?said.join('. ')+'.':''));
+  if(on)setTimeout(function(){S.pop={};},1500);
   changed();
 }
 function venueKey(v){return str(v).toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,' ').trim().replace(/^the /,'');}
@@ -738,7 +747,8 @@ function sheet(p,num,kind){
   var right=p.cite?str(p.cite):(p.date?fmtDate(p.date,true):'');
   var note=null;
   if(p.summary&&p.basis==='known')note='Summary written from general knowledge of the paper, not from its text.';
-  else if(!p.summary&&p.basis==='title')note='No abstract was deposited, so this was judged on the title.';
+  else if(p.summary&&p.basis==='opening')note='Summary written from the opening pages of the paper, since no abstract was found.';
+  else if(!p.summary&&p.basis==='title')note=Number(p.fit)>=5?'No abstract could be found. Kept on its title alone, as a likely must-read.':'No abstract was deposited, so this was judged on the title.';
   else if(!p.summary&&p.basis==='abstract')note='A fuller summary is added at the next check.';
   var journal=journalOf(p.venue,paperSerials(p)),jc=journal.color,acts=actions(p,kind);
   if(oaUrl)acts.append(h('a',{class:'open-copy',href:oaUrl,target:'_blank',rel:'noopener'},'Open copy'+(oa.version?' ('+str(oa.version)+')':'')));
@@ -945,9 +955,9 @@ function addPaper(){
 function colKey(b){return COLS.some(function(c){return c[0]===b.column;})?b.column:'queue';}
 function slip(b,ci){
   var journal=journalOf(b.venue,b.issns),jc=journal.color;
-  var plus=h('button',{class:'plus',type:'button','aria-pressed':String(!!b.plus),'aria-label':b.plus?'Remove the + from this paper':'Mark this paper +',
-    title:b.plus?'Marked +. Press to remove.':'Mark +: each author gains a level',onclick:function(ev){ev.stopPropagation();togglePlus(b.id);}},'+');
-  var e=h('div',{class:b.plus?'slip plussed':'slip',role:'button',tabindex:'0',draggable:'true','aria-label':'Open '+str(b.title),style:jc?'--j:'+jc:null},
+  var plus=h('button',{class:'plus',type:'button','aria-pressed':String(isStar(b)),'aria-label':isStar(b)?'Remove the star from this paper':'Star this paper',
+    title:isStar(b)?'Starred. Press to remove.':'Star a favourite: it counts three levels for each author',onclick:function(ev){ev.stopPropagation();togglePlus(b.id);}},isStar(b)?'\u2605':'\u2606');
+  var e=h('div',{class:isStar(b)?'slip plussed':'slip',role:'button',tabindex:'0',draggable:'true','aria-label':'Open '+str(b.title),style:jc?'--j:'+jc:null},
     plus,
     journal.url?jmark(b.venue,true,b.issns):null,
     h('h3',{class:'slip-title'},str(b.title)),
@@ -968,7 +978,7 @@ function viewBoard(){
   var v=h('div');if(waiting(v))return v;
   var all=boardList(),n=all.length,withNotes=all.filter(function(b){return str(b.note).trim();}).length;
   var head=lede(n?count(n,'paper','papers')+' on your board.':'Your board is empty.',
-    n?(withNotes?count(withNotes,'has','have')+' notes. ':'No notes yet. ')+'Open a paper to write in its margin, and move it between columns as you read. Press + on a paper you rate and each of its authors gains a level, shown beside their name on every card. Unfinished papers here are first in line for a desk review when an open copy exists.'
+    n?(withNotes?count(withNotes,'has','have')+' notes. ':'No notes yet. ')+'Open a paper to write in its margin, and move it between columns as you read. Every paper here raises its authors a level, shown beside their name on every card. Star a favourite and it counts for three, and the morning run looks for more by its authors. Unfinished papers here are first in line for a desk review when an open copy exists.'
      :'Save a paper from New, Desk or Reserve, or add one yourself.');
   if(!S.adding)head.append(h('div',{class:'lede-row'},h('button',{class:'btn solid',type:'button',onclick:function(){S.adding=true;render(true);}},'Add a paper')));
   v.append(head);
@@ -1051,11 +1061,17 @@ function viewLedger(){
     g.items.forEach(function(j){ul.append(h('li',null,h('span',{class:'jname'},jmark(j.name,false,[j.issn]),h('span',null,str(j.name))),h('span',{class:'issn'},str(j.issn))));});
     b2.append(ul);
   });
+  var wider=arr(S.journals&&S.journals.wide);
+  if(wider.length){
+    var wl=h('ul',{class:'jlist'});
+    wider.forEach(function(j){wl.append(h('li',null,h('span',{class:'jname'},jmark(j.name,false,arr(j.issns).length?j.issns:[j.issn]),h('span',null,str(j.name))),h('span',{class:'issn'},str(j.issn))));});
+    b2.append(h('details',{class:'wider'},h('summary',null,count(wider.length,'more journal feeds','more journals feed')+' the stock. They are not checked every week.'),wl));
+  }
   grid.append(b2);
 
   var runs=S.runs.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at))||str(b.id).localeCompare(str(a.id));});
   var b3=h('section',{class:'block wide'},h('h2',null,'Runs'));
-  b3.append(h('p',{class:'area-sub'},'The check runs every Monday. ',
+  b3.append(h('p',{class:'area-sub'},'A run goes every morning. The weekly check happens on Mondays, or the next morning if a Monday is missed. ',
     h('a',{href:'https://github.com/'+Sync.repo+'/actions/workflows/weekly-check.yml',target:'_blank',rel:'noopener'},'Open it on GitHub'),' to run it now or read its log.'));
   if(!runs.length)b3.append(h('p',{class:'none'},'No runs recorded.'));
   else{
@@ -1068,6 +1084,20 @@ function viewLedger(){
       h('thead',null,h('tr',null,h('th',null,'Date'),h('th',null,'How'),h('th',{class:'r'},'Checked'),h('th',{class:'r'},'Kept'),h('th',{class:'r'},'Reserve'),h('th',null,'Notes'))),tb)));
   }
   grid.append(b3);
+
+  var slog=S.stocklog.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at));}),sl=slog[0];
+  var b5=h('section',{class:'block wide'},h('h2',null,'Stock'),
+    h('p',{class:'area-sub'},sl?count(Number(sl.stock)||0,'paper is','papers are')+' judged and waiting. New holds '+(Number(sl.open)||0)+' open cards of at most 100; it is topped up on Mondays and on any morning it falls below 75. Papers come from back issues, the wider journal list, authors on your board and what your board cites.'
+      :'Nothing is in stock yet. The first morning run starts filling it from back issues, the wider journal list, authors on your board and what your board cites.'));
+  if(slog.length){
+    var tb5=h('tbody');
+    slog.slice(0,10).forEach(function(r){tb5.append(h('tr',null,
+      h('td',null,fmtDate(r.at,true)),h('td',{class:'r'},str(r.judged)),h('td',{class:'r'},str(r.kept)),h('td',{class:'r'},str(r.released)),
+      h('td',{class:'r'},str(r.stock)),h('td',{class:'r'},(Number(r.tokens)||0).toLocaleString('en-US')),h('td',{class:'note'},str(r.note))));});
+    b5.append(h('div',{class:'tablewrap'},h('table',{class:'runs'},
+      h('thead',null,h('tr',null,h('th',null,'Date'),h('th',{class:'r'},'Judged'),h('th',{class:'r'},'Kept'),h('th',{class:'r'},'To New'),h('th',{class:'r'},'In stock'),h('th',{class:'r'},'Tokens'),h('th',null,'Notes'))),tb5)));
+  }
+  grid.append(b5);
 
   var dlog=S.desklog.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at))||str(b.id).localeCompare(str(a.id));});
   var b4=h('section',{class:'block wide'},h('h2',null,'Desk runs'),
@@ -1106,9 +1136,9 @@ function openSheet(id){
   });
   var close=h('button',{class:'btn',type:'button',onclick:closeSheet},'Close');
   var url=safeUrl(b.url);
-  var plusBtn=h('button',{class:'btn plusbtn',type:'button','aria-pressed':String(!!b.plus)},b.plus?'Marked +':'Mark +');
-  plusBtn.addEventListener('click',function(){togglePlus(id);var on=!!(U.board[id]&&U.board[id].plus);
-    plusBtn.setAttribute('aria-pressed',String(on));plusBtn.textContent=on?'Marked +':'Mark +';});
+  var plusBtn=h('button',{class:'btn plusbtn',type:'button','aria-pressed':String(isStar(b))},isStar(b)?'\u2605 Starred':'\u2606 Star');
+  plusBtn.addEventListener('click',function(){togglePlus(id);var on=isStar(U.board[id]);
+    plusBtn.setAttribute('aria-pressed',String(on));plusBtn.textContent=on?'\u2605 Starred':'\u2606 Star';});
   var panel=h('aside',{class:'sheet',role:'dialog','aria-modal':'true','aria-label':str(b.title)},
     h('div',{class:'sheet-top'},close,url?h('a',{class:'btn',href:url,target:'_blank',rel:'noopener'},'Open the paper'):null),
     h('h2',null,str(b.title)),
@@ -1212,6 +1242,7 @@ function applyData(d){
   S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.jmap=null;S.profile=d[5];S.seed=d[6];
   S.full=obj(d[7]);S.desklog=arr(d[8]);
   artworkIndex=buildArtworkIndex(d[9]);
+  S.stocklog=arr(d[10]);
 }
 function parseStored(k){try{return JSON.parse(lsGet(k)||'null');}catch(e){return null;}}
 function loadData(){
