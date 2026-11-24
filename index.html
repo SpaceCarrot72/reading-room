@@ -395,6 +395,8 @@ body[data-view="board"] .footnav{display:flex}
 /* a book's cover: a small one on its slip, with the title beside it, and a larger one on its page */
 .slip .cover{float:left;width:32px;height:auto;max-height:50px;object-fit:cover;margin:3px 11px 4px 0;border-radius:2px;box-shadow:0 0 0 1px var(--rule)}
 .slip.covered{display:flow-root}
+.slip .cover.wait{display:block;height:48px;box-shadow:none}
+.slip .jwait{display:block;height:24px;margin:0 0 6px}
 .slip-text{overflow:hidden}
 .slip.covered .slip-note{clear:left}
 .phead-wrap.has-cover{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:22px;row-gap:14px;align-content:start;align-items:start}
@@ -465,7 +467,7 @@ var MONTHS=['January','February','March','April','May','June','July','August','S
 var ONES=['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
 var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
 
-var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoNote:'',lv:{},pop:{},outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],stocklog:[],spend:{},jscores:{},q:'',pdfIndex:null,pdfIndexAt:0,pdfIndexBusy:false,pdfBusy:{},
+var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoSha:{},logoKeep:{},logoWait:null,logoNote:'',lv:{},pop:{},outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],stocklog:[],spend:{},jscores:{},q:'',pdfIndex:null,pdfIndexAt:0,pdfIndexBusy:false,pdfBusy:{},
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
   form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},deckIds:[],boardIds:[],paper:null,back:null,tab:null,auto:null,drag:null,schools:{},venues:{},dead:{},colours:{},list:[],shown:'',context:null,contextAt:0,contextBusy:false,ctxSlot:null,ctxlog:[],bf:'all',ba:'',pdfUrls:[]};
 var U=blankUser();
@@ -1123,14 +1125,17 @@ function collectionArtwork(row,dir){
   if(!row||!row.file||!/^[-a-z0-9]+\.webp$/.test(row.file)||!/^[a-f0-9]{40}$/.test(row.sha))return {};
   var prior=artworkBySha.get(row.sha);
   if(prior&&(!prior.retryAt||Date.now()<prior.retryAt))return prior;
-  var art={};artworkBySha.set(row.sha,art);
+  var art={pending:true,sha:row.sha};artworkBySha.set(row.sha,art);
+  if(row.w>0&&row.h>0)art.ratio=row.h/row.w;      /* a cover's shape, where the catalogue gives it: its place is kept at the right height */
   function decode(blob){
     if(!blob.size||blob.size>LOGO_MAX)throw Error('Invalid image size');
     var src=URL.createObjectURL(blob);
     return inspectLogo(src).then(function(info){
       if(info.invalid){URL.revokeObjectURL(src);throw Error('Invalid journal image');}
-      art.url=src;art.color=info.color;art.wide=info.wide;
-      schedule();
+      art.url=src;art.color=info.color;art.wide=info.wide;art.pending=false;
+      art.keep=info.image;      /* held so that the picture stays decoded: a slip drawn later shows it at once, not a frame late */
+      if(info.ratio>0)art.ratio=info.ratio;
+      if(!placeArtwork(art))schedule();
     });
   }
   logoCache().then(function(cache){
@@ -1148,8 +1153,23 @@ function collectionArtwork(row,dir){
     return (cache?cache.match(url).catch(function(){return null;}):Promise.resolve(null)).then(function(hit){
       return hit?hit.blob().then(decode).catch(fromRepository):fromRepository();
     });
-  }).catch(function(){art.retryAt=Date.now()+30000;});
+  }).catch(function(){art.retryAt=Date.now()+30000;art.pending=false;if(S.view==='board')schedule();});      /* the place kept for it on a slip is given up */
   return art;
+}
+/* A cover on a slip is 32px wide and as tall as its shape makes it, to 50px. The height is written on it, so the slip
+   is the same size whether or not the picture has been painted yet. */
+function coverHeight(art){return art.ratio>0?'height:'+Math.min(50,32*art.ratio).toFixed(2)+'px':null;}
+function coverImg(art){return h('img',{class:'cover',src:art.url,alt:'',style:coverHeight(art)});}
+/* On the Board a mark or cover that arrives is put into the place its slips kept for it. Nothing else is drawn again, so
+   no slip changes size and nothing under the reader's pointer is replaced. True when the Board is showing. */
+function placeArtwork(art){
+  if(S.view!=='board')return false;
+  Array.prototype.forEach.call(document.querySelectorAll('.slip [data-art="'+art.sha+'"]'),function(ph){
+    var e=ph.closest('.slip'),cover=ph.classList.contains('cover');
+    ph.replaceWith(cover?coverImg(art):h('img',{class:'jlogo compact',src:art.url,alt:'',title:str(ph.getAttribute('data-venue'))}));
+    if(art.color)e.style.setProperty('--j',art.color);
+  });
+  return true;
 }
 
 function journalOf(venue,issns){
@@ -1157,7 +1177,9 @@ function journalOf(venue,issns){
   var row=matchArtwork(venue,issns),key=venueKey(row?row.title:venue),j=obj(S.jmap[key]);
   var root=row!==false&&S.logos[key],art=root?{url:root,color:S.logoColor[key],wide:S.logoWide[key]}:collectionArtwork(row);
   var own=/^#[0-9a-f]{6}$/i.test(str(j.color))?str(j.color):'';
-  return {abbr:str(j.abbr).slice(0,4)||initials(venue),color:art.color||own,url:art.url,wide:art.wide};
+  /* on its way: a mark of the collection being fetched, or one from the logos folder that was there on the last visit */
+  var coming=!art.url&&(!!art.pending||(row!==false&&!!S.logoWait&&S.logoWait[key]===true));
+  return {abbr:str(j.abbr).slice(0,4)||initials(venue),color:art.color||own,url:art.url,wide:art.wide,pending:coming,sha:art.sha||''};
 }
 function jmark(venue,swatch,issns){
   var j=journalOf(venue,issns);
@@ -1387,10 +1409,17 @@ function slip(b,ci,hit){
   var full=str(b.title),cut=str(b.form)==='Book'?full.indexOf(': '):-1,title=h('h3',{class:'slip-title'},full);
   if(cut>2){title.setAttribute('data-full',full);title.setAttribute('data-short',full.slice(0,cut));}
   var meta=(b.authors||b.year)?byline(b.authors,'slip-meta',false,str(b.year)):null;      /* with each author's school in brackets, as on New, while the line has room: fitMeta() */
-  var e=h('div',{class:(isStar(b)?'slip plussed':'slip')+(cover.url?' covered':''),role:'button',tabindex:'0',draggable:'true','data-id':b.id,'aria-label':'Open '+str(b.title),style:jc?'--j:'+jc:null},
+  /* A cover or mark still on its way has its place kept, at its size, so the slip is the same before and after:
+     placeArtwork() puts the picture there when it comes. */
+  var hasCover=!!cover.url||!!cover.pending,art=null;
+  if(cover.url)art=coverImg(cover);
+  else if(cover.pending)art=h('span',{class:'cover wait','data-art':cover.sha,style:coverHeight(cover)});
+  else if(journal.url)art=jmark(b.venue,true,b.issns);
+  else if(journal.pending)art=h('span',{class:'jwait','data-art':journal.sha,'data-venue':str(b.venue)});
+  var e=h('div',{class:(isStar(b)?'slip plussed':'slip')+(hasCover?' covered':''),role:'button',tabindex:'0',draggable:'true','data-id':b.id,'aria-label':'Open '+str(b.title),style:jc?'--j:'+jc:null},
     plus,
-    cover.url?h('img',{class:'cover',src:cover.url,alt:''}):journal.url?jmark(b.venue,true,b.issns):null,
-    cover.url?h('div',{class:'slip-text'},title,meta):[title,meta],      /* beside a cover the words keep to their own column */
+    art,
+    hasCover?h('div',{class:'slip-text'},title,meta):[title,meta],      /* beside a cover the words keep to their own column */
     str(b.note).trim()?h('p',{class:'slip-note'},str(b.note).trim()):null,
     hit===2?h('p',{class:'slip-hit'},'Found in the PDF'):null);
   /* a slip is moved to another column by dragging it, or from the paper's own page; an attached PDF opens from the round button beside the star */
@@ -1496,6 +1525,7 @@ function viewBoard(){
     var top=leaders();
     if(S.ba&&!top.some(function(r){return r.key===S.ba;}))S.ba='';
     var ol=h('ol');
+    ol.addEventListener('scroll',function(){S.leadAt=[ol.scrollLeft,ol.scrollTop];},{passive:true});
     top.forEach(function(r){
       var on=S.ba===r.key,cut=r.name.lastIndexOf(' ')+1;      /* the last word of the name and the cross stay together */
       var bt=h('button',{type:'button','aria-pressed':String(on),'aria-label':r.name+(r.dead?', deceased':'')+', '+r.lv+(r.lv===1?' point':' points')+'. '+(on?'Show every paper again':'Show only their papers')},
@@ -1520,7 +1550,7 @@ function viewBoard(){
     function first(a,b){
       return (isStar(b)?1:0)-(isStar(a)?1:0)||best(a)-best(b)||str(b.addedAt).localeCompare(str(a.addedAt))||(a.order||0)-(b.order||0);
     }
-    var was=grid.querySelector('.lead ol'),at=was?[was.scrollLeft,was.scrollTop]:null;      /* the leaderboard is drawn again: keep it where it was scrolled to */
+    var at=S.leadAt||null;      /* the leaderboard is drawn again: keep it where it was scrolled to */
     grid.replaceChildren();
     COLS.forEach(function(c,ci){
       var rows=all.filter(function(b){return colKey(b)===c[0]&&keep(b)&&by(b);}).sort(first)
@@ -1551,6 +1581,7 @@ function viewBoard(){
           });
           var grp=h('div',{class:'grp','data-genre':g},head);
           if(open)mine.forEach(function(x){order.push(x[0].id);grp.append(slip(x[0],ci,x[1]));});
+          else mine.forEach(function(x){if(!coverOf(x[0]).sha)journalOf(x[0].venue,x[0].issns);});      /* a shut section's marks and covers are asked for now, so that it opens complete */
           col.append(grp);
         });
       }else rows.forEach(function(x){order.push(x[0].id);col.append(slip(x[0],ci,x[1]));});
@@ -1565,7 +1596,8 @@ function viewBoard(){
     });
     if(n){grid.append(board());if(at){var ol=grid.querySelector('.lead ol');ol.scrollLeft=at[0];ol.scrollTop=at[1];}}
     S.boardIds=order;
-    if(grid.isConnected){fitTitles(grid);fitLead(at);}else requestAnimationFrame(function(){fitTitles(grid);fitLead();});      /* measured once the slips are on the page */
+    /* measured once the slips are on the page: at once if they are, and otherwise by render() as soon as it has put them there, before anything is painted */
+    if(grid.isConnected){fitTitles(grid);fitLead(at);}else S.fit=function(){fitTitles(grid);fitLead(at);};
   }
   find.addEventListener('input',function(){S.q=find.value;draw();});
   draw();
@@ -1983,12 +2015,13 @@ function render(force){
   /* while the paper itself is showing nothing is redrawn under the reader: a PDF being read or sent keeps its place, and the page makes its own small changes */
   if(!force&&S.view==='paper'&&S.shown==='paper/'+S.paper&&S.tab==='pdf'){S.stale=true;return;}
   S.pdfUrls.forEach(function(u){URL.revokeObjectURL(u);});S.pdfUrls=[];
-  S.stale=false;S.deck=null;S.lv=levels();S.ownBar=false;
+  S.stale=false;S.deck=null;S.fit=null;S.lv=levels();S.ownBar=false;
   if(!Sync.token){main.replaceChildren(viewSignIn());return;}
   main.replaceChildren(VIEWFN[S.view]());
   S.shown=S.view==='paper'?'paper/'+S.paper:S.view;
   document.body.toggleAttribute('data-ownbar',!!S.ownBar);   /* New carries the buttons in its own top row */
   if(S.deck)S.deck.fix();
+  if(S.fit){var fit=S.fit;S.fit=null;fit();}      /* the Board measures its slips now that they are on the page */
 }
 function schedule(){if(S.raf)return;S.raf=requestAnimationFrame(function(){S.raf=0;render(false);});}
 document.addEventListener('focusout',function(){if(S.stale)setTimeout(schedule,0);});
@@ -2079,10 +2112,13 @@ function logoTargets(){
 }
 function logoCache(){try{return window.caches?caches.open('rr-logos').catch(function(){return null;}):Promise.resolve(null);}catch(e){return Promise.resolve(null);}}
 function logoKey(sha){return 'https://logos.invalid/'+encodeURIComponent(sha);}
-function setLogo(key,blob,known){
+function setLogo(key,blob,known,sha){
   if(S.logos[key])URL.revokeObjectURL(S.logos[key]);
-  S.logos[key]=URL.createObjectURL(blob);
-  return (known?Promise.resolve(known):inspectLogo(S.logos[key])).then(function(info){
+  var url=S.logos[key]=URL.createObjectURL(blob);S.logoSha[key]=str(sha);
+  /* the picture is loaded here and held, so that it is decoded before any card or slip is drawn with it */
+  var held=known?new Promise(function(done){var im=new Image();im.onload=im.onerror=function(){done(known);};im.src=url;S.logoKeep[key]=im;})
+    :inspectLogo(url).then(function(info){S.logoKeep[key]=info.image;return info;});
+  return held.then(function(info){
     if(info.color)S.logoColor[key]=info.color;else delete S.logoColor[key];
     if(info.wide)S.logoWide[key]=true;else delete S.logoWide[key];
     return info;
@@ -2124,7 +2160,7 @@ function inspectLogo(url){
           color='#'+[r,g,b].map(function(v){return ('0'+Math.round(v).toString(16)).slice(-2);}).join('');
         }
       }catch(e){}
-      done({color:color,wide:wide});
+      done({color:color,wide:wide,image:im,ratio:im.naturalWidth>0?im.naturalHeight/im.naturalWidth:0});
     };
     im.src=url;
   });
@@ -2132,11 +2168,17 @@ function inspectLogo(url){
 function logosFromCache(){
   var idx=arr(parseStored('rr.logos'));
   if(!idx.length)return Promise.resolve();
+  /* these journals had a mark in the logos folder last time: their cards and slips keep its place until it is back */
+  S.logoWait={};idx.forEach(function(x){S.logoWait[str(x.key)]=true;});
   return logoCache().then(function(c){
     if(!c)return;
     return Promise.all(idx.map(function(x){
-      return c.match(logoKey(x.sha)).then(function(r){return r?r.blob():null;}).then(function(b){if(b)return setLogo(str(x.key),b,{color:/^#[0-9a-f]{6}$/i.test(str(x.color))?x.color:'',wide:x.wide===true});});
-    })).then(schedule);
+      return c.match(logoKey(x.sha)).then(function(r){return r?r.blob():null;}).then(function(b){if(b)return setLogo(str(x.key),b,{color:/^#[0-9a-f]{6}$/i.test(str(x.color))?x.color:'',wide:x.wide===true},x.sha);});
+    })).then(function(){
+      var left={},n=0;idx.forEach(function(x){if(!S.logos[str(x.key)]){left[str(x.key)]=true;n++;}});
+      S.logoWait=n?left:null;      /* only a mark this browser no longer holds is still waited for, until the folder has been read */
+      schedule();
+    });
   }).catch(function(){});
 }
 function loadLogos(){
@@ -2155,6 +2197,8 @@ function loadLogos(){
     });
     return logoCache().then(function(c){
       return Promise.all(want.map(function(x){
+        /* a mark already showing, and unchanged in the repository, is left as it is */
+        if(S.logos[x.key]&&S.logoSha[x.key]===x.sha){x.color=S.logoColor[x.key]||'';x.wide=!!S.logoWide[x.key];return Promise.resolve(x);}
         return (c?c.match(logoKey(x.sha)):Promise.resolve(null)).then(function(hit){
           if(hit)return hit.blob();
           return ghRaw('logos/'+encodeURIComponent(x.name)).then(function(r){
@@ -2165,18 +2209,19 @@ function loadLogos(){
             if(c)c.put(logoKey(x.sha),new Response(blob,{headers:{'Content-Type':x.mime}})).catch(function(){});
             return blob;
           });
-        }).then(function(blob){return setLogo(x.key,blob).then(function(info){x.color=info.color;x.wide=info.wide;return x;});}).catch(function(){return null;});
+        }).then(function(blob){return setLogo(x.key,blob,null,x.sha).then(function(info){x.color=info.color;x.wide=info.wide;return x;});}).catch(function(){return null;});
       }));
     }).then(function(done){
       done=done.filter(Boolean);
       var keep={};done.forEach(function(x){keep[x.key]=1;});
-      Object.keys(S.logos).forEach(function(k){if(!keep[k]){URL.revokeObjectURL(S.logos[k]);delete S.logos[k];delete S.logoColor[k];delete S.logoWide[k];}});
+      Object.keys(S.logos).forEach(function(k){if(!keep[k]){URL.revokeObjectURL(S.logos[k]);delete S.logos[k];delete S.logoColor[k];delete S.logoWide[k];delete S.logoSha[k];delete S.logoKeep[k];}});
+      S.logoWait=null;      /* every mark the folder holds is in: no place is kept for one that is gone */
       lsSet('rr.logos',JSON.stringify(done.map(function(x){return {key:x.key,sha:x.sha,color:x.color||'',wide:!!x.wide};})));
       S.logoNote=done.length?count(done.length,'journal logo','journal logos')+' shown from the logos folder.'+(skipped?' '+count(skipped,'file was','files were')+' skipped: the name matches no journal, or the file is over 600 KB.':'')
         :'No journal logos yet. Add image files to a logos folder in the repository, each named by the journal’s ISSN, for example 0048-3915.png.';
       schedule();
     });
-  }).catch(function(){S.logoNote='The logos folder could not be read.';});
+  }).catch(function(){S.logoNote='The logos folder could not be read.';if(S.logoWait){S.logoWait=null;schedule();}});
 }
 
 function boot(){
