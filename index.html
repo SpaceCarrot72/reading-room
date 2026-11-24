@@ -113,6 +113,7 @@ a.btn{text-decoration:none;display:inline-block}
 .slip.dragging{opacity:.4}
 .slip-title{font:400 18px/1.24 var(--display);margin:0}
 .slip-meta{margin:7px 0 0;color:var(--ink-soft);font-size:12.5px;line-height:1.4}
+.slip-meta.tight .aff{display:none}
 .slip-note{margin:11px 0 0;padding:8px 10px;background:var(--mine-wash);border-left:2px solid var(--mine-edge);font-size:13px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:5;overflow:hidden}
 .slip-foot{display:flex;gap:6px;margin-top:10px}
 .mini{appearance:none;border:1px solid var(--rule);background:none;color:var(--ink-soft);border-radius:999px;padding:5px 10px;font:500 12px/1 var(--ui);cursor:pointer}
@@ -1028,12 +1029,13 @@ function byline(a,cls,compact,tail){
   people(a).forEach(function(x,i){
     if(i)p.append(', ');
     p.append(x.name);
+    /* Name (School) +n. The school the independent check matched to this researcher comes before whatever the
+       publisher deposited. Its space is inside the span, so that a slip can drop the school cleanly: fitMeta(). */
+    var sch=str(obj(S.schools[authorKey(x.name)]).school),dep=str(x.aff).replace(/^\[|\]$/g,'');
+    if(sch&&!compact)p.append(h('span',{class:'aff',title:sch},' ('+shortPlace(sch)+')'));
+    else if(dep&&!compact)p.append(h('span',{class:'aff',title:dep},' ('+shortAff(x.aff).replace(/^\[|\]$/g,'')+')'));
     var chip=lvChip(x.name);
-    if(chip)p.append(' ',chip);
-    /* the school the independent check matched to this researcher comes before whatever the publisher deposited */
-    var sch=str(obj(S.schools[authorKey(x.name)]).school);
-    if(sch&&!compact)p.append(' ',h('span',{class:'aff',title:sch},'['+shortPlace(sch)+']'));
-    else if(x.aff&&!compact)p.append(' ',h('span',{class:'aff',title:x.aff.replace(/^\[|\]$/g,'')},shortAff(x.aff)));
+    if(chip)p.append('\u00a0',chip);      /* the score never starts a line */
   });
   if(tail)p.append(p.childNodes.length?', '+tail:tail);
   return p;
@@ -1374,7 +1376,7 @@ function slip(b,ci,hit){
   /* a book's subtitle can be dropped from its slip: fitTitles() does so when the whole title would run to a third line */
   var full=str(b.title),cut=str(b.form)==='Book'?full.indexOf(': '):-1,title=h('h3',{class:'slip-title'},full);
   if(cut>2){title.setAttribute('data-full',full);title.setAttribute('data-short',full.slice(0,cut));}
-  var meta=(b.authors||b.year)?byline(b.authors,'slip-meta',false,str(b.year)):null;      /* with each author's school in brackets, as on New */
+  var meta=(b.authors||b.year)?byline(b.authors,'slip-meta',false,str(b.year)):null;      /* with each author's school in brackets, as on New, while the line has room: fitMeta() */
   var e=h('div',{class:(isStar(b)?'slip plussed':'slip')+(cover.url?' covered':''),role:'button',tabindex:'0',draggable:'true','data-id':b.id,'aria-label':'Open '+str(b.title),style:jc?'--j:'+jc:null},
     plus,
     cover.url?h('img',{class:'cover',src:cover.url,alt:''}):journal.url?jmark(b.venue,true,b.issns):null,
@@ -1400,6 +1402,14 @@ function fitTitles(root){
     if(t.getBoundingClientRect().height>line*2.5){t.textContent=t.getAttribute('data-short');t.title=whole;}
     else t.removeAttribute('title');
   });
+  fitMeta(root);
+}
+/* A slip's author line gives each school in brackets. When that would take it past one line, the schools go. */
+function fitMeta(root){
+  var ms=Array.prototype.slice.call(root.querySelectorAll('.slip-meta')).filter(function(m){return m.querySelector('.aff');});
+  ms.forEach(function(m){m.classList.remove('tight');});
+  var tall=ms.map(function(m){var hgt=m.getBoundingClientRect().height;return hgt>0&&hgt>(parseFloat(getComputedStyle(m).lineHeight)||17.5)*1.6;});      /* read together, then written together */
+  ms.forEach(function(m,i){if(tall[i])m.classList.add('tight');});
 }
 window.addEventListener('resize',function(){      /* a wider or narrower column changes how many lines a title takes */
   if(S.view!=='board'||S.fitting)return;
