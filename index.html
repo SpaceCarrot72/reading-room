@@ -238,6 +238,7 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 .paper-title a{color:inherit;text-decoration:none}
 .paper-title a:hover,.paper-title a:focus-visible{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
 .paper-authors{margin:10px 0 0;font-weight:500;font-size:14px}
+.paper-authors.tight .school-sep,.paper-authors.tight .school-word{display:none}      /* crests alone when the names would make a second line */
 .paper-type{margin:16px 2px 7px;font-size:12px;line-height:1.3;color:var(--ink-soft)}
 .paper-authors+.paper-box,.paper-title+.paper-box{margin-top:18px}
 .paper-box{flex:1;display:flex;flex-direction:column;border:1px solid var(--jl);border-radius:10px;background:var(--jw);padding:14px 16px 13px}
@@ -385,14 +386,17 @@ body[data-view="board"] .footnav{display:flex}
 .grp-h{position:sticky;top:44px;z-index:2;display:flex;align-items:center;gap:8px;width:100%;appearance:none;border:0;background:var(--paper);
   padding:9px 2px 9px 0;margin:0 0 10px;font:600 13px/1.3 var(--ui);color:var(--ink);text-align:left;cursor:pointer;box-shadow:0 -1px 0 var(--rule) inset}
 .col.over .col-h{background:var(--desk-wash)}
+/* One column: the columns and the leaderboard are opened from one row of buttons, and a shut one takes no room. */
+.col-tabs{display:none}
 @media (max-width:860px){
-  /* one column: To Read can be a long way to scroll past, so a column folds to its heading */
-  .col-t{cursor:pointer}
-  .col-t::after{content:"";align-self:center;margin-left:auto;margin-right:2px;width:7px;height:7px;border-right:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);transform:translateY(-2px) rotate(45deg)}
-  .col-t[aria-expanded="false"]::after{transform:translateX(-2px) rotate(-45deg)}
-  .col[data-shut]>:not(.col-h){display:none}
-  .col[data-shut]{padding-bottom:6px}
-  .col[data-shut] .col-h{margin-bottom:0}
+  .col-tabs{grid-column:1/-1;order:-2;display:flex;flex-wrap:wrap;gap:8px}
+  .col-tabs button{appearance:none;display:inline-flex;align-items:baseline;gap:8px;border:1px solid var(--rule);border-radius:999px;background:var(--paper);padding:7px 14px;font:600 14px/1.3 var(--ui);color:var(--ink);cursor:pointer}
+  .col-tabs button .n{font-weight:400;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+  .col-tabs button:hover{border-color:var(--ink-soft)}
+  .col-tabs button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+  .col-tabs button[aria-pressed="true"] .n{color:inherit;opacity:.7}
+  .col[data-shut]{display:none}
+  .lead:not([data-open]){display:none}
 }
 .grp-h .n{font-weight:400;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 .grp-h::after{content:"";margin-left:auto;width:6px;height:6px;border-right:1.5px solid var(--ink-soft);border-bottom:1.5px solid var(--ink-soft);transform:translateY(-2px) rotate(45deg)}
@@ -420,9 +424,10 @@ body[data-view="board"] .footnav{display:flex}
 .field .genre{justify-self:start;width:auto;border-radius:6px;padding:9px 30px 9px 11px;font:400 15px/1.4 var(--ui);background-color:var(--well)}
 
 /* the leaderboard: a row above the columns on a narrow window, a column of its own beside them on a wide one */
-.lead{grid-column:1/-1;order:-1;min-width:0;margin-bottom:-8px}
+.lead{grid-column:1/-1;order:-1;min-width:0;margin-bottom:-8px;display:flex;align-items:center;gap:4px}
+/* the switch between authors and journals: it names what the leaderboard is showing */
 .lead .col-h{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-.lead ol{list-style:none;display:flex;gap:2px;margin:0 calc(-1*var(--gutter));padding:0 var(--gutter);overflow-x:auto;scrollbar-width:none}
+.lead ol{list-style:none;display:flex;gap:2px;flex:1 1 auto;min-width:0;margin:0 calc(-1*var(--gutter)) 0 0;padding:0 var(--gutter) 0 0;overflow-x:auto;scrollbar-width:none}
 .lead ol::-webkit-scrollbar{display:none}
 .lead li{flex:none}
 .lead button{appearance:none;border:0;background:none;display:flex;align-items:center;gap:7px;padding:6px 9px 6px 7px;border-radius:8px;
@@ -438,15 +443,20 @@ body[data-view="board"] .footnav{display:flex}
 .lead button[aria-pressed="true"] .dead{color:inherit;opacity:.7}
 .lead .sc{display:block;font-weight:400;font-size:12px;color:var(--ink-soft)}
 .lead .sc .school-name{color:inherit}
+/* the switch between authors and journals: it names what the leaderboard is showing */
+.lead .lead-t{flex:none;display:inline-flex;align-items:center;gap:6px;width:auto;border:1px solid var(--rule);border-radius:999px;background:var(--paper);padding:4px 10px 4px 11px;font:500 12.5px/1.3 var(--ui);color:var(--ink);white-space:nowrap;cursor:pointer}
+.lead .lead-t:hover{border-color:var(--ink-soft);background:var(--paper)}
+.lead .lead-t svg{width:12px;height:12px;display:block;color:var(--ink-soft)}
 @media (min-width:1280px){
   body[data-view="board"] .wrap{max-width:1400px}
   .board{grid-template-columns:repeat(3,minmax(0,1fr)) 204px}
-  .lead{grid-column:auto;order:0;align-self:start;position:sticky;top:0;margin:0;display:flex;flex-direction:column;max-height:100vh}      /* never taller than the window: the list scrolls inside it */
+  .lead{grid-column:auto;order:0;align-self:start;position:sticky;top:0;margin:0;display:flex;flex-direction:column;align-items:stretch;gap:0;max-height:100vh}      /* never taller than the window: the list scrolls inside it */
   .lead .col-h{position:static;flex:none;width:auto;height:44px;overflow:visible;clip-path:none;margin-bottom:6px}
   .lead ol{display:block;flex:1 1 auto;min-height:0;margin:0 0 0 -7px;padding:0 0 10px;overflow:hidden auto;scrollbar-width:thin;overscroll-behavior:auto}
   .lead button{width:100%;padding:5px 8px 5px 7px;white-space:normal;align-items:flex-start}
   .lead .rk{padding-top:1px;min-width:1.5em}
   .lead .lv{margin-left:auto;margin-top:1px}
+  .lead .lead-t{position:absolute;top:8px;right:0;z-index:4;width:auto;padding:4px 10px 4px 11px;align-items:center;white-space:nowrap}
 }
 </style>
 </head>
@@ -1005,11 +1015,15 @@ var STAR=5;
 /* The leaderboard lists ten authors, and more as more of them pass ten points: fifteen once 15 authors have more
    than ten, twenty once 25 have, twenty-five once 50 have. */
 var LEAD_OVER=10,LEAD_STEPS=[[50,25],[25,20],[15,15]],LEAD_LEAST=10;
-function leadSize(lv){
+function leadSize(lv,steps,least){
+  steps=steps||LEAD_STEPS;
   var n=Object.keys(lv).filter(function(k){return lv[k]>LEAD_OVER;}).length,i;
-  for(i=0;i<LEAD_STEPS.length;i++)if(n>=LEAD_STEPS[i][0])return LEAD_STEPS[i][1];
-  return LEAD_LEAST;
+  for(i=0;i<steps.length;i++)if(n>=steps[i][0])return steps[i][1];
+  return least||LEAD_LEAST;
 }
+/* The journals' list is five long, and grows at the same counts: ten once 15 journals have more than ten points, fifteen
+   once 25 have, twenty once 50 have. */
+var JLEAD_STEPS=[[50,20],[25,15],[15,10]],JLEAD_LEAST=5;
 function isStar(b){return !!(b&&(b.star||b.plus));}
 function levels(){
   var m={};
@@ -1035,6 +1049,33 @@ function leaders(){
     .sort(function(a,b){return b.lv-a.lv||a.name.localeCompare(b.name);}).slice(0,leadSize(lv));
   rows.forEach(function(r,i){r.rank=i&&rows[i-1].lv===r.lv?rows[i-1].rank:i+1;});      /* equal points share a place */
   return rows;
+}
+/* A journal's place on the board: one point for each of its papers there and four more for a starred one, as for an
+   author. A book, a chapter or a manuscript has no ISSN and belongs to no journal. */
+function journalKeyOf(b){
+  if(!b||str(b.form)==='Book'||!arr(b.issns).length)return '';
+  var v=str(b.venue).trim();if(!v)return '';
+  var row=matchArtwork(v,b.issns);
+  return venueKey(row&&row.title?row.title:v);
+}
+function journalLeaders(){
+  var by={},lv={};
+  boardList().forEach(function(b){
+    var k=journalKeyOf(b);if(!k)return;
+    var r=by[k]||(by[k]={key:k,name:str(b.venue).trim(),venue:b.venue,issns:b.issns,lv:0,n:0,stars:0});
+    r.lv+=isStar(b)?STAR:1;r.n++;if(isStar(b))r.stars++;
+  });
+  Object.keys(by).forEach(function(k){lv[k]=by[k].lv;});
+  var rows=Object.keys(by).map(function(k){var r=by[k];r.colour=str(journalOf(r.venue,r.issns).color);return r;})
+    .sort(function(a,b){return b.lv-a.lv||a.name.localeCompare(b.name);}).slice(0,leadSize(lv,JLEAD_STEPS,JLEAD_LEAST));
+  rows.forEach(function(r,i){r.rank=i&&rows[i-1].lv===r.lv?rows[i-1].rank:i+1;});
+  return rows;
+}
+function swapIcon(){
+  var ns='http://www.w3.org/2000/svg',v=document.createElementNS(ns,'svg'),p=document.createElementNS(ns,'path');
+  v.setAttribute('viewBox','0 0 12 12');v.setAttribute('aria-hidden','true');
+  p.setAttribute('d','M1.5 4h8.2M7.4 1.6 9.8 4 7.4 6.4M10.5 8H2.3M4.6 5.6 2.2 8l2.4 2.4');p.setAttribute('fill','none');p.setAttribute('stroke','currentColor');
+  p.setAttribute('stroke-width','1.2');p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');v.append(p);return v;
 }
 /* black or white, whichever reads on the colour */
 function inkOn(hex){var n=parseInt(str(hex).slice(1),16),r=n>>16&255,g=n>>8&255,b=n&255;return 0.299*r+0.587*g+0.114*b>150?'#14161B':'#fff';}
@@ -1079,7 +1120,8 @@ function schoolAffiliation(name,mode){
     href:link||null,target:link?'_blank':null,rel:link?'noopener noreferrer':null,
     role:named?null:'img','aria-label':link?credit:(named?null:name),'aria-hidden':named&&!link?'true':null,title:link?credit:name}):null;
   if(!named)return mark||h('span',{class:'school-mark-label'},name);
-  return h('span',{class:'school-name',title:name},mode==='short'?shortPlace(name):name,mark?'\u00a0':null,mark);
+  /* the words are in a span of their own, so that a crowded author line can drop them and keep the crest: fitBylines() */
+  return h('span',{class:'school-name',title:name},h('span',{class:'school-word'},mode==='short'?shortPlace(name):name),mark?'\u00a0':null,mark);
 }
 function byline(a,cls,mode,tail){
   var p=h('p',{class:cls||'byline'});
@@ -1092,7 +1134,7 @@ function byline(a,cls,mode,tail){
       Array.from(new Set(names)).forEach(function(n,i){
         var label=schoolAffiliation(n,mode);
         if(mode==='mark'&&label.className==='school-mark-label'){p.append(label);return;}
-        p.append(mode==='mark'?'\u00a0':(i?'; ':' · '),label);
+        p.append(mode==='mark'?'\u00a0':h('span',{class:'school-sep'},i?'; ':' · '),label);
       });
     }else if(sch)p.append(h('span',{class:'aff',title:sch},' ('+shortPlace(sch)+')'));
     else if(dep)p.append(h('span',{class:'aff',title:dep},' ('+shortAff(x.aff).replace(/^\[|\]$/g,'')+')'));
@@ -1322,7 +1364,7 @@ function deck(key,groups,kind){
   var t=0;
   track.addEventListener('scroll',function(){clearTimeout(t);t=setTimeout(sync,70);});
   S.deckIds=flat.map(function(x){return x.p.id;});
-  S.deck={move:function(d){center(current()+d,true);},fix:function(){center(S.deckAt[key]||0,false);sync();},cur:function(){var x=flat[current()];return x?x.p:null;}};
+  S.deck={move:function(d){center(current()+d,true);},fix:function(){fitBylines(track);center(S.deckAt[key]||0,false);sync();},cur:function(){var x=flat[current()];return x?x.p:null;}};
   return h('section',{class:'deck-wrap'},h('div',{class:'deck-bar'},chips,h('div',{class:'deck-nav'},counter,prev,next,h('nav',{class:'tabs','aria-label':'Places'},places()))),track);
 }
 function viewNew(){
@@ -1511,6 +1553,14 @@ function fitTitles(root){
     else t.removeAttribute('title');
   });
 }
+/* A card on New names each author's school beside its crest. When that would take the author line past one line, the
+   names go and the crests stay. */
+function fitBylines(root){
+  var ps=Array.prototype.slice.call(root.querySelectorAll('.paper-authors')).filter(function(p){return p.querySelector('.school-word');});
+  ps.forEach(function(p){p.classList.remove('tight');});
+  var tall=ps.map(function(p){var hgt=p.getBoundingClientRect().height;return hgt>0&&hgt>(parseFloat(getComputedStyle(p).lineHeight)||21)*1.6;});      /* read together, then written together */
+  ps.forEach(function(p,i){if(tall[i])p.classList.add('tight');});
+}
 window.addEventListener('resize',function(){      /* a wider or narrower column changes how many lines a title takes */
   if(S.view!=='board'||S.fitting)return;
   S.fitting=requestAnimationFrame(function(){S.fitting=0;fitTitles(document.querySelector('.board'));fitLead();});
@@ -1578,12 +1628,23 @@ function viewBoard(){
   if(n)v.append(h('div',{class:'find',role:'search'},find,fwrap,acts));
   else v.append(h('div',{class:'find'},h('p',{class:'none'},'Nothing on your board yet.'),acts));
   var grid=h('div',{class:'board'});
+  if(!S.lb)S.lb=lsGet('rr.lb')==='journals'?'journals':'authors';
   function board(){
-    var top=leaders();
-    if(S.ba&&!top.some(function(r){return r.key===S.ba;}))S.ba='';
+    var journals=S.lb==='journals',top=journals?journalLeaders():leaders();
+    if(S.ba&&(journals||!top.some(function(r){return r.key===S.ba;})))S.ba='';
+    if(S.bj&&(!journals||!top.some(function(r){return r.key===S.bj;})))S.bj='';
     var ol=h('ol');
     ol.addEventListener('scroll',function(){S.leadAt=[ol.scrollLeft,ol.scrollTop];},{passive:true});
-    top.forEach(function(r){
+    if(journals)top.forEach(function(r){
+      var on=S.bj===r.key;
+      var bt=h('button',{type:'button','aria-pressed':String(on),'aria-label':r.name+', '+r.lv+(r.lv===1?' point':' points')+'. '+(on?'Show every paper again':'Show only its papers')},
+        h('span',{class:'rk'},String(r.rank)),
+        h('span',{class:'who'},h('span',{class:'nm'},r.name),h('span',{class:'sc'},r.n+(r.n===1?' paper':' papers')+(r.stars?', '+r.stars+' starred':''))),
+        h('span',{class:'lv',style:r.colour&&!on?'background:'+r.colour+';color:'+inkOn(r.colour):null},'+ '+r.lv));      /* in the journal's own colour */
+      bt.addEventListener('click',function(){S.bj=on?'':r.key;draw();});
+      ol.append(h('li',null,bt));
+    });
+    else top.forEach(function(r){
       var on=S.ba===r.key,cut=r.name.lastIndexOf(' ')+1;      /* the last word of the name and the cross stay together */
       var bt=h('button',{type:'button','aria-pressed':String(on),'aria-label':r.name+(r.dead?', deceased':'')+(r.school?', '+r.school:'')+', '+r.lv+(r.lv===1?' point':' points')+'. '+(on?'Show every paper again':'Show only their papers')},
         h('span',{class:'rk'},String(r.rank)),
@@ -1592,12 +1653,16 @@ function viewBoard(){
       bt.addEventListener('click',function(){S.ba=on?'':r.key;draw();});
       ol.append(h('li',null,bt));
     });
-    return h('aside',{class:'lead','aria-label':'Leaderboard'},h('h2',{class:'col-h'},'Leaderboard'),ol);
+    /* the switch names what is showing; pressing it shows the other */
+    var swap=h('button',{class:'lead-t',type:'button',title:journals?'Showing journals. Press for authors.':'Showing authors. Press for journals.',
+      'aria-label':journals?'The leaderboard is showing journals. Show authors':'The leaderboard is showing authors. Show journals'},journals?'Journals':'Authors',swapIcon());
+    swap.addEventListener('click',function(){S.lb=journals?'authors':'journals';lsSet('rr.lb',S.lb);S.ba='';S.bj='';S.leadAt=null;draw();});
+    return h('aside',{class:'lead','aria-label':'Leaderboard'},h('h2',{class:'col-h'},'Leaderboard'),swap,ol);
   }
   function draw(){
     var toks=terms(S.q),shown=0,keep=(FILTERS.filter(function(f){return f[0]===S.bf;})[0]||FILTERS[0])[2],order=[];
-    var by=S.ba?function(b){return people(b.authors).some(function(x){return authorKey(x.name)===S.ba;});}:function(){return true;};
-    var looking=toks.length||S.bf!=='all'||S.ba,shut=looking?[]:folded();      /* a search opens every cluster */
+    var by=S.ba?function(b){return people(b.authors).some(function(x){return authorKey(x.name)===S.ba;});}:S.bj?function(b){return journalKeyOf(b)===S.bj;}:function(){return true;};
+    var looking=toks.length||S.bf!=='all'||S.ba||S.bj,shut=looking?[]:folded();      /* a search opens every cluster */
     /* starred papers first, then papers by the authors on the leaderboard in its order, then the most recently added */
     var place={};leaders().forEach(function(r){place[r.key]=r.rank;});
     function best(b){
@@ -1609,19 +1674,21 @@ function viewBoard(){
     }
     var at=S.leadAt||null;      /* the leaderboard is drawn again: keep it where it was scrolled to */
     grid.replaceChildren();
+    /* on a narrow window these buttons open and shut the columns and the leaderboard; the stylesheet hides them on a wide one */
+    var tabs=h('nav',{class:'col-tabs','aria-label':'Columns and leaderboard'});grid.append(tabs);
     COLS.forEach(function(c,ci){
       var rows=all.filter(function(b){return colKey(b)===c[0]&&keep(b)&&by(b);}).sort(first)
         .map(function(b){return [b,boardMatch(b,toks)];}).filter(function(x){return x[1];});
       shown+=rows.length;
-      /* in the one-column layout a column folds to its heading; the stylesheet ignores this on a wide window */
+      /* in the one-column layout a column is opened and shut from its button; the stylesheet ignores this on a wide window */
       var shutCol=shut.indexOf('col:'+c[0])>=0;
-      var ct=h('button',{class:'col-t',type:'button','aria-expanded':String(!shutCol)},c[1],h('span',{class:'n'},String(rows.length)));
-      ct.addEventListener('click',function(){
-        if(!window.matchMedia('(max-width:860px)').matches)return;
+      var tab=h('button',{type:'button','aria-pressed':String(!shutCol)},c[1],h('span',{class:'n'},String(rows.length)));
+      tab.addEventListener('click',function(){
         var f=folded().filter(function(x){return x!=='col:'+c[0];});if(!shutCol)f.push('col:'+c[0]);
         lsSet('rr.fold',JSON.stringify(f));draw();
       });
-      var col=h('section',{class:'col','aria-label':c[1]},h('h2',{class:'col-h'},ct));
+      tabs.append(tab);
+      var col=h('section',{class:'col','aria-label':c[1]},h('h2',{class:'col-h'},h('span',{class:'col-t'},c[1],h('span',{class:'n'},String(rows.length)))));
       if(shutCol)col.setAttribute('data-shut','');
       if(CLUSTERED[c[0]]){
         /* clustered by genre, in the order of the scheme; a genre with no papers keeps its heading; anything without a genre comes last */
@@ -1651,7 +1718,20 @@ function viewBoard(){
         endDrag();});
       grid.append(col);
     });
-    if(n){grid.append(board());if(at){var ol=grid.querySelector('.lead ol');ol.scrollLeft=at[0];ol.scrollTop=at[1];}}
+    if(n){
+      /* in the one-column layout the leaderboard is shut until its button is pressed, or while it is filtering the Board */
+      var lead=board(),leadOpen=folded().indexOf('lead:open')>=0||!!S.ba||!!S.bj;
+      var lt=h('button',{type:'button','aria-pressed':String(leadOpen)},'Leaderboard');
+      lt.addEventListener('click',function(){
+        var f=folded().filter(function(x){return x!=='lead:open';});
+        if(leadOpen){S.ba='';S.bj='';}else f.push('lead:open');
+        lsSet('rr.fold',JSON.stringify(f));draw();
+      });
+      tabs.append(lt);
+      if(leadOpen)lead.setAttribute('data-open','');
+      grid.append(lead);
+      if(at){var ol=lead.querySelector('ol');ol.scrollLeft=at[0];ol.scrollTop=at[1];}
+    }
     S.boardIds=order;
     /* measured once the slips are on the page: at once if they are, and otherwise by render() as soon as it has put them there, before anything is painted */
     if(grid.isConnected){fitTitles(grid);fitLead(at);}else S.fit=function(){fitTitles(grid);fitLead(at);};
