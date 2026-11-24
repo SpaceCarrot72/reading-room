@@ -974,7 +974,15 @@ function authorKey(n){
     .filter(function(t){return t.length>1;}).join(' ');
 }
 /* Every paper on the board raises its authors one point; a star on it adds four more. */
-var STAR=5,LEAD=20;      /* LEAD: how many authors the leaderboard lists */
+var STAR=5;
+/* The leaderboard lists ten authors, and more as more of them pass ten points: fifteen once 15 authors have more
+   than ten, twenty once 25 have, twenty-five once 50 have. */
+var LEAD_OVER=10,LEAD_STEPS=[[50,25],[25,20],[15,15]],LEAD_LEAST=10;
+function leadSize(lv){
+  var n=Object.keys(lv).filter(function(k){return lv[k]>LEAD_OVER;}).length,i;
+  for(i=0;i<LEAD_STEPS.length;i++)if(n>=LEAD_STEPS[i][0])return LEAD_STEPS[i][1];
+  return LEAD_LEAST;
+}
 function isStar(b){return !!(b&&(b.star||b.plus));}
 function levels(){
   var m={};
@@ -997,7 +1005,7 @@ function leaders(){
   });
   var rows=Object.keys(lv).map(function(k){return {key:k,name:name[k]||k,lv:lv[k],school:str(obj(S.schools[k]).school),dead:!!S.dead[k]};})
     .map(function(r){r.colour=str(S.colours[publicationTitle(r.school)]);return r;})
-    .sort(function(a,b){return b.lv-a.lv||a.name.localeCompare(b.name);}).slice(0,LEAD);
+    .sort(function(a,b){return b.lv-a.lv||a.name.localeCompare(b.name);}).slice(0,leadSize(lv));
   rows.forEach(function(r,i){r.rank=i&&rows[i-1].lv===r.lv?rows[i-1].rank:i+1;});      /* equal points share a place */
   return rows;
 }
