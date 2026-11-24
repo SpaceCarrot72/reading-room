@@ -386,6 +386,12 @@ body[data-view="board"] #main{padding-top:6px}
 .grp-h::after{content:"";margin-left:auto;width:6px;height:6px;border-right:1.5px solid var(--ink-soft);border-bottom:1.5px solid var(--ink-soft);transform:translateY(-2px) rotate(45deg)}
 .grp-h[aria-expanded="false"]::after{transform:translateX(-2px) rotate(-45deg)}
 .grp-h:hover::after{border-color:var(--ink)}
+/* a book's cover: a small one on its slip, with the title beside it, and a larger one on its page */
+.slip .cover{float:left;width:46px;height:auto;max-height:72px;object-fit:cover;margin:3px 12px 6px 0;border-radius:2px;box-shadow:0 0 0 1px var(--rule)}
+.slip.covered .slip-note,.slip.covered .slip-foot{clear:left}
+.phead-wrap.has-cover{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:26px;row-gap:14px;align-content:start;align-items:start}
+.pcover{grid-row:1/span 3;width:108px;height:auto;border-radius:3px;box-shadow:0 0 0 1px var(--rule),0 14px 26px -16px rgba(20,22,27,.55)}
+@media (max-width:480px){.phead-wrap.has-cover{column-gap:16px}.pcover{width:72px}}
 .grp-h:disabled{color:var(--ink-soft);font-weight:500;cursor:default}
 .grp-h:disabled::after{display:none}
 .grp:has(.grp-h:disabled){margin-bottom:0}
@@ -443,7 +449,7 @@ body[data-view="board"] #main{padding-top:6px}
 'use strict';
 
 var AREAS=[];
-var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog','stock-log','spend','journal-scores','context-log','schools','venues','deceased','school-colours'];
+var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog','stock-log','spend','journal-scores','context-log','schools','venues','deceased','school-colours','cover-catalog'];
 var COLS=[['queue','To Read'],['reading','In Use'],['done','Keepers']];      /* the keys are older than the names */
 var GEAR='M10.64 4.93 L10.85 2.47 L13.15 2.47 L13.36 4.93 L16.04 6.04 L17.93 4.45 L19.55 6.07 L17.96 7.96 L19.07 10.64 L21.53 10.85 L21.53 13.15 L19.07 13.36 L17.96 16.04 L19.55 17.93 L17.93 19.55 L16.04 17.96 L13.36 19.07 L13.15 21.53 L10.85 21.53 L10.64 19.07 L7.96 17.96 L6.07 19.55 L4.45 17.93 L6.04 16.04 L4.93 13.36 L2.47 13.15 L2.47 10.85 L4.93 10.64 L6.04 7.96 L4.45 6.07 L6.07 4.45 L7.96 6.04 Z';
 var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -454,7 +460,7 @@ var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
   form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},deckIds:[],boardIds:[],paper:null,back:null,tab:null,auto:null,drag:null,schools:{},venues:{},dead:{},colours:{},list:[],shown:'',context:null,contextAt:0,contextBusy:false,ctxSlot:null,ctxlog:[],bf:'all',ba:'',pdfUrls:[]};
 var U=blankUser();
-var artworkIndex=buildArtworkIndex([]),artworkBySha=new Map();
+var artworkIndex=buildArtworkIndex([]),artworkBySha=new Map(),coverIndex={ids:{},titles:{}};
 var Sync={repo:'',token:'',sha:null,state:'local',msg:'',timer:0,busy:false,again:false,pulled:0};
 
 function blankForm(){return {cite:'',title:'',authors:'',venue:'',year:'',url:'',area:''};}
@@ -1077,7 +1083,25 @@ function matchArtwork(title,issns){
   }
   return options.length===1?options[0]:false;
 }
-function collectionArtwork(row){
+/* Covers. A book has no journal to take a mark from, so it can have a cover of its own: an image in covers/ in the
+   private repository, listed in data/cover-catalog.json under the id of its board entry (or, for a book, its title). */
+function buildCoverIndex(rows){
+  var ids={},titles={},twice={};
+  arr(rows).forEach(function(r){
+    if(!r||!/^[-a-z0-9]+\.webp$/.test(str(r.file))||!/^[a-f0-9]{40}$/.test(str(r.sha)))return;
+    if(r.id)ids[str(r.id)]=r;
+    var k=publicationTitle(r.title);
+    if(k){if(titles[k])twice[k]=true;titles[k]=r;}
+  });
+  Object.keys(twice).forEach(function(k){delete titles[k];});      /* two covers under one title: only an id tells them apart */
+  return {ids:ids,titles:titles};
+}
+function coverOf(b){
+  if(!b)return {};
+  var row=coverIndex.ids[str(b.id)]||(str(b.form)==='Book'?coverIndex.titles[publicationTitle(b.title)]:null);
+  return row?collectionArtwork(row,'covers/'):{};
+}
+function collectionArtwork(row,dir){
   if(!row||!row.file||!/^[-a-z0-9]+\.webp$/.test(row.file)||!/^[a-f0-9]{40}$/.test(row.sha))return {};
   var prior=artworkBySha.get(row.sha);
   if(prior&&(!prior.retryAt||Date.now()<prior.retryAt))return prior;
@@ -1094,7 +1118,7 @@ function collectionArtwork(row){
   logoCache().then(function(cache){
     var url=logoKey(row.sha);
     function fromRepository(){
-      return ghRaw('logos/library/'+encodeURIComponent(row.file)).then(function(r){
+      return ghRaw((dir||'logos/library/')+encodeURIComponent(row.file)).then(function(r){
         if(!r.ok)throw Error('Image unavailable');
         return r.blob();
       }).then(function(blob){
@@ -1329,12 +1353,12 @@ function addPaper(){
 }
 function colKey(b){return COLS.some(function(c){return c[0]===b.column;})?b.column:'queue';}
 function slip(b,ci,hit){
-  var journal=journalOf(b.venue,b.issns),jc=journal.color;
+  var journal=journalOf(b.venue,b.issns),cover=coverOf(b),jc=cover.color||journal.color;      /* a cover lends the slip its colour, as a journal's mark does */
   var plus=h('button',{class:'plus',type:'button','aria-pressed':String(isStar(b)),'aria-label':isStar(b)?'Remove the star from this paper':'Star this paper',
     title:isStar(b)?'Starred. Press to remove.':'Star a favourite: it adds four points for each author',onclick:function(ev){ev.stopPropagation();togglePlus(b.id);}},isStar(b)?'\u2605':'\u2606');
-  var e=h('div',{class:isStar(b)?'slip plussed':'slip',role:'button',tabindex:'0',draggable:'true','data-id':b.id,'aria-label':'Open '+str(b.title),style:jc?'--j:'+jc:null},
+  var e=h('div',{class:(isStar(b)?'slip plussed':'slip')+(cover.url?' covered':''),role:'button',tabindex:'0',draggable:'true','data-id':b.id,'aria-label':'Open '+str(b.title),style:jc?'--j:'+jc:null},
     plus,
-    journal.url?jmark(b.venue,true,b.issns):null,
+    cover.url?h('img',{class:'cover',src:cover.url,alt:''}):journal.url?jmark(b.venue,true,b.issns):null,
     h('h3',{class:'slip-title'},str(b.title)),
     (b.authors||b.year)?byline(b.authors,'slip-meta',true,str(b.year)):null,
     str(b.note).trim()?h('p',{class:'slip-note'},str(b.note).trim()):null,
@@ -1744,7 +1768,9 @@ function viewPaper(){
   var journal=journalOf(p.venue,paperSerials(p));
   var by=byline(p.authors);
   var cite=str(p.cite)||(p.date?'':str(p.year||''));
-  var head=h('header',{class:'phead-wrap',style:journal.color?'--j:'+journal.color:null},
+  var cover=U.board[id]?coverOf({id:id,form:U.board[id].form,title:p.title}):{};
+  var head=h('header',{class:cover.url?'phead-wrap has-cover':'phead-wrap',style:(cover.color||journal.color)?'--j:'+(cover.color||journal.color):null},
+    cover.url?h('img',{class:'pcover',src:cover.url,alt:''}):null,
     h('div',{class:'phead'},p.venue?jmark(p.venue,false,paperSerials(p)):null,h('span',null,citeLine({venue:p.venue,cite:cite,date:p.date}))),
     h('h1',{class:'ptitle'},str(p.title)),by);
 
@@ -1939,7 +1965,7 @@ function ghData(name){
 function applyData(d){
   S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.jmap=null;S.profile=d[5];S.seed=d[6];
   S.full=obj(d[7]);S.desklog=arr(d[8]);
-  artworkIndex=buildArtworkIndex(d[9]);
+  artworkIndex=buildArtworkIndex(d[9]);coverIndex=buildCoverIndex(d[18]);
   S.stocklog=arr(d[10]);S.spend=obj(d[11]);S.jscores=obj(obj(d[12]).journals);S.ctxlog=arr(d[13]);S.schools=obj(obj(d[14]).people);S.venues=obj(obj(d[15]).papers);S.dead={};Object.keys(obj(obj(d[16]).people)).forEach(function(n){var k=authorKey(n);if(k)S.dead[k]=true;});S.colours={};Object.keys(obj(obj(d[17]).schools)).forEach(function(n){var c=str(obj(d[17]).schools[n]);if(/^#[0-9a-f]{6}$/i.test(c))S.colours[publicationTitle(n)]=c;});
 }
 function parseStored(k){try{return JSON.parse(lsGet(k)||'null');}catch(e){return null;}}
