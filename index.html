@@ -381,7 +381,7 @@ body[data-view="board"] #main{padding-top:6px}
 'use strict';
 
 var AREAS=[];
-var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog','stock-log','spend','journal-scores','context-log'];
+var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog','stock-log','spend','journal-scores','context-log','schools'];
 var COLS=[['queue','To Read'],['reading','In Use'],['done','Keepers']];      /* the keys are older than the names */
 var GEAR='M10.64 4.93 L10.85 2.47 L13.15 2.47 L13.36 4.93 L16.04 6.04 L17.93 4.45 L19.55 6.07 L17.96 7.96 L19.07 10.64 L21.53 10.85 L21.53 13.15 L19.07 13.36 L17.96 16.04 L19.55 17.93 L17.93 19.55 L16.04 17.96 L13.36 19.07 L13.15 21.53 L10.85 21.53 L10.64 19.07 L7.96 17.96 L6.07 19.55 L4.45 17.93 L6.04 16.04 L4.93 13.36 L2.47 13.15 L2.47 10.85 L4.93 10.64 L6.04 7.96 L4.45 6.07 L6.07 4.45 L7.96 6.04 Z';
 var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -390,7 +390,7 @@ var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ni
 
 var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoNote:'',lv:{},pop:{},outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],stocklog:[],spend:{},jscores:{},q:'',pdfIndex:null,pdfIndexAt:0,pdfIndexBusy:false,pdfBusy:{},
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
-  form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},deckIds:[],boardIds:[],paper:null,back:null,tab:null,auto:null,drag:null,list:[],shown:'',context:null,contextAt:0,contextBusy:false,ctxSlot:null,ctxlog:[],bf:'all',pdfUrls:[]};
+  form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},deckIds:[],boardIds:[],paper:null,back:null,tab:null,auto:null,drag:null,schools:{},list:[],shown:'',context:null,contextAt:0,contextBusy:false,ctxSlot:null,ctxlog:[],bf:'all',pdfUrls:[]};
 var U=blankUser();
 var artworkIndex=buildArtworkIndex([]),artworkBySha=new Map();
 var Sync={repo:'',token:'',sha:null,state:'local',msg:'',timer:0,busy:false,again:false,pulled:0};
@@ -860,7 +860,7 @@ function levels(){
 function lvChip(name){
   var k=authorKey(name),lv=S.lv[k];
   if(!lv)return null;
-  return h('span',{class:S.pop[k]?'lv pop':'lv',title:'Level '+lv+': one for each of their papers on your board, three for a starred one'},'Lv '+lv);
+  return h('span',{class:S.pop[k]?'lv pop':'lv',title:'Level '+lv+': one for each of their papers on your board, three for a starred one'},'+ '+lv);
 }
 function byline(a,cls,compact,tail){
   var p=h('p',{class:cls||'byline'});
@@ -869,7 +869,10 @@ function byline(a,cls,compact,tail){
     p.append(x.name);
     var chip=lvChip(x.name);
     if(chip)p.append(' ',chip);
-    if(x.aff&&!compact)p.append(' ',h('span',{class:'aff',title:x.aff.replace(/^\[|\]$/g,'')},shortAff(x.aff)));
+    /* the school the independent check matched to this researcher comes before whatever the publisher deposited */
+    var sch=str(obj(S.schools[authorKey(x.name)]).school);
+    if(sch&&!compact)p.append(' ',h('span',{class:'aff',title:sch},'['+shortPlace(sch)+']'));
+    else if(x.aff&&!compact)p.append(' ',h('span',{class:'aff',title:x.aff.replace(/^\[|\]$/g,'')},shortAff(x.aff)));
   });
   if(tail)p.append(p.childNodes.length?', '+tail:tail);
   return p;
@@ -1760,7 +1763,7 @@ function applyData(d){
   S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.jmap=null;S.profile=d[5];S.seed=d[6];
   S.full=obj(d[7]);S.desklog=arr(d[8]);
   artworkIndex=buildArtworkIndex(d[9]);
-  S.stocklog=arr(d[10]);S.spend=obj(d[11]);S.jscores=obj(obj(d[12]).journals);S.ctxlog=arr(d[13]);
+  S.stocklog=arr(d[10]);S.spend=obj(d[11]);S.jscores=obj(obj(d[12]).journals);S.ctxlog=arr(d[13]);S.schools=obj(obj(d[14]).people);
 }
 function parseStored(k){try{return JSON.parse(lsGet(k)||'null');}catch(e){return null;}}
 function loadData(){
