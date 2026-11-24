@@ -393,6 +393,7 @@ body[data-view="board"] .footnav{display:flex}
 /* a book's cover: a small one on its slip, with the title beside it, and a larger one on its page */
 .slip .cover{float:left;width:32px;height:auto;max-height:50px;object-fit:cover;margin:3px 11px 4px 0;border-radius:2px;box-shadow:0 0 0 1px var(--rule)}
 .slip.covered{display:flow-root}
+.slip-text{overflow:hidden}
 .slip.covered .slip-note,.slip.covered .slip-foot{clear:left}
 .phead-wrap.has-cover{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:22px;row-gap:14px;align-content:start;align-items:start}
 .pcover{grid-row:1/span 3;width:76px;height:auto;border-radius:3px;box-shadow:0 0 0 1px var(--rule),0 14px 26px -16px rgba(20,22,27,.55)}
@@ -1361,11 +1362,14 @@ function slip(b,ci,hit){
   var journal=journalOf(b.venue,b.issns),cover=coverOf(b),jc=cover.color||journal.color;      /* a cover lends the slip its colour, as a journal's mark does */
   var plus=h('button',{class:'plus',type:'button','aria-pressed':String(isStar(b)),'aria-label':isStar(b)?'Remove the star from this paper':'Star this paper',
     title:isStar(b)?'Starred. Press to remove.':'Star a favourite: it adds four points for each author',onclick:function(ev){ev.stopPropagation();togglePlus(b.id);}},isStar(b)?'\u2605':'\u2606');
+  /* a book's subtitle can be dropped from its slip: fitTitles() does so when the whole title would run to a third line */
+  var full=str(b.title),cut=str(b.form)==='Book'?full.indexOf(': '):-1,title=h('h3',{class:'slip-title'},full);
+  if(cut>2){title.setAttribute('data-full',full);title.setAttribute('data-short',full.slice(0,cut));}
+  var meta=(b.authors||b.year)?byline(b.authors,'slip-meta',true,str(b.year)):null;
   var e=h('div',{class:(isStar(b)?'slip plussed':'slip')+(cover.url?' covered':''),role:'button',tabindex:'0',draggable:'true','data-id':b.id,'aria-label':'Open '+str(b.title),style:jc?'--j:'+jc:null},
     plus,
     cover.url?h('img',{class:'cover',src:cover.url,alt:''}):journal.url?jmark(b.venue,true,b.issns):null,
-    h('h3',{class:'slip-title'},str(b.title)),
-    (b.authors||b.year)?byline(b.authors,'slip-meta',true,str(b.year)):null,
+    cover.url?h('div',{class:'slip-text'},title,meta):[title,meta],      /* beside a cover the words keep to their own column */
     str(b.note).trim()?h('p',{class:'slip-note'},str(b.note).trim()):null,
     hit===2?h('p',{class:'slip-hit'},'Found in the PDF'):null);
   /* a slip is moved to another column by dragging it, or from the paper's own page */
@@ -1378,6 +1382,20 @@ function slip(b,ci,hit){
   e.addEventListener('dragend',endDrag);
   return e;
 }
+function fitTitles(root){
+  if(!root)return;
+  Array.prototype.forEach.call(root.querySelectorAll('.slip-title[data-short]'),function(t){
+    var whole=t.getAttribute('data-full');
+    if(t.textContent!==whole)t.textContent=whole;
+    var line=parseFloat(getComputedStyle(t).lineHeight)||22;
+    if(t.getBoundingClientRect().height>line*2.5){t.textContent=t.getAttribute('data-short');t.title=whole;}
+    else t.removeAttribute('title');
+  });
+}
+window.addEventListener('resize',function(){      /* a wider or narrower column changes how many lines a title takes */
+  if(S.view!=='board'||S.fitting)return;
+  S.fitting=requestAnimationFrame(function(){S.fitting=0;fitTitles(document.querySelector('.board'));});
+});
 /* dragging a slip moves it to another column; where it sits there is settled by the order of the column, not by the drop */
 function endDrag(){
   S.drag=null;
@@ -1504,6 +1522,7 @@ function viewBoard(){
     });
     if(n)grid.append(board());
     S.boardIds=order;
+    if(grid.isConnected)fitTitles(grid);else requestAnimationFrame(function(){fitTitles(grid);});      /* measured once the slips are on the page */
   }
   find.addEventListener('input',function(){S.q=find.value;draw();});
   draw();
