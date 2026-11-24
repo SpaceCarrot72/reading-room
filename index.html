@@ -411,7 +411,7 @@ body[data-view="board"] #main{padding-top:6px}
 .lead button[aria-pressed="true"] .lv{background:var(--paper);color:var(--ink)}
 .lead .rk{flex:none;min-width:1.1em;font-weight:400;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 .lead .who{min-width:0;display:grid;gap:1px}
-.lead .dead{margin-left:4px;font-weight:400;color:var(--ink-soft)}
+.lead .dead{display:inline-block;width:8px;height:12px;margin-left:5px;vertical-align:-1px;color:var(--ink)}
 .lead button[aria-pressed="true"] .dead{color:inherit;opacity:.7}
 .lead .sc{display:none;font-weight:400;font-size:12px;color:var(--ink-soft)}
 @media (min-width:1280px){
@@ -537,7 +537,11 @@ function genres(){
   var out=[],seen={},extra=[];
   areas().concat(arr(S.profile&&S.profile.genres)).forEach(function(a){a=str(a).trim();if(a&&!seen[a]){seen[a]=true;out.push(a);}});
   boardList().forEach(function(b){var g=genreOf(b);if(g&&!seen[g]){seen[g]=true;extra.push(g);}});
-  return out.concat(extra.sort(function(a,b){return a.localeCompare(b);}));
+  /* sections go in order of how many Keepers each has, the fullest first; level ones keep the order above */
+  var kept={};
+  Object.keys(U.board).forEach(function(id){var b=U.board[id];if(b&&colKey(b)==='done'){var g=genreOf(b,id);kept[g]=(kept[g]||0)+1;}});
+  return out.concat(extra.sort(function(a,b){return a.localeCompare(b);})).map(function(g,i){return [g,i];})
+    .sort(function(a,b){return (kept[b[0]]||0)-(kept[a[0]]||0)||a[1]-b[1];}).map(function(x){return x[0];});
 }
 /* The columns that are clustered by genre. */
 var CLUSTERED={queue:true,done:true};
@@ -986,6 +990,13 @@ function leaders(){
 }
 /* black or white, whichever reads on the colour */
 function inkOn(hex){var n=parseInt(str(hex).slice(1),16),r=n>>16&255,g=n>>8&255,b=n&255;return 0.299*r+0.587*g+0.114*b>150?'#14161B':'#fff';}
+/* a cross for an author who has died, drawn so that its weight does not depend on the typeface */
+function crossIcon(){
+  var ns='http://www.w3.org/2000/svg',v=document.createElementNS(ns,'svg'),p=document.createElementNS(ns,'path');
+  v.setAttribute('class','dead');v.setAttribute('viewBox','0 0 8 12');v.setAttribute('aria-hidden','true');
+  p.setAttribute('d','M4 0v12M0.5 3.6h7');p.setAttribute('fill','none');p.setAttribute('stroke','currentColor');p.setAttribute('stroke-width','1.9');
+  v.append(p);return v;
+}
 function lvChip(name){
   var k=authorKey(name),lv=S.lv[k];
   if(!lv)return null;
@@ -1196,7 +1207,8 @@ function viewNew(){
   S.ownBar=true;
   var items=S.papers.filter(function(p){return isNew(p)&&isOpen(p);});
   var run=latestRun();
-  var list=areas(),known={},groups=[];
+  /* the areas are presented in the Board's order of sections: the one with the most Keepers first */
+  var sections=genres(),list=areas().slice().sort(function(a,b){return sections.indexOf(a)-sections.indexOf(b);}),known={},groups=[];
   list.forEach(function(a){known[a]=1;});
   list.forEach(function(area,i){
     var rows=items.filter(function(p){return p.area===area;}).sort(function(a,b){return str(b.run).localeCompare(str(a.run))||byRank(a,b);});
@@ -1399,7 +1411,7 @@ function viewBoard(){
       var on=S.ba===r.key;
       var bt=h('button',{type:'button','aria-pressed':String(on),'aria-label':r.name+(r.dead?', deceased':'')+', '+r.lv+(r.lv===1?' point':' points')+'. '+(on?'Show every paper again':'Show only their papers')},
         h('span',{class:'rk'},String(r.rank)),
-        h('span',{class:'who'},h('span',{class:'nm'},r.name,r.dead?h('span',{class:'dead','aria-hidden':'true'},'\u2020'):null),r.school?h('span',{class:'sc'},shortPlace(r.school)):null),
+        h('span',{class:'who'},h('span',{class:'nm'},r.name,r.dead?crossIcon():null),r.school?h('span',{class:'sc'},shortPlace(r.school)):null),
         h('span',{class:'lv',style:r.colour&&!on?'background:'+r.colour+';color:'+inkOn(r.colour):null},'+ '+r.lv));      /* in the main colour of their school */
       bt.addEventListener('click',function(){S.ba=on?'':r.key;draw();});
       ol.append(h('li',null,bt));
