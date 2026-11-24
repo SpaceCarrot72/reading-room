@@ -115,7 +115,6 @@ a.btn{text-decoration:none;display:inline-block}
 .slip-meta{margin:7px 0 0;color:var(--ink-soft);font-size:12.5px;line-height:1.4}
 .slip-meta.tight .aff{display:none}
 .slip-note{margin:11px 0 0;padding:8px 10px;background:var(--mine-wash);border-left:2px solid var(--mine-edge);font-size:13px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:5;overflow:hidden}
-.slip-foot{display:flex;gap:6px;margin-top:10px}
 .mini{appearance:none;border:1px solid var(--rule);background:none;color:var(--ink-soft);border-radius:999px;padding:5px 10px;font:500 12px/1 var(--ui);cursor:pointer}
 .mini:hover{color:var(--ink);border-color:var(--ink)}
 
@@ -251,8 +250,12 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 @media (prefers-reduced-motion:reduce){.lv.pop{animation:none}}
 .slip{position:relative;border-radius:10px;border-top:4px solid var(--j,var(--rule))}
 .slip-title{padding-right:32px}
+.slip.has-pdf .slip-title{padding-right:64px}
 .plus{position:absolute;top:9px;right:10px;width:26px;height:26px;display:grid;place-items:center;padding:0 0 1px;border:1px solid var(--rule);border-radius:50%;background:var(--sheet);color:var(--ink-soft);font:500 17px/1 var(--ui);cursor:pointer}
 .plus:hover{border-color:var(--ink-soft);color:var(--ink)}
+.pdfdot{position:absolute;top:9px;right:42px;width:26px;height:26px;display:grid;place-items:center;padding:0;border:1px solid var(--rule);border-radius:50%;background:var(--sheet);color:var(--ink-soft);cursor:pointer}
+.pdfdot svg{width:18px;height:18px;display:block}
+.pdfdot:hover{border-color:var(--ink-soft);color:var(--ink)}
 .plus[aria-pressed="true"]{background:var(--j,var(--ink));border-color:var(--j,var(--ink));color:#fff}
 .find{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:26px}
 .find input{flex:0 1 420px;min-width:0;appearance:none;font:400 15px/1.3 var(--ui);background:var(--well);border:1px solid var(--rule);border-radius:999px;padding:9px 16px;color:var(--ink)}
@@ -261,9 +264,7 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 .pdfname{flex:1 1 170px;min-width:0;font:400 13px/1.4 var(--ui);color:var(--ink-soft);overflow-wrap:anywhere}
 .pdfname b{display:block;font-weight:500;color:var(--ink)}
 .pdfmsg{flex-basis:100%;margin:2px 0 0;font:400 13px/1.4 var(--ui);color:var(--ink)}
-.mini.pdf{border-color:var(--ink-soft);color:var(--ink)}
 .slip-hit{margin:8px 0 0;font:500 12px/1.3 var(--ui);color:var(--desk)}
-.slip-foot{flex-wrap:wrap}
 @media (max-width:480px){.find input{flex-basis:100%}}
 .plusbtn[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
 .entry .gloss{border-left-color:var(--j,var(--desk));color:var(--j,var(--desk))}
@@ -395,7 +396,7 @@ body[data-view="board"] .footnav{display:flex}
 .slip .cover{float:left;width:32px;height:auto;max-height:50px;object-fit:cover;margin:3px 11px 4px 0;border-radius:2px;box-shadow:0 0 0 1px var(--rule)}
 .slip.covered{display:flow-root}
 .slip-text{overflow:hidden}
-.slip.covered .slip-note,.slip.covered .slip-foot{clear:left}
+.slip.covered .slip-note{clear:left}
 .phead-wrap.has-cover{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:22px;row-gap:14px;align-content:start;align-items:start}
 .pcover{grid-row:1/span 3;width:76px;height:auto;border-radius:3px;box-shadow:0 0 0 1px var(--rule),0 14px 26px -16px rgba(20,22,27,.55)}
 @media (max-width:480px){.phead-wrap.has-cover{column-gap:16px}.pcover{width:60px}}
@@ -1368,6 +1369,15 @@ function addPaper(){
     url:safeUrl(f.url),column:'queue',note:'',order:Date.now(),addedAt:now(),updatedAt:now(),from:'manual',area:str(f.area)};
   S.form=blankForm();S.adding=false;changed();toast('Added to board');render(true);
 }
+/* the letters PDF, drawn so that they are the same in every typeface and at every minimum type size */
+function pdfIcon(){
+  var ns='http://www.w3.org/2000/svg',v=document.createElementNS(ns,'svg');
+  v.setAttribute('viewBox','0 0 16 16');v.setAttribute('aria-hidden','true');
+  function path(d,w){var p=document.createElementNS(ns,'path');p.setAttribute('d',d);p.setAttribute('fill','none');p.setAttribute('stroke','currentColor');
+    p.setAttribute('stroke-width',w);p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');v.append(p);}
+  path('M2.2 11V5h1.6a1.75 1.75 0 0 1 0 3.5H2.2',1.25);path('M7 5v6h.9a3 3 0 0 0 0-6z',1.25);path('M12.2 11V5h2.4M12.2 8h1.9',1.25);
+  return v;
+}
 function colKey(b){return COLS.some(function(c){return c[0]===b.column;})?b.column:'queue';}
 function slip(b,ci,hit){
   var journal=journalOf(b.venue,b.issns),cover=coverOf(b),jc=cover.color||journal.color;      /* a cover lends the slip its colour, as a journal's mark does */
@@ -1383,8 +1393,12 @@ function slip(b,ci,hit){
     cover.url?h('div',{class:'slip-text'},title,meta):[title,meta],      /* beside a cover the words keep to their own column */
     str(b.note).trim()?h('p',{class:'slip-note'},str(b.note).trim()):null,
     hit===2?h('p',{class:'slip-hit'},'Found in the PDF'):null);
-  /* a slip is moved to another column by dragging it, or from the paper's own page */
-  if(hasPdf(b))e.append(h('div',{class:'slip-foot'},h('button',{class:'mini pdf',type:'button',onclick:function(ev){ev.stopPropagation();openPdf(b.id);}},'Open PDF')));
+  /* a slip is moved to another column by dragging it, or from the paper's own page; an attached PDF opens from the round button beside the star */
+  if(hasPdf(b)){
+    var pdf=h('button',{class:'pdfdot',type:'button','aria-label':'Open the PDF of '+str(b.title),title:'Open the PDF',onclick:function(ev){ev.stopPropagation();openPdf(b.id);}},pdfIcon());
+    pdf.addEventListener('keydown',function(ev){ev.stopPropagation();});
+    plus.before(pdf);e.classList.add('has-pdf');
+  }
   e.addEventListener('click',function(){openPaper(b.id,S.boardIds);});
   e.addEventListener('keydown',function(ev){if(ev.target===e&&(ev.key==='Enter'||ev.key===' ')){ev.preventDefault();openPaper(b.id,S.boardIds);}});
   plus.addEventListener('keydown',function(ev){ev.stopPropagation();});
