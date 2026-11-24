@@ -423,16 +423,17 @@ body[data-view="board"] .footnav{display:flex}
 .lead button[aria-pressed="true"] .lv{background:var(--paper);color:var(--ink)}
 .lead .rk{flex:none;min-width:1.1em;font-weight:400;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 .lead .who{min-width:0;display:grid;gap:1px}
+.lead .nb{white-space:nowrap}
 .lead .dead{display:inline-block;width:8px;height:12px;margin-left:5px;vertical-align:-1px;color:var(--ink)}
 .lead button[aria-pressed="true"] .dead{color:inherit;opacity:.7}
 .lead .sc{display:none;font-weight:400;font-size:12px;color:var(--ink-soft)}
 @media (min-width:1280px){
   body[data-view="board"] .wrap{max-width:1400px}
   .board{grid-template-columns:repeat(3,minmax(0,1fr)) 204px}
-  .lead{grid-column:auto;order:0;align-self:start;position:sticky;top:0;margin:0}
-  .lead .col-h{position:static;width:auto;height:44px;overflow:visible;clip-path:none;margin-bottom:6px}
-  .lead ol{display:block;margin:0 0 0 -7px;padding:0;overflow:visible}
-  .lead button{width:100%;padding:7px 8px 7px 7px;white-space:normal;align-items:flex-start}
+  .lead{grid-column:auto;order:0;align-self:start;position:sticky;top:0;margin:0;display:flex;flex-direction:column;max-height:100vh}      /* never taller than the window: the list scrolls inside it */
+  .lead .col-h{position:static;flex:none;width:auto;height:44px;overflow:visible;clip-path:none;margin-bottom:6px}
+  .lead ol{display:block;flex:1 1 auto;min-height:0;margin:0 0 0 -7px;padding:0 0 10px;overflow:hidden auto;scrollbar-width:thin;overscroll-behavior:auto}
+  .lead button{width:100%;padding:5px 8px 5px 7px;white-space:normal;align-items:flex-start}
   .lead .rk{padding-top:1px;min-width:1.5em}
   .lead .sc{display:block}
   .lead .lv{margin-left:auto;margin-top:1px}
@@ -973,7 +974,7 @@ function authorKey(n){
     .filter(function(t){return t.length>1;}).join(' ');
 }
 /* Every paper on the board raises its authors one point; a star on it adds four more. */
-var STAR=5;
+var STAR=5,LEAD=20;      /* LEAD: how many authors the leaderboard lists */
 function isStar(b){return !!(b&&(b.star||b.plus));}
 function levels(){
   var m={};
@@ -996,7 +997,7 @@ function leaders(){
   });
   var rows=Object.keys(lv).map(function(k){return {key:k,name:name[k]||k,lv:lv[k],school:str(obj(S.schools[k]).school),dead:!!S.dead[k]};})
     .map(function(r){r.colour=str(S.colours[publicationTitle(r.school)]);return r;})
-    .sort(function(a,b){return b.lv-a.lv||a.name.localeCompare(b.name);}).slice(0,10);
+    .sort(function(a,b){return b.lv-a.lv||a.name.localeCompare(b.name);}).slice(0,LEAD);
   rows.forEach(function(r,i){r.rank=i&&rows[i-1].lv===r.lv?rows[i-1].rank:i+1;});      /* equal points share a place */
   return rows;
 }
@@ -1394,8 +1395,17 @@ function fitTitles(root){
 }
 window.addEventListener('resize',function(){      /* a wider or narrower column changes how many lines a title takes */
   if(S.view!=='board'||S.fitting)return;
-  S.fitting=requestAnimationFrame(function(){S.fitting=0;fitTitles(document.querySelector('.board'));});
+  S.fitting=requestAnimationFrame(function(){S.fitting=0;fitTitles(document.querySelector('.board'));fitLead();});
 });
+/* On a wide window the leaderboard is a column that stays in sight. It is never taller than what is left of the window
+   under its top, and the list scrolls inside it; `at` is where the list was before a redraw. */
+function fitLead(at){
+  var a=document.querySelector('.lead');if(!a)return;
+  var want=window.matchMedia('(min-width:1280px)').matches?Math.max(160,window.innerHeight-Math.max(0,Math.round(a.getBoundingClientRect().top)))+'px':'';
+  if(a.style.maxHeight!==want)a.style.maxHeight=want;
+  if(at){var ol=a.querySelector('ol');ol.scrollLeft=at[0];ol.scrollTop=at[1];}
+}
+window.addEventListener('scroll',function(){if(S.view==='board')fitLead();},{passive:true});
 /* dragging a slip moves it to another column; where it sits there is settled by the order of the column, not by the drop */
 function endDrag(){
   S.drag=null;
@@ -1455,10 +1465,10 @@ function viewBoard(){
     if(S.ba&&!top.some(function(r){return r.key===S.ba;}))S.ba='';
     var ol=h('ol');
     top.forEach(function(r){
-      var on=S.ba===r.key;
+      var on=S.ba===r.key,cut=r.name.lastIndexOf(' ')+1;      /* the last word of the name and the cross stay together */
       var bt=h('button',{type:'button','aria-pressed':String(on),'aria-label':r.name+(r.dead?', deceased':'')+', '+r.lv+(r.lv===1?' point':' points')+'. '+(on?'Show every paper again':'Show only their papers')},
         h('span',{class:'rk'},String(r.rank)),
-        h('span',{class:'who'},h('span',{class:'nm'},r.name,r.dead?crossIcon():null),r.school?h('span',{class:'sc'},shortPlace(r.school)):null),
+        h('span',{class:'who'},h('span',{class:'nm'},r.dead?[r.name.slice(0,cut),h('span',{class:'nb'},r.name.slice(cut),crossIcon())]:r.name),r.school?h('span',{class:'sc'},shortPlace(r.school)):null),
         h('span',{class:'lv',style:r.colour&&!on?'background:'+r.colour+';color:'+inkOn(r.colour):null},'+ '+r.lv));      /* in the main colour of their school */
       bt.addEventListener('click',function(){S.ba=on?'':r.key;draw();});
       ol.append(h('li',null,bt));
@@ -1478,6 +1488,7 @@ function viewBoard(){
     function first(a,b){
       return (isStar(b)?1:0)-(isStar(a)?1:0)||best(a)-best(b)||str(b.addedAt).localeCompare(str(a.addedAt))||(a.order||0)-(b.order||0);
     }
+    var was=grid.querySelector('.lead ol'),at=was?[was.scrollLeft,was.scrollTop]:null;      /* the leaderboard is drawn again: keep it where it was scrolled to */
     grid.replaceChildren();
     COLS.forEach(function(c,ci){
       var rows=all.filter(function(b){return colKey(b)===c[0]&&keep(b)&&by(b);}).sort(first)
@@ -1520,9 +1531,9 @@ function viewBoard(){
         endDrag();});
       grid.append(col);
     });
-    if(n)grid.append(board());
+    if(n){grid.append(board());if(at){var ol=grid.querySelector('.lead ol');ol.scrollLeft=at[0];ol.scrollTop=at[1];}}
     S.boardIds=order;
-    if(grid.isConnected)fitTitles(grid);else requestAnimationFrame(function(){fitTitles(grid);});      /* measured once the slips are on the page */
+    if(grid.isConnected){fitTitles(grid);fitLead(at);}else requestAnimationFrame(function(){fitTitles(grid);fitLead();});      /* measured once the slips are on the page */
   }
   find.addEventListener('input',function(){S.q=find.value;draw();});
   draw();
