@@ -1374,7 +1374,7 @@ function slip(b,ci,hit){
   /* a book's subtitle can be dropped from its slip: fitTitles() does so when the whole title would run to a third line */
   var full=str(b.title),cut=str(b.form)==='Book'?full.indexOf(': '):-1,title=h('h3',{class:'slip-title'},full);
   if(cut>2){title.setAttribute('data-full',full);title.setAttribute('data-short',full.slice(0,cut));}
-  var meta=(b.authors||b.year)?byline(b.authors,'slip-meta',true,str(b.year)):null;
+  var meta=(b.authors||b.year)?byline(b.authors,'slip-meta',false,str(b.year)):null;      /* with each author's school in brackets, as on New */
   var e=h('div',{class:(isStar(b)?'slip plussed':'slip')+(cover.url?' covered':''),role:'button',tabindex:'0',draggable:'true','data-id':b.id,'aria-label':'Open '+str(b.title),style:jc?'--j:'+jc:null},
     plus,
     cover.url?h('img',{class:'cover',src:cover.url,alt:''}):journal.url?jmark(b.venue,true,b.issns):null,
