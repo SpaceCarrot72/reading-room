@@ -397,6 +397,9 @@ body[data-view="board"] .footnav{display:flex}
   .col-tabs button[aria-pressed="true"] .n{color:inherit;opacity:.7}
   .col[data-shut]{display:none}
   .lead:not([data-open]){display:none}
+  /* a column open on its own is named by its button: the heading is not repeated, and its sections stick to the top */
+  .board[data-one] .col>.col-h{display:none}
+  .board[data-one] .grp-h{top:0}
 }
 .grp-h .n{font-weight:400;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 .grp-h::after{content:"";margin-left:auto;width:6px;height:6px;border-right:1.5px solid var(--ink-soft);border-bottom:1.5px solid var(--ink-soft);transform:translateY(-2px) rotate(45deg)}
@@ -501,8 +504,28 @@ function str(v){return typeof v==='string'?v:(v==null?'':String(v));}
    title is shown or saved. Nothing is cut unless the title has a page count, price or ISBN and, before that, a year;
    the cut is at the last sentence break or opening bracket before the year. */
 var REVIEW_MARK=/\b\d+\s*pp\b|\bpp\.?\s*[\dxvi]|\bISBN\b|[$\u00a3\u20ac]\s?\d|\b\d+\s+pages\b/i;
-function cleanTitle(t){
+/* Some publishers deposit a title or an author's name all in capitals. It is set in ordinary case: each word of a
+   title capitalised but for the small ones, a Roman numeral left alone; each part of a name capitalised, with Mc and
+   an apostrophe minded. A single word in capitals is left as it is, since it may be an abbreviation. */
+var SMALL_WORD=/^(a|an|and|as|at|but|by|for|from|in|into|nor|of|on|or|the|to|via|vs|with)$/;
+function fixCapsTitle(t){
   t=str(t);
+  if(t!==t.toUpperCase()||(t.match(/[A-Z\u00C0-\u00DE]{2,}/g)||[]).length<2)return t;
+  var start=true;
+  return t.replace(/[A-Za-z\u00C0-\u024F]+(?:['\u2019][A-Za-z\u00C0-\u024F]+)*|[^A-Za-z\u00C0-\u024F]+/g,function(w){
+    if(!/[A-Za-z\u00C0-\u024F]/.test(w)){if(/[:.?!\u2014\u2013\u201C\u2018"(]/.test(w))start=true;return w;}      /* after these a small word is capitalised too */
+    var lw=w.toLowerCase(),out=/^[IVX]{1,4}$/.test(w)?w:(!start&&SMALL_WORD.test(lw))?lw:lw.charAt(0).toUpperCase()+lw.slice(1);
+    start=false;return out;
+  });
+}
+function fixCapsName(n){
+  n=str(n);
+  if(n!==n.toUpperCase()||!/[A-Z\u00C0-\u00DE]{2}/.test(n))return n;
+  return n.toLowerCase().replace(/(^|[\s.'\u2019-])([a-z\u00E0-\u00FE])/g,function(m,a,c){return a+c.toUpperCase();})
+    .replace(/(^|[\s-])Mc([a-z])/g,function(m,a,c){return a+'Mc'+c.toUpperCase();});
+}
+function cleanTitle(t){
+  t=fixCapsTitle(t);
   var m=REVIEW_MARK.exec(t);if(!m)return t;
   var head=t.slice(0,m.index),years=head.match(/\b(?:1[5-9]|20)\d\d\b/g);
   if(!years)return t;
@@ -753,7 +776,7 @@ function signOut(){
 
 /* actions */
 function boardDoc(p,from){
-  return {title:cleanTitle(p.title),authors:str(p.authors),venue:str(p.venue),issns:paperSerials(p),cite:str(p.cite),
+  return {title:cleanTitle(p.title),authors:tidyAuthors(p.authors),venue:str(p.venue),issns:paperSerials(p),cite:str(p.cite),
     year:p.year||str(p.date).slice(0,4)||'',url:safeUrl(p.url),column:'queue',note:'',
     order:Date.now(),addedAt:now(),updatedAt:now(),from:from,area:str(p.area)};
 }
@@ -1003,8 +1026,14 @@ function shortAff(aff){
 function people(a){
   return str(a).split(/,\s*(?![^\[]*\])/).map(function(part){
     var m=/^(.*?)\s*(\[[^\]]*\])?\s*$/.exec(part)||[];
-    return {name:str(m[1]).trim(),aff:str(m[2])};
+    return {name:fixCapsName(str(m[1]).trim()),aff:str(m[2])};
   }).filter(function(x){return x.name;});
+}
+/* the author line as it is saved: unchanged unless a name in it was all in capitals */
+function tidyAuthors(a){
+  a=str(a);
+  var raw=a.split(/,\s*(?![^\[]*\])/).some(function(part){var n=part.replace(/\s*\[[^\]]*\]\s*$/,'').trim();return n&&fixCapsName(n)!==n;});
+  return raw?people(a).map(function(x){return x.name+(x.aff?' '+x.aff:'');}).join(', '):a;
 }
 function authorKey(n){
   return str(n).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z\s-]/g,' ').split(/\s+/)
@@ -1718,6 +1747,7 @@ function viewBoard(){
         endDrag();});
       grid.append(col);
     });
+    grid.toggleAttribute('data-one',grid.querySelectorAll('.col:not([data-shut])').length===1);
     if(n){
       /* in the one-column layout the leaderboard is shut until its button is pressed, or while it is filtering the Board */
       var lead=board(),leadOpen=folded().indexOf('lead:open')>=0||!!S.ba||!!S.bj;
@@ -1926,7 +1956,7 @@ function inlinePdf(){
 function saveAround(x,btn){
   var id=str(x.id)||('m-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
   if(!U.board[id]){
-    U.board[id]={title:cleanTitle(x.title),authors:str(x.authors),venue:str(x.venue),issns:[],cite:'',year:str(x.year),url:safeUrl(x.url),
+    U.board[id]={title:cleanTitle(x.title),authors:tidyAuthors(x.authors),venue:str(x.venue),issns:[],cite:'',year:str(x.year),url:safeUrl(x.url),
       column:'queue',note:'',order:Date.now(),addedAt:now(),updatedAt:now(),from:'context',
       area:genreOf(U.board[S.paper],S.paper)};      /* read around a paper: the same genre */
     delete U.gone[id];S.lv=levels();changed();toast('Saved to the Board');
