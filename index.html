@@ -350,7 +350,6 @@ body[data-view="paper"] #main{padding-top:14px}
 }
 .slip:active{cursor:grabbing}
 .col{position:relative}
-.dropmark{position:absolute;left:0;right:0;height:3px;border-radius:2px;background:var(--desk);pointer-events:none}
 .find .addbtn{margin-left:auto}
 body[data-view="board"] #main{padding-top:6px}
 @media (max-width:860px){.board{align-items:start}}
@@ -387,6 +386,10 @@ body[data-view="board"] #main{padding-top:6px}
 .grp-h::after{content:"";margin-left:auto;width:6px;height:6px;border-right:1.5px solid var(--ink-soft);border-bottom:1.5px solid var(--ink-soft);transform:translateY(-2px) rotate(45deg)}
 .grp-h[aria-expanded="false"]::after{transform:translateX(-2px) rotate(-45deg)}
 .grp-h:hover::after{border-color:var(--ink)}
+.grp-h:disabled{color:var(--ink-soft);font-weight:500;cursor:default}
+.grp-h:disabled::after{display:none}
+.grp:has(.grp-h:disabled){margin-bottom:0}
+.grp:has(.grp-h:disabled) .grp-h{margin-bottom:0}
 .grp{margin:0 0 12px}
 .col.over .grp-h{background:var(--desk-wash)}
 .genre{appearance:none;font:500 13px/1 var(--ui);color:var(--ink);background:var(--sheet) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%235A606C' stroke-width='1.5'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E") no-repeat right 11px center;
@@ -408,6 +411,8 @@ body[data-view="board"] #main{padding-top:6px}
 .lead button[aria-pressed="true"] .lv{background:var(--paper);color:var(--ink)}
 .lead .rk{flex:none;min-width:1.1em;font-weight:400;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 .lead .who{min-width:0;display:grid;gap:1px}
+.lead .dead{margin-left:4px;font-weight:400;color:var(--ink-soft)}
+.lead button[aria-pressed="true"] .dead{color:inherit;opacity:.7}
 .lead .sc{display:none;font-weight:400;font-size:12px;color:var(--ink-soft)}
 @media (min-width:1280px){
   body[data-view="board"] .wrap{max-width:1400px}
@@ -416,7 +421,7 @@ body[data-view="board"] #main{padding-top:6px}
   .lead .col-h{position:static;width:auto;height:44px;overflow:visible;clip-path:none;margin-bottom:6px}
   .lead ol{display:block;margin:0 0 0 -7px;padding:0;overflow:visible}
   .lead button{width:100%;padding:7px 8px 7px 7px;white-space:normal;align-items:flex-start}
-  .lead .rk{padding-top:1px}
+  .lead .rk{padding-top:1px;min-width:1.5em}
   .lead .sc{display:block}
   .lead .lv{margin-left:auto;margin-top:1px}
 }
@@ -438,7 +443,7 @@ body[data-view="board"] #main{padding-top:6px}
 'use strict';
 
 var AREAS=[];
-var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog','stock-log','spend','journal-scores','context-log','schools'];
+var DATA=['papers','desk','issues','runs','journals','profile','user-seed','fulltext','desk-log','logo-catalog','stock-log','spend','journal-scores','context-log','schools','venues','deceased','school-colours'];
 var COLS=[['queue','To Read'],['reading','In Use'],['done','Keepers']];      /* the keys are older than the names */
 var GEAR='M10.64 4.93 L10.85 2.47 L13.15 2.47 L13.36 4.93 L16.04 6.04 L17.93 4.45 L19.55 6.07 L17.96 7.96 L19.07 10.64 L21.53 10.85 L21.53 13.15 L19.07 13.36 L17.96 16.04 L19.55 17.93 L17.93 19.55 L16.04 17.96 L13.36 19.07 L13.15 21.53 L10.85 21.53 L10.64 19.07 L7.96 17.96 L6.07 19.55 L4.45 17.93 L6.04 16.04 L4.93 13.36 L2.47 13.15 L2.47 10.85 L4.93 10.64 L6.04 7.96 L4.45 6.07 L6.07 4.45 L7.96 6.04 Z';
 var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -447,7 +452,7 @@ var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ni
 
 var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoNote:'',lv:{},pop:{},outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],stocklog:[],spend:{},jscores:{},q:'',pdfIndex:null,pdfIndexAt:0,pdfIndexBusy:false,pdfBusy:{},
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
-  form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},deckIds:[],boardIds:[],paper:null,back:null,tab:null,auto:null,drag:null,schools:{},list:[],shown:'',context:null,contextAt:0,contextBusy:false,ctxSlot:null,ctxlog:[],bf:'all',ba:'',pdfUrls:[]};
+  form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},deckIds:[],boardIds:[],paper:null,back:null,tab:null,auto:null,drag:null,schools:{},venues:{},dead:{},colours:{},list:[],shown:'',context:null,contextAt:0,contextBusy:false,ctxSlot:null,ctxlog:[],bf:'all',ba:'',pdfUrls:[]};
 var U=blankUser();
 var artworkIndex=buildArtworkIndex([]),artworkBySha=new Map();
 var Sync={repo:'',token:'',sha:null,state:'local',msg:'',timer:0,busy:false,again:false,pulled:0};
@@ -502,7 +507,21 @@ function areas(){
 }
 function threadsText(){return U.threads!=null?U.threads:str(S.profile&&S.profile.threads);}
 function latestRun(){return S.runs.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at));})[0]||null;}
-function boardList(){return Object.keys(U.board).map(function(id){var o={},x=obj(U.board[id]);for(var k in x)o[k]=x[k];o.id=id;return o;});}
+/* What the journals check found is filled in where an entry has nothing of its own; what the reader has is never replaced. */
+function withVenue(o){
+  var v=obj(S.venues[o.id]);
+  if(!str(o.venue).trim()&&str(v.venue)){
+    o.venue=str(v.venue);
+    /* a citation that already begins with the journal's name is not to say it twice */
+    var c=str(o.cite).replace(/^the\s+/i,''),n=o.venue.replace(/^the\s+/i,'');
+    if(c.toLowerCase().indexOf(n.toLowerCase())===0)o.cite=c.slice(n.length).replace(/^[\s,;:.]+/,'');
+  }
+  if(!arr(o.issns).length&&arr(v.issns).length)o.issns=v.issns;
+  if(!str(o.url)&&/^10\.\d{4,9}\/\S+$/.test(str(v.doi)))o.url='https://doi.org/'+v.doi;
+  return o;
+}
+function boardEntry(id){var o={},x=obj(U.board[id]);for(var k in x)o[k]=x[k];o.id=id;return withVenue(o);}
+function boardList(){return Object.keys(U.board).map(boardEntry);}
 function onBoard(id){return Object.prototype.hasOwnProperty.call(U.board,id);}
 /* A paper's genre is the area kept on its board entry; one saved from New before entries kept it is looked up there. */
 function genreOf(b,id){
@@ -512,13 +531,16 @@ function genreOf(b,id){
   var p=id?S.papers.filter(function(x){return x.id===id;})[0]:null;
   return p?str(p.area).trim():'';
 }
-/* The reader's areas come first, in their order; then any other genre a paper on the board carries. */
+/* The reader's areas come first, in their order; then the other genres of the scheme kept in the profile, which
+   are listed whether or not a paper has them; then any other genre a paper on the board carries. */
 function genres(){
-  var out=areas().slice(),seen={},extra=[];
-  out.forEach(function(a){seen[a]=true;});
+  var out=[],seen={},extra=[];
+  areas().concat(arr(S.profile&&S.profile.genres)).forEach(function(a){a=str(a).trim();if(a&&!seen[a]){seen[a]=true;out.push(a);}});
   boardList().forEach(function(b){var g=genreOf(b);if(g&&!seen[g]){seen[g]=true;extra.push(g);}});
   return out.concat(extra.sort(function(a,b){return a.localeCompare(b);}));
 }
+/* The columns that are clustered by genre. */
+var CLUSTERED={queue:true,done:true};
 function folded(){try{var a=JSON.parse(lsGet('rr.fold')||'[]');return Array.isArray(a)?a:[];}catch(e){return [];}}
 function setGenre(id,g){
   var b=U.board[id];if(!b)return;
@@ -934,13 +956,14 @@ function authorKey(n){
   return str(n).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z\s-]/g,' ').split(/\s+/)
     .filter(function(t){return t.length>1;}).join(' ');
 }
-/* Every paper on the board raises its authors one level; a starred paper raises them three. */
+/* Every paper on the board raises its authors one point; a star on it adds four more. */
+var STAR=5;
 function isStar(b){return !!(b&&(b.star||b.plus));}
 function levels(){
   var m={};
   Object.keys(U.board).forEach(function(id){
     var b=U.board[id];if(!b)return;
-    var gain=isStar(b)?3:1;
+    var gain=isStar(b)?STAR:1;
     people(b.authors).forEach(function(x){var k=authorKey(x.name);if(k)m[k]=(m[k]||0)+gain;});
   });
   return m;
@@ -955,15 +978,18 @@ function leaders(){
       if(k&&(!was||n.length>was.length))name[k]=n;
     });
   });
-  var rows=Object.keys(lv).map(function(k){return {key:k,name:name[k]||k,lv:lv[k],school:str(obj(S.schools[k]).school)};})
+  var rows=Object.keys(lv).map(function(k){return {key:k,name:name[k]||k,lv:lv[k],school:str(obj(S.schools[k]).school),dead:!!S.dead[k]};})
+    .map(function(r){r.colour=str(S.colours[publicationTitle(r.school)]);return r;})
     .sort(function(a,b){return b.lv-a.lv||a.name.localeCompare(b.name);}).slice(0,10);
   rows.forEach(function(r,i){r.rank=i&&rows[i-1].lv===r.lv?rows[i-1].rank:i+1;});      /* equal points share a place */
   return rows;
 }
+/* black or white, whichever reads on the colour */
+function inkOn(hex){var n=parseInt(str(hex).slice(1),16),r=n>>16&255,g=n>>8&255,b=n&255;return 0.299*r+0.587*g+0.114*b>150?'#14161B':'#fff';}
 function lvChip(name){
   var k=authorKey(name),lv=S.lv[k];
   if(!lv)return null;
-  return h('span',{class:S.pop[k]?'lv pop':'lv',title:'Level '+lv+': one for each of their papers on your board, three for a starred one'},'+ '+lv);
+  return h('span',{class:S.pop[k]?'lv pop':'lv',title:'Level '+lv+': one for each of their papers on your board, and four more for a starred one'},'+ '+lv);
 }
 function byline(a,cls,compact,tail){
   var p=h('p',{class:cls||'byline'});
@@ -1293,7 +1319,7 @@ function colKey(b){return COLS.some(function(c){return c[0]===b.column;})?b.colu
 function slip(b,ci,hit){
   var journal=journalOf(b.venue,b.issns),jc=journal.color;
   var plus=h('button',{class:'plus',type:'button','aria-pressed':String(isStar(b)),'aria-label':isStar(b)?'Remove the star from this paper':'Star this paper',
-    title:isStar(b)?'Starred. Press to remove.':'Star a favourite: it counts three levels for each author',onclick:function(ev){ev.stopPropagation();togglePlus(b.id);}},isStar(b)?'\u2605':'\u2606');
+    title:isStar(b)?'Starred. Press to remove.':'Star a favourite: it adds four points for each author',onclick:function(ev){ev.stopPropagation();togglePlus(b.id);}},isStar(b)?'\u2605':'\u2606');
   var e=h('div',{class:isStar(b)?'slip plussed':'slip',role:'button',tabindex:'0',draggable:'true','data-id':b.id,'aria-label':'Open '+str(b.title),style:jc?'--j:'+jc:null},
     plus,
     journal.url?jmark(b.venue,true,b.issns):null,
@@ -1314,48 +1340,16 @@ function slip(b,ci,hit){
   e.addEventListener('dragend',endDrag);
   return e;
 }
-/* dragging a slip: a line shows where it will land, in any column and at any height */
-var dropMark=null;
+/* dragging a slip moves it to another column; where it sits there is settled by the order of the column, not by the drop */
 function endDrag(){
-  S.drag=null;if(dropMark){dropMark.remove();dropMark.at=null;}
+  S.drag=null;
   Array.prototype.forEach.call(document.querySelectorAll('.col.over,.slip.dragging'),function(x){x.classList.remove('over','dragging');});
   if(S.stale)schedule();
 }
-function placeMark(col,y){
-  /* the line floats over the column: putting it in the flow would move the slips under the pointer, and a slip that moves
-     between the last movement of the mouse and its release makes the browser drop on nothing */
-  if(!dropMark)dropMark=h('div',{class:'dropmark','aria-hidden':'true'});
-  /* in a clustered column the slip lands in the cluster under the pointer: the last one that starts above it */
-  var grps=col.querySelectorAll('.grp'),box=col,area=null,i,r;
-  if(grps.length&&grps[0].offsetParent){
-    box=grps[0];
-    for(i=0;i<grps.length;i++){
-      /* a heading holding at the top of the window stands for its own cluster only while that cluster is still in sight */
-      r=grps[i].getBoundingClientRect();if(y>=r.top)box=grps[i];
-    }
-    area=box.getAttribute('data-genre');
-  }
-  var slips=Array.prototype.filter.call(box.querySelectorAll('.slip'),function(x){return x.getAttribute('data-id')!==S.drag&&x.offsetParent;}),k=slips.length;
-  for(i=0;i<slips.length;i++){r=slips[i].getBoundingClientRect();if(y<r.top+r.height/2){k=i;break;}}
-  var prev=slips[k-1]||null,next=slips[k]||null,head=box.querySelector('.grp-h')||col.querySelector('.col-h');
-  var top=next?next.offsetTop-7:prev?prev.offsetTop+prev.offsetHeight+3:head.offsetTop+head.offsetHeight+3;
-  dropMark.style.top=top+'px';dropMark.at={col:col,prev:prev,next:next,area:area};
-  if(dropMark.parentNode!==col)col.append(dropMark);
-}
-function dropSlip(id,key,col){
-  var b=U.board[id];if(!b)return;
-  /* its place in the column is between the slips on either side of the line */
-  var at=dropMark&&dropMark.at&&dropMark.at.col===col?dropMark.at:{};
-  function entry(x){return x&&U.board[x.getAttribute('data-id')]||null;}
-  var prev=entry(at.prev),next=entry(at.next);
-  var op=prev?Number(prev.order)||0:null,on=next?Number(next.order)||0:null,mine=Number(b.order)||0;
-  var moved=colKey(b)!==key;
-  var mineG=genreOf(b,id),toG=at.area!=null&&mineG!==at.area;      /* into another genre's cluster */
-  if(!moved&&!toG&&(op==null||op<=mine)&&(on==null||on>=mine))return;      /* dropped where it already was */
-  b.column=key;if(toG)b.area=at.area;
-  b.order=op!=null&&on!=null?(op+on)/2:op!=null?op+1:on!=null?on-1:Date.now();b.updatedAt=now();changed();
-  if(moved)toast('Moved to '+COLS.filter(function(c){return c[0]===key;})[0][1]);
-  else if(toG)toast(at.area?'Moved to '+at.area:'Genre removed');
+function dropSlip(id,key){
+  var b=U.board[id];if(!b||colKey(b)===key)return;      /* dropped in its own column: nothing changes */
+  b.column=key;b.updatedAt=now();changed();
+  toast('Moved to '+COLS.filter(function(c){return c[0]===key;})[0][1]);
 }
 document.addEventListener('dragover',function(ev){
   /* the Board is long: near the top or bottom of the window a drag scrolls the page */
@@ -1403,10 +1397,10 @@ function viewBoard(){
     var ol=h('ol');
     top.forEach(function(r){
       var on=S.ba===r.key;
-      var bt=h('button',{type:'button','aria-pressed':String(on),'aria-label':r.name+', '+r.lv+(r.lv===1?' point':' points')+'. '+(on?'Show every paper again':'Show only their papers')},
+      var bt=h('button',{type:'button','aria-pressed':String(on),'aria-label':r.name+(r.dead?', deceased':'')+', '+r.lv+(r.lv===1?' point':' points')+'. '+(on?'Show every paper again':'Show only their papers')},
         h('span',{class:'rk'},String(r.rank)),
-        h('span',{class:'who'},h('span',{class:'nm'},r.name),r.school?h('span',{class:'sc'},shortPlace(r.school)):null),
-        h('span',{class:'lv'},'+ '+r.lv));
+        h('span',{class:'who'},h('span',{class:'nm'},r.name,r.dead?h('span',{class:'dead','aria-hidden':'true'},'\u2020'):null),r.school?h('span',{class:'sc'},shortPlace(r.school)):null),
+        h('span',{class:'lv',style:r.colour&&!on?'background:'+r.colour+';color:'+inkOn(r.colour):null},'+ '+r.lv));      /* in the main colour of their school */
       bt.addEventListener('click',function(){S.ba=on?'':r.key;draw();});
       ol.append(h('li',null,bt));
     });
@@ -1416,9 +1410,18 @@ function viewBoard(){
     var toks=terms(S.q),shown=0,keep=(FILTERS.filter(function(f){return f[0]===S.bf;})[0]||FILTERS[0])[2],order=[];
     var by=S.ba?function(b){return people(b.authors).some(function(x){return authorKey(x.name)===S.ba;});}:function(){return true;};
     var looking=toks.length||S.bf!=='all'||S.ba,shut=looking?[]:folded();      /* a search opens every cluster */
+    /* starred papers first, then papers by the authors on the leaderboard in its order, then the most recently added */
+    var place={};leaders().forEach(function(r){place[r.key]=r.rank;});
+    function best(b){
+      if(b.best==null){b.best=99;people(b.authors).forEach(function(x){var r=place[authorKey(x.name)];if(r&&r<b.best)b.best=r;});}
+      return b.best;
+    }
+    function first(a,b){
+      return (isStar(b)?1:0)-(isStar(a)?1:0)||best(a)-best(b)||str(b.addedAt).localeCompare(str(a.addedAt))||(a.order||0)-(b.order||0);
+    }
     grid.replaceChildren();
     COLS.forEach(function(c,ci){
-      var rows=all.filter(function(b){return colKey(b)===c[0]&&keep(b)&&by(b);}).sort(function(a,b){return (a.order||0)-(b.order||0);})
+      var rows=all.filter(function(b){return colKey(b)===c[0]&&keep(b)&&by(b);}).sort(first)
         .map(function(b){return [b,boardMatch(b,toks)];}).filter(function(x){return x[1];});
       shown+=rows.length;
       /* in the one-column layout a column folds to its heading; the stylesheet ignores this on a wide window */
@@ -1431,15 +1434,17 @@ function viewBoard(){
       });
       var col=h('section',{class:'col','aria-label':c[1]},h('h2',{class:'col-h'},ct));
       if(shutCol)col.setAttribute('data-shut','');
-      if(c[0]==='queue'){
-        /* To Read is clustered by genre, in the order of the reader's areas; anything without one comes last */
+      if(CLUSTERED[c[0]]){
+        /* clustered by genre, in the order of the scheme; a genre with no papers keeps its heading; anything without a genre comes last */
+        var scheme=areas().concat(arr(S.profile&&S.profile.genres));
         genres().concat(['']).forEach(function(g){
           var mine=rows.filter(function(x){return genreOf(x[0])===g;});
-          if(!mine.length)return;
-          var open=shut.indexOf(g)<0;
-          var head=h('button',{class:'grp-h',type:'button','aria-expanded':String(open)},g||'No genre',h('span',{class:'n'},String(mine.length)));
+          if(!mine.length&&(looking||scheme.indexOf(g)<0))return;      /* only a genre of the scheme keeps an empty heading */
+          /* each column folds its own clusters; a cluster folded before Keepers had any was one of To Read's */
+          var fk=c[0]+'|'+g,open=shut.indexOf(fk)<0&&!(c[0]==='queue'&&shut.indexOf(g)>=0);
+          var head=h('button',{class:'grp-h',type:'button','aria-expanded':String(open),disabled:!mine.length},g||'No genre',h('span',{class:'n'},String(mine.length)));
           head.addEventListener('click',function(){
-            var f=folded().filter(function(x){return x!==g;});if(open)f.push(g);
+            var f=folded().filter(function(x){return x!==fk&&!(c[0]==='queue'&&x===g);});if(open)f.push(fk);
             lsSet('rr.fold',JSON.stringify(f));draw();
           });
           var grp=h('div',{class:'grp','data-genre':g},head);
@@ -1448,11 +1453,11 @@ function viewBoard(){
         });
       }else rows.forEach(function(x){order.push(x[0].id);col.append(slip(x[0],ci,x[1]));});
       col.addEventListener('dragenter',function(ev){if(S.drag)ev.preventDefault();});
-      col.addEventListener('dragover',function(ev){if(!S.drag)return;ev.preventDefault();ev.dataTransfer.dropEffect='move';col.classList.add('over');placeMark(col,ev.clientY);});
+      col.addEventListener('dragover',function(ev){if(!S.drag)return;ev.preventDefault();ev.dataTransfer.dropEffect='move';col.classList.add('over');});
       col.addEventListener('dragleave',function(ev){if(!col.contains(ev.relatedTarget))col.classList.remove('over');});
       col.addEventListener('drop',function(ev){ev.preventDefault();
         var id=ev.dataTransfer.getData('text/plain')||S.drag;
-        if(id&&onBoard(id))dropSlip(id,c[0],col);
+        if(id&&onBoard(id))dropSlip(id,c[0]);
         endDrag();});
       grid.append(col);
     });
@@ -1624,10 +1629,10 @@ function viewLedger(){
 /* the paper's own page: what the desk wrote, or the paper itself, on the left; the reader's notes on the right */
 function paperOf(id){
   /* everything known about a paper: what the checks recorded, overlaid with the reader's own entry when it is on the board */
-  var p=S.papers.filter(function(x){return x.id===id;})[0]||null,b=U.board[id]||null,o={id:id},k;
+  var p=S.papers.filter(function(x){return x.id===id;})[0]||null,b=U.board[id]?boardEntry(id):null,o={id:id},k;
   if(!p&&!b)return null;
   if(p)for(k in p)o[k]=p[k];
-  if(b){['title','authors','venue','year','cite','url'].forEach(function(f){if(str(b[f]))o[f]=b[f];});if(!arr(o.issns).length&&arr(b.issns).length)o.issns=b.issns;}
+  if(b){['title','authors','venue','year','url'].forEach(function(f){if(str(b[f]))o[f]=b[f];});if(b.cite!=null&&(str(b.cite)||!p))o.cite=str(b.cite);if(!arr(o.issns).length&&arr(b.issns).length)o.issns=b.issns;}
   return o;
 }
 function openPaper(id,list){
@@ -1923,7 +1928,7 @@ function applyData(d){
   S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.jmap=null;S.profile=d[5];S.seed=d[6];
   S.full=obj(d[7]);S.desklog=arr(d[8]);
   artworkIndex=buildArtworkIndex(d[9]);
-  S.stocklog=arr(d[10]);S.spend=obj(d[11]);S.jscores=obj(obj(d[12]).journals);S.ctxlog=arr(d[13]);S.schools=obj(obj(d[14]).people);
+  S.stocklog=arr(d[10]);S.spend=obj(d[11]);S.jscores=obj(obj(d[12]).journals);S.ctxlog=arr(d[13]);S.schools=obj(obj(d[14]).people);S.venues=obj(obj(d[15]).papers);S.dead={};Object.keys(obj(obj(d[16]).people)).forEach(function(n){var k=authorKey(n);if(k)S.dead[k]=true;});S.colours={};Object.keys(obj(obj(d[17]).schools)).forEach(function(n){var c=str(obj(d[17]).schools[n]);if(/^#[0-9a-f]{6}$/i.test(c))S.colours[publicationTitle(n)]=c;});
 }
 function parseStored(k){try{return JSON.parse(lsGet(k)||'null');}catch(e){return null;}}
 function loadData(){
