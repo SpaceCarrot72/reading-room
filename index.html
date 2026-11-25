@@ -113,7 +113,7 @@ a.btn{text-decoration:none;display:inline-block}
 .slip.dragging{opacity:.4}
 .slip-title{font:400 18px/1.24 var(--display);margin:0}
 .slip-meta{margin:7px 0 0;color:var(--ink-soft);font-size:12.5px;line-height:1.4}
-.school-mark{display:inline-block;width:1.45em;height:1.45em;vertical-align:-.34em;background-image:var(--school-artwork);background-size:var(--school-artwork-size);background-position:var(--school-position);background-repeat:no-repeat}
+.school-mark{display:inline-block;width:1.45em;height:1.45em;vertical-align:-.34em;background-size:var(--school-artwork-size);background-position:var(--school-position);background-repeat:no-repeat}
 .school-name{color:var(--ink-soft);font-weight:400}
 .school-mark-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .slip-note{margin:11px 0 0;padding:8px 10px;background:var(--mine-wash);border-left:2px solid var(--mine-edge);font-size:13px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:5;overflow:hidden}
@@ -463,6 +463,7 @@ body[data-view="board"] .footnav{display:flex}
   .lead .lead-t{position:absolute;top:8px;right:0;z-index:4;width:auto;padding:4px 10px 4px 11px;align-items:center;white-space:nowrap}
 }
 </style>
+<style id="school-artwork"></style>
 </head>
 <body>
 <div class="wrap">
@@ -521,7 +522,8 @@ function fixCapsTitle(t){
 }
 function fixCapsName(n){
   n=str(n);
-  if(n!==n.toUpperCase()||!/[A-Z\u00C0-\u00DE]{2}/.test(n))return n;
+  if(n!==n.toUpperCase())return n.split(' ').map(function(w){return /^[A-Z\u00C0-\u00DE'\u2019-]{2,}$/.test(w)&&!/^[IVX]+$/.test(w)?fixCapsName(w):w;}).join(' ');
+  if(!/[A-Z\u00C0-\u00DE]{2}/.test(n))return n;
   return n.toLowerCase().replace(/(^|[\s.'\u2019-])([a-z\u00E0-\u00FE])/g,function(m,a,c){return a+c.toUpperCase();})
     .replace(/(^|[\s-])Mc([a-z])/g,function(m,a,c){return a+'Mc'+c.toUpperCase();});
 }
@@ -1026,7 +1028,7 @@ function shortAff(aff){
 /* authors: "Name [Institution], Name" split into people; a level is how many papers on the board carry a + for that author */
 /* A publisher or a university that a record lists among a paper's authors is not one of them ("Journal of Philosophy
    Inc."). The daily check leaves these out; this keeps one out of an author line that was stored before it did. */
-var NOT_A_PERSON=/\b(inc|ltd|llc|gmbh)\.?$|^(the\s+)?(journal|university)\s+of\b|\buniversity\s+press$/i;
+var NOT_A_PERSON=/\b(inc|ltd|llc|gmbh)\.?$|^(the\s+)?(journal|university)\s+of\b|\buniversity\s+press$|\bcent(er|re)$|\bacademy\b/i;
 function people(a){
   return str(a).split(/,\s*(?![^\[]*\])/).map(function(part){
     var m=/^(.*?)\s*(\[[^\]]*\])?\s*$/.exec(part)||[];
@@ -1043,7 +1045,8 @@ function authorKey(n){
   return str(n).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z\s-]/g,' ').split(/\s+/)
     .filter(function(t){return t.length>1;}).join(' ');
 }
-/* Every paper on the board raises its authors one point; a star on it adds four more. */
+/* Every paper on the board raises its authors one point; a star on it adds four more. That is how journals and schools
+   are scored. An author's level is scored by where the paper stands: see levelGain. */
 var STAR=5;
 /* The leaderboard lists ten authors, and more as more of them pass ten points: fifteen once 15 authors have more
    than ten, twenty once 25 have, twenty-five once 50 have. */
@@ -1058,11 +1061,14 @@ function leadSize(lv,steps,least){
    once 25 have, twenty once 50 have. */
 var JLEAD_STEPS=[[50,20],[25,15],[15,10]],JLEAD_LEAST=5;
 function isStar(b){return !!(b&&(b.star||b.plus));}
+/* What a paper adds to each of its authors' levels: one in To Read, two in In Use or Keepers, and two more if starred. */
+var LEVEL_QUEUE=1,LEVEL_SHELF=2,LEVEL_STAR=2;
+function levelGain(b){return (colKey(b)==='queue'?LEVEL_QUEUE:LEVEL_SHELF)+(isStar(b)?LEVEL_STAR:0);}
 function levels(){
   var m={};
   Object.keys(U.board).forEach(function(id){
     var b=U.board[id];if(!b)return;
-    var gain=isStar(b)?STAR:1;
+    var gain=levelGain(b);
     people(b.authors).forEach(function(x){var k=authorKey(x.name);if(k)m[k]=(m[k]||0)+gain;});
   });
   return m;
@@ -1144,7 +1150,7 @@ function crossIcon(){
 function lvChip(name){
   var k=authorKey(name),lv=S.lv[k];
   if(!lv)return null;
-  return h('span',{class:S.pop[k]?'lv pop':'lv',title:'Level '+lv+': one for each of their papers on your board, and four more for a starred one'},'+ '+lv);
+  return h('span',{class:S.pop[k]?'lv pop':'lv',title:'Level '+lv+': one for each of their papers in To Read, two for each in In Use or Keepers, and two more for a starred one'},'+ '+lv);
 }
 /* `remembered` is the list kept from the last visit, without the picture: which schools have a crest and where on the
    sheet. With it a crest's place is kept from the first frame, and nothing moves when the picture arrives. */
@@ -1165,6 +1171,11 @@ function setSchoolMarks(data,remembered){
   if(remembered)return true;
   lsSet('rr.schoolmarks',JSON.stringify({columns:cols,rows:rows,institutions:arr(d.institutions).map(function(s){return {name:s.name,aliases:s.aliases,index:s.index,source:s.source};})}));
   style.setProperty('--school-artwork','url("'+d.image+'")');
+  /* The crests take the sheet from a rule of their own, written here, and not from the variable: through a variable the
+     browser read the sheet's 518,000 characters again for every crest it styled, over a second for the Board. An address
+     in a rule is read once. The variable stays on the root, where the page's checks look for the sheet; nothing uses it. */
+  var rule='.school-mark{background-image:url("'+d.image+'")}',own=$('school-artwork');
+  if(own.textContent!==rule)own.textContent=rule;
   style.setProperty('--school-artwork-size',cols*100+'% '+rows*100+'%');
   return true;
 }
@@ -1178,6 +1189,12 @@ function schoolAffiliation(name,mode){
   /* the words are in a span of their own, so that a crowded author line can drop them and keep the crest: fitBylines() */
   return h('span',{class:'school-name',title:name},h('span',{class:'school-word'},mode==='short'?shortPlace(name):name),mark?'\u00a0':null,mark);
 }
+/* A bracketed affiliation that reads as a school's name, not a department cut short at a comma ('Department of Art'), an
+   independent scholar, or a whole address run together ('Department of Philosophy University of Rochester Rochester NY'). */
+function placeLike(t){
+  t=str(t).trim();
+  return !!t&&t.length<=48&&!/\d/.test(t)&&!/^(department|dept\.?|faculty|school\s+(of|for)|division|program|cent(re|er)|institut[e]?\s+(of|for|f\u00fcr)\s+philosoph|dipartimento|d[\u00e9e]partement|philosophy\b|independent)/i.test(t);
+}
 function byline(a,cls,mode,tail){
   var p=h('p',{class:cls||'byline'});
   people(a).forEach(function(x,i){
@@ -1185,7 +1202,7 @@ function byline(a,cls,mode,tail){
     p.append(x.name);
     var sch=str(obj(S.schools[authorKey(x.name)]).school),dep=str(x.aff).replace(/^\[|\]$/g,'');
     if(mode){
-      var names=sch?[sch]:dep.split(/\s*;\s*/).filter(Boolean);
+      var names=sch?[sch]:dep.split(/\s*;\s*/).filter(placeLike);
       Array.from(new Set(names)).forEach(function(n,i){
         var label=schoolAffiliation(n,mode);
         if(mode==='mark'&&label.className==='school-mark-label'){p.append(label);return;}
@@ -1560,17 +1577,20 @@ function addPaper(){
   S.form=blankForm();S.adding=false;changed();toast('Added to board');render(true);
 }
 /* the letters PDF, drawn so that they are the same in every typeface and at every minimum type size */
+var pdfIconMade=null;      /* drawn once; every button that shows it has a copy */
 function pdfIcon(){
+  if(pdfIconMade)return pdfIconMade.cloneNode(true);
   var ns='http://www.w3.org/2000/svg',v=document.createElementNS(ns,'svg');
   v.setAttribute('viewBox','0 0 16 16');v.setAttribute('aria-hidden','true');
   function path(d,w){var p=document.createElementNS(ns,'path');p.setAttribute('d',d);p.setAttribute('fill','none');p.setAttribute('stroke','currentColor');
     p.setAttribute('stroke-width',w);p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');v.append(p);}
   path('M2.2 11V5h1.6a1.75 1.75 0 0 1 0 3.5H2.2',1.25);path('M7 5v6h.9a3 3 0 0 0 0-6z',1.25);path('M12.2 11V5h2.4M12.2 8h1.9',1.25);
-  return v;
+  pdfIconMade=v;return v.cloneNode(true);
 }
 function colKey(b){return COLS.some(function(c){return c[0]===b.column;})?b.column:'queue';}
-function slip(b,ci,hit){
-  var journal=journalOf(b.venue,b.issns),cover=coverOf(b),jc=cover.color||journal.color;      /* a cover lends the slip its colour, as a journal's mark does */
+function slip(b,ci,hit,journal,cover){
+  journal=journal||journalOf(b.venue,b.issns);cover=cover||coverOf(b);      /* given when they have just been found */
+  var jc=cover.color||journal.color;      /* a cover lends the slip its colour, as a journal's mark does */
   var plus=h('button',{class:'plus',type:'button','aria-pressed':String(isStar(b)),'aria-label':isStar(b)?'Remove the star from this paper':'Star this paper',
     title:isStar(b)?'Starred. Press to remove.':'Star a favourite: it adds four points for each author',onclick:function(ev){ev.stopPropagation();togglePlus(b.id);}},isStar(b)?'\u2605':'\u2606');
   /* a book's subtitle can be dropped from its slip: fitTitles() does so when the whole title would run to a third line */
@@ -1586,7 +1606,7 @@ function slip(b,ci,hit){
   var gap=h('span',{class:'slip-gap','aria-hidden':'true'});
   if(cover.url)art=coverImg(cover);
   else if(cover.pending)art=h('span',{class:'cover wait','data-art':cover.sha,style:coverHeight(cover)});
-  else if(journal.url)art=jmark(b.venue,true,b.issns);
+  else if(journal.url)art=h('img',{class:'jlogo compact',src:journal.url,alt:'',title:str(b.venue)});      /* what jmark() draws, from the journal already found */
   else if(journal.pending)art=h('span',{class:'jwait','data-art':journal.sha,'data-venue':str(b.venue)});
   var e=h('div',{class:(isStar(b)?'slip plussed':'slip')+(hasCover?' covered':''),role:'button',tabindex:'0',draggable:'true','data-id':b.id,'aria-label':'Open '+full,style:jc?'--j:'+jc:null},
     plus,
@@ -1612,11 +1632,13 @@ function slip(b,ci,hit){
 }
 function fitTitles(root){
   if(!root)return;
-  Array.prototype.forEach.call(root.querySelectorAll('.slip-title[data-short]'),function(t){
-    var whole=t.getAttribute('data-full');
-    if(t.textContent!==whole)t.textContent=whole;
-    var line=parseFloat(getComputedStyle(t).lineHeight)||22;
-    if(t.getBoundingClientRect().height>line*2.5){t.textContent=t.getAttribute('data-short');t.title=whole;}
+  /* every title is made whole, then all are measured, then the long ones are cut: one layout for them all, where measuring
+     each after the last was cut took one layout of the Board for each */
+  var ts=Array.prototype.slice.call(root.querySelectorAll('.slip-title[data-short]'));
+  ts.forEach(function(t){var whole=t.getAttribute('data-full');if(t.textContent!==whole)t.textContent=whole;});
+  var long=ts.map(function(t){var line=parseFloat(getComputedStyle(t).lineHeight)||22;return t.getBoundingClientRect().height>line*2.5;});
+  ts.forEach(function(t,i){
+    if(long[i]){t.textContent=t.getAttribute('data-short');t.title=t.getAttribute('data-full');}
     else t.removeAttribute('title');
   });
 }
@@ -1697,8 +1719,8 @@ function viewBoard(){
   var grid=h('div',{class:'board'});
   var LISTS=['authors','journals','schools'];
   if(LISTS.indexOf(S.lb)<0)S.lb=LISTS.indexOf(lsGet('rr.lb'))>=0?lsGet('rr.lb'):'authors';
-  function board(){
-    var journals=S.lb==='journals',schools=S.lb==='schools',top=journals?journalLeaders():schools?schoolLeaders():leaders();
+  function board(authors){
+    var journals=S.lb==='journals',schools=S.lb==='schools',top=journals?journalLeaders():schools?schoolLeaders():authors;
     if(S.ba&&(journals||schools||!top.some(function(r){return r.key===S.ba;})))S.ba='';
     if(S.bj&&(!journals||!top.some(function(r){return r.key===S.bj;})))S.bj='';
     if(S.bs&&(!schools||!top.some(function(r){return r.key===S.bs;})))S.bs='';
@@ -1738,12 +1760,22 @@ function viewBoard(){
     swap.addEventListener('click',function(){S.lb=next;lsSet('rr.lb',S.lb);S.ba='';S.bj='';S.bs='';S.leadAt=null;draw();});
     return h('aside',{class:'lead','aria-label':'Leaderboard'},h('h2',{class:'col-h'},'Leaderboard'),swap,ol);
   }
+  /* While this drawing of the view lasts its entries do not change, so a slip built for one search, filter or section is
+     put back for the next instead of being built again. It is built afresh when its mark or cover is not as it was, when a
+     level has just risen, and while the whole page waits to be drawn again. */
+  var made=new Map();
+  function slipOf(b,ci,hit){
+    var journal=journalOf(b.venue,b.issns),cover=coverOf(b),key=hit+'|'+b.id,was=made.get(key);
+    var art=[cover.url,cover.pending,cover.ratio,cover.color,journal.url,journal.pending,journal.sha,journal.color].join('|');
+    if(was&&was.art===art&&!S.stale&&!S.raf&&!Object.keys(S.pop).length&&!was.e.querySelector('.lv.pop'))return was.e;
+    var e=slip(b,ci,hit,journal,cover);made.set(key,{e:e,art:art});return e;
+  }
   function draw(){
     var toks=terms(S.q),shown=0,keep=(FILTERS.filter(function(f){return f[0]===S.bf;})[0]||FILTERS[0])[2],order=[];
     var by=S.ba?function(b){return people(b.authors).some(function(x){return authorKey(x.name)===S.ba;});}:S.bj?function(b){return journalKeyOf(b)===S.bj;}:S.bs?function(b){return schoolsOf(b).indexOf(S.bs)>=0;}:function(){return true;};
     var looking=toks.length||S.bf!=='all'||S.ba||S.bj||S.bs,shut=looking?[]:folded();      /* a search opens every cluster */
     /* starred papers first, then papers by the authors on the leaderboard in its order, then the most recently added */
-    var place={};leaders().forEach(function(r){place[r.key]=r.rank;});
+    var ranked=leaders(),place={};ranked.forEach(function(r){place[r.key]=r.rank;});      /* the authors' list, found once for the order and the leaderboard */
     function best(b){
       if(b.best==null){b.best=99;people(b.authors).forEach(function(x){var r=place[authorKey(x.name)];if(r&&r<b.best)b.best=r;});}
       return b.best;
@@ -1788,11 +1820,11 @@ function viewBoard(){
             lsSet('rr.fold',JSON.stringify(f));draw();
           });
           var grp=h('div',{class:'grp','data-genre':g},head);
-          if(open)mine.forEach(function(x){order.push(x[0].id);grp.append(slip(x[0],ci,x[1]));});
+          if(open)mine.forEach(function(x){order.push(x[0].id);grp.append(slipOf(x[0],ci,x[1]));});
           else mine.forEach(function(x){if(!coverOf(x[0]).sha)journalOf(x[0].venue,x[0].issns);});      /* a shut section's marks and covers are asked for now, so that it opens complete */
           col.append(grp);
         });
-      }else rows.forEach(function(x){order.push(x[0].id);col.append(slip(x[0],ci,x[1]));});
+      }else rows.forEach(function(x){order.push(x[0].id);col.append(slipOf(x[0],ci,x[1]));});
       col.addEventListener('dragenter',function(ev){if(S.drag)ev.preventDefault();});
       col.addEventListener('dragover',function(ev){if(!S.drag)return;ev.preventDefault();ev.dataTransfer.dropEffect='move';col.classList.add('over');});
       col.addEventListener('dragleave',function(ev){if(!col.contains(ev.relatedTarget))col.classList.remove('over');});
@@ -1804,7 +1836,7 @@ function viewBoard(){
     });
     if(n){
       /* in the one-column layout the leaderboard is shut until its button is pressed, or while it is filtering the Board */
-      var lead=board(),leadOpen=folded().indexOf('lead:open')>=0||!!S.ba||!!S.bj||!!S.bs;
+      var lead=board(ranked),leadOpen=folded().indexOf('lead:open')>=0||!!S.ba||!!S.bj||!!S.bs;
       var lt=h('button',{type:'button','aria-pressed':String(leadOpen)},'Leaderboard');
       lt.addEventListener('click',function(){
         var f=folded().filter(function(x){return x!=='lead:open';});
