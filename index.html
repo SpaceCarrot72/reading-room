@@ -1426,7 +1426,7 @@ function viewNew(){
   var v=h('div');if(waiting(v))return v;
   S.ownBar=true;
   var items=S.papers.filter(function(p){return isNew(p)&&isOpen(p);});
-  var run=latestRun();
+  var run=S.stocklog[S.stocklog.length-1]||latestRun();
   /* The reader's areas are presented in the Board's order of sections, the one with the most Keepers first; then any
      other area that has a paper here, in the same order. An area with nothing to show has no place in the row. */
   var sections=genres(),list=areas().slice().sort(function(a,b){return sections.indexOf(a)-sections.indexOf(b);}),known={},groups=[],guests=[];
@@ -1443,7 +1443,7 @@ function viewNew(){
   var other=items.filter(function(p){return !areaOf(p);}).sort(byRank);
   if(other.length)groups.push({name:'Other areas',items:other.map(function(p){return {p:p,num:''};})});
   if(!items.length)v.append(h('div',{class:'deck-bar'},h('span'),h('div',{class:'deck-nav'},h('nav',{class:'tabs','aria-label':'Places'},places()))),
-    h('p',{class:'none',style:'margin-top:40px'},'Nothing waiting.'+(run?' Last checked '+fmtDate(run.at)+'.':'')));
+    h('p',{class:'none',style:'margin-top:40px'},morningNotice||('Nothing waiting.'+(run?' Last checked '+fmtDate(run.at)+'.':''))));
   else v.append(deck('new',groups,'new'));
   var gone=S.papers.filter(function(p){return isNew(p)&&dismissed(p.id)&&!onBoard(p.id);});
   if(gone.length){
@@ -2264,6 +2264,7 @@ window.addEventListener('hashchange',function(){
   window.scrollTo(0,was==='paper'&&S.view!=='paper'&&S.back&&S.back.view===S.view?S.back.y:0);
 });
 document.addEventListener('visibilitychange',function(){
+  checkMorningFeed();
   if(document.visibilityState!=='visible'||!Sync.token||Sync.busy||S.sheet)return;
   if(lsGet('rr.dirty')==='1'||Date.now()-Sync.pulled<60000)return;
   pull().then(function(remote){if(remote&&!same(remote,U)){U=remote;cacheUser();schedule();}Sync.state='synced';renderStatus();}).catch(function(){});
@@ -2283,6 +2284,55 @@ function ghData(name){
     return r.text().then(function(t){try{return JSON.parse(t);}catch(e){return null;}});
   });
 }
+
+/* A signed-in reader can wake the private workflow if the daily timer was missed. */
+var morningCheckedAt=0,morningBusy=false,morningNotice='';
+function showMorningNotice(message){
+  if(morningNotice===message)return;
+  morningNotice=message;
+  if(S.view==='new')schedule();
+}
+async function checkMorningFeed(){
+  if(!S.ready||!Sync.token||!Sync.repo||document.visibilityState!=='visible'||morningBusy)return;
+  var clock=new Date(),today=clock.toISOString().slice(0,10);
+  if(clock.getUTCHours()*60+clock.getUTCMinutes()<617)return;  /* 10:17 UTC */
+  function published(log){return log.some(function(row){return row.at===today;});}
+  if(published(S.stocklog)){showMorningNotice('');return;}
+  if(clock.getTime()-morningCheckedAt<55000)return;
+  morningCheckedAt=clock.getTime();morningBusy=true;
+  var repo=Sync.repo;
+  try{
+    var log=await ghData('stock-log');
+    if(!Array.isArray(log)||Sync.repo!==repo||!Sync.token)return;
+    if(published(log)){
+      /* Read the papers after the log. The workflow publishes them in the same commit. */
+      var papers=await ghData('papers');
+      if(!Array.isArray(papers)||Sync.repo!==repo||!Sync.token)return;
+      S.papers=papers;S.stocklog=log;
+      var cached=parseStored('rr.data');
+      if(Array.isArray(cached)){cached[0]=papers;cached[10]=log;lsSet('rr.data',JSON.stringify(cached));}
+      morningNotice='';schedule();return;
+    }
+    var url=ghFile('records/morning-request.json');
+    var response=await fetch(url,{headers:ghHeaders(false),cache:'no-store'});
+    if(response.status===404)return;  /* only repositories with the recovery workflow opt in */
+    if(!response.ok)throw Error('Cannot read morning request');
+    var file=await response.json(),previous=JSON.parse(dec(file.content)).requestedAt;
+    if(Sync.repo!==repo||!Sync.token)return;
+    if(!previous||previous.slice(0,10)!==today||clock.getTime()-Date.parse(previous)>=3600000){
+      var body={message:'Request the morning feed for '+today,sha:file.sha,
+        content:enc(JSON.stringify({requestedAt:clock.toISOString()})+'\n')};
+      var saved=await fetch(url,{method:'PUT',headers:ghHeaders(true),body:JSON.stringify(body)});
+      if(saved.status===409)return;  /* another device or commit won; check again next minute */
+      if(!saved.ok)throw Error('Cannot request morning feed');
+    }
+    showMorningNotice('Waiting for today’s feed. New papers will appear here automatically.');
+  }catch(e){
+    if(Sync.repo===repo)showMorningNotice('Could not check the morning feed. Retrying automatically.');
+  }finally{morningBusy=false;}
+}
+window.addEventListener('online',checkMorningFeed);
+window.setInterval(checkMorningFeed,60000);
 function applyData(d){
   S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.jmap=null;S.profile=d[5];S.seed=d[6];
   S.full=obj(d[7]);S.desklog=arr(d[8]);
@@ -2338,7 +2388,7 @@ function start(){
     if(!ok)return;
     if(!local){U=normUser(S.seed);cacheUser();}
     render(true);
-    return initialSync().then(function(){S.ready=true;render(true);loadContext().then(function(fresh){if(fresh)schedule();});return loadLogos();});
+    return initialSync().then(function(){S.ready=true;render(true);checkMorningFeed();loadContext().then(function(fresh){if(fresh)schedule();});return loadLogos();});
   });
 }
 
