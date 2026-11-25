@@ -747,10 +747,12 @@ function pushNow(){
     if(Sync.again){Sync.again=false;return pushNow();}
   });
 }
-function changed(){
+/* `shown`: the change is on the page already, as the reader made it, and the view is not drawn again for it */
+function changed(shown){
+  forgetKept();      /* the views show the notes */
   U.updatedAt=now();cacheUser();
   if(Sync.token&&Sync.repo){lsSet('rr.dirty','1');Sync.state='saving';clearTimeout(Sync.timer);Sync.timer=setTimeout(pushNow,1500);}
-  schedule();
+  if(!shown)schedule();
 }
 /* Resolves to true when the view has to be drawn again: the notes on GitHub are not the ones that were showing, or
    they had to be merged or sent, or could not be read. start() does the drawing. */
@@ -958,8 +960,29 @@ function loadContext(){
   /* the desk's pieces, one per board paper; fetched apart from the rest because the file grows with the board */
   if(!Sync.token||S.contextBusy||(S.context&&Date.now()-S.contextAt<300000))return Promise.resolve(false);
   S.contextBusy=true;
-  return ghData('context').then(function(d){S.context=obj(d);S.contextAt=Date.now();return true;},function(){if(!S.context)S.context={};return false;})
-    .then(function(x){S.contextBusy=false;if(S.ctxSlot)S.ctxSlot.redraw();return x;});
+  /* A paper's page opened before the pieces are in (a new tab, a reload) shows its piece from the copy this browser kept,
+     if that is the copy GitHub last sent, while GitHub is asked. Until GitHub answers the copy is used for the piece
+     alone: the tab the page opens on, and what it says of a paper with no piece, wait for the answer as before. The
+     answer is drawn when it comes, unless it is the copy whose piece is showing. */
+  var path='data/context.json',tag=!S.context&&S.view==='paper'?keptTag(path):'',early='';
+  if(tag)keptCopy(logoKey('kept/'+Sync.repo+'/'+path)).then(function(r){
+    if(!r||r.headers.get('ETag')!==tag)return;
+    return r.text().then(function(t){
+      if(S.context||!S.contextBusy)return;      /* GitHub answered first */
+      S.early=obj(JSON.parse(t));early=t;
+      var c=S.early[S.paper];if(c&&c.debate&&S.ctxSlot)S.ctxSlot.redraw('early');
+    });
+  }).catch(function(){});
+  return ghKept(path).then(function(r){
+    if(r.status===404)return 'null';
+    if(!r.ok)throw {status:r.status};
+    return r.text();
+  }).then(function(t){
+    var same=!!early&&t===early,d=null;
+    if(same)d=S.early;else try{d=JSON.parse(t);}catch(e){}
+    S.context=obj(d);S.contextAt=Date.now();S.early=null;return same?'same':true;
+  },function(){if(!S.context)S.context=S.early||{};S.early=null;return false;})      /* GitHub not reached: the kept copy's pieces stay */
+    .then(function(x){S.contextBusy=false;if(S.ctxSlot)S.ctxSlot.redraw(x==='same'?'same':'');return !!x;});
 }
 function loadPdfIndex(){
   if(!Sync.token||S.pdfIndexBusy||(S.pdfIndex&&Date.now()-S.pdfIndexAt<300000)||!boardList().some(hasPdf))return Promise.resolve(false);
@@ -1342,7 +1365,7 @@ function collectionArtwork(row,dir){
     return (cache?cache.match(url).catch(function(){return null;}):Promise.resolve(null)).then(function(hit){
       return hit?hit.blob().then(decode).catch(fromRepository):fromRepository();
     });
-  }).catch(function(){art.retryAt=Date.now()+30000;art.pending=false;if(S.view==='board')schedule();});      /* the place kept for it on a slip is given up */
+  }).catch(function(){art.retryAt=Date.now()+30000;art.pending=false;if(S.view==='board')schedule();else forgetKept();});      /* the place kept for it on a slip is given up */
   return art;
 }
 /* A cover on a slip is 32px wide and as tall as its shape makes it, to 50px. The height is written on it, so the slip
@@ -1352,6 +1375,7 @@ function coverImg(art){return h('img',{class:'cover',src:art.url,alt:'',style:co
 /* On the Board a mark or cover that arrives is put into the place its slips kept for it. Nothing else is drawn again, so
    no slip changes size and nothing under the reader's pointer is replaced. True when the Board is showing. */
 function placeArtwork(art){
+  if(S.view==='new')return placeMarks();
   if(S.view!=='board')return false;
   Array.prototype.forEach.call(document.querySelectorAll('.slip [data-art="'+art.sha+'"]'),function(ph){
     var e=ph.closest('.slip'),cover=ph.classList.contains('cover');
@@ -1361,6 +1385,13 @@ function placeArtwork(art){
   return true;
 }
 
+/* On New a journal's mark that comes is put on the cards of its journal: their heads and colour are drawn again, and
+   nothing else, so that the deck keeps its layout and its place. Drawing all of New again for each mark that came, on
+   every visit, laid out every card again. True when it is done; false when New is to be drawn again anyway. */
+function placeMarks(){
+  if(S.view!=='new'||!S.deck||S.raf||S.stale||S.showDismissed||Object.keys(S.pop).length)return false;
+  S.deck.marks();return true;
+}
 function journalOf(venue,issns){
   if(!S.jmap){S.jmap={};arr(S.journals&&S.journals.list).concat(arr(S.journals&&S.journals.other)).forEach(function(j){S.jmap[venueKey(j.name)]=j;});}
   var row=matchArtwork(venue,issns),key=venueKey(row?row.title:venue),j=obj(S.jmap[key]);
@@ -1452,7 +1483,21 @@ function deck(key,groups,kind){
   var t=0;
   track.addEventListener('scroll',function(){clearTimeout(t);t=setTimeout(sync,70);});
   S.deckIds=flat.map(function(x){return x.p.id;});
-  S.deck={move:function(d){center(current()+d,true);},fix:function(){fitBylines(track);center(S.deckAt[key]||0,false);sync();},cur:function(){var x=flat[current()];return x?x.p:null;}};
+  /* what a card takes from its journal's mark: placeMarks() draws again the cards whose mark has come, gone or changed */
+  function look(p){var j=journalOf(p.venue,paperSerials(p));return [j.url,j.wide,j.color,j.abbr].join('|');}
+  var looks=flat.map(function(x){return look(x.p);});
+  function marks(){
+    flat.forEach(function(x,i){
+      var l=look(x.p);if(l===looks[i])return;
+      looks[i]=l;
+      var was=sheets[i],now=sheet(x.p,x.num,kind),wb=was.querySelector('.paper-authors'),nb=now.querySelector('.paper-authors');
+      if(wb&&nb&&wb.classList.contains('tight'))nb.classList.add('tight');      /* the author line is as it was: fitted already */
+      was.querySelector('.paper-head').replaceWith(now.querySelector('.paper-head').cloneNode(true));
+      if(now.hasAttribute('style'))was.setAttribute('style',now.getAttribute('style'));else was.removeAttribute('style');
+      if(!was.isEqualNode(now)){was.replaceWith(now);sheets[i]=now;fitBylines(now);}      /* anything more has changed: the card is drawn again whole */
+    });
+  }
+  S.deck={move:function(d){center(current()+d,true);},fix:function(){fitBylines(track);center(S.deckAt[key]||0,false);sync();},cur:function(){var x=flat[current()];return x?x.p:null;},marks:marks};
   return h('section',{class:'deck-wrap'},h('div',{class:'deck-bar'},chips,h('div',{class:'deck-nav'},counter,prev,next,h('nav',{class:'tabs','aria-label':'Places'},places()))),track);
 }
 function viewNew(){
@@ -1874,8 +1919,12 @@ function viewBoard(){
   }
   find.addEventListener('input',function(){S.q=find.value;draw();});
   draw();
-  loadPdfIndex().then(function(fresh){if(fresh&&terms(S.q).length&&grid.isConnected&&!S.drag)draw();});      /* only a search reads the index */
-  loadContext();      /* asked for here so that a paper opens with its piece; nothing on the Board is drawn from it */
+  v.revive=function(){      /* also when the Board is shown again as it was left: render() */
+    /* only a search reads the index; a Board kept under a paper is drawn afresh when the reader is back */
+    loadPdfIndex().then(function(fresh){if(fresh&&terms(S.q).length&&grid.isConnected&&!S.drag){if(S.kept&&S.kept.el===v)forgetKept();else draw();}});
+    loadContext();      /* asked for here so that a paper opens with its piece; nothing on the Board is drawn from it */
+  };
+  v.revive();
   v.append(grid);
   return v;
 }
@@ -2053,7 +2102,7 @@ function stepPaper(d){
   var n=S.list[S.list.indexOf(S.paper)+d];if(n==null)return;
   if(S.sheet){flushNote();S.sheet=null;}
   history.replaceState(null,'','#paper/'+encodeURIComponent(n));
-  S.paper=n;S.tab=null;render(true);window.scrollTo(0,0);
+  S.paper=n;S.tab=null;render(true,true);window.scrollTo(0,0);
 }
 function inlinePdf(){
   /* a computer's browser can show a PDF inside the page; a phone's hands it to its own viewer */
@@ -2070,7 +2119,7 @@ function saveAround(x,btn){
   btn.replaceWith(h('span',{class:'ctx-on'},'On your board'));
 }
 function contextBlock(id,p){
-  var b=U.board[id]||null,c=S.context?S.context[id]:null,box=h('div',{class:'ctx'});
+  var b=U.board[id]||null,c=S.context?S.context[id]:S.early?S.early[id]:null,box=h('div',{class:'ctx'});      /* S.early: loadContext() */
   if(c&&c.debate){
     if(c.basis!=='text')box.append(h('p',{class:'ctx-meta'},c.basis==='abstract'?'Written from the abstract and references, without the full text.':'Written without the paper’s text.'));
     [['debate','The debate'],['positions','The positions'],['place','Where this paper sits'],['after','What followed']].forEach(function(x){
@@ -2214,10 +2263,11 @@ function viewPaper(){
   /* a paper opens on the desk's piece when there is one, otherwise on its PDF when one is attached */
   if(!S.tab&&!S.context)S.auto=id;
   show(S.tab||(c&&c.debate?'context':(S.context&&hasPdf(b)?'pdf':'context')));
-  S.ctxSlot={redraw:function(){
+  S.ctxSlot={redraw:function(how){      /* how: 'early', this browser's copy; 'same', GitHub sent that copy again */
       if(S.view!=='paper'||S.paper!==id||!slot.isConnected)return;
+      if(how==='early'){if(S.tab==='context')slot.replaceChildren(contextBlock(id,p));return;}
       if(S.auto===id){S.auto=null;var got=S.context&&S.context[id];if(!(got&&got.debate)&&hasPdf(U.board[id])){show('pdf');return;}}
-      if(S.tab==='context')slot.replaceChildren(contextBlock(id,p));},
+      if(S.tab==='context'&&!(how==='same'&&S.context[id]&&S.context[id].debate))slot.replaceChildren(contextBlock(id,p));},
     widen:function(){if(S.view==='paper'&&S.paper===id&&S.tab==='notes'&&slot.isConnected)show('notes');}};
   loadContext();
   v.append(grid);
@@ -2228,7 +2278,9 @@ function flushNote(){
   clearTimeout(sh.timer);
   var val=sh.ta.value;if(val===sh.last||!U.board[sh.id])return;
   sh.last=val;U.board[sh.id].note=val;U.board[sh.id].updatedAt=now();
-  changed();renderStatus();
+  /* The note is in its box as typed. Drawing the page again for it, as soon as the reader left the box, replaced the
+     button he was pressing before it came up, and the press was lost. */
+  changed(true);renderStatus();
 }
 document.addEventListener('keydown',function(e){
   if(e.altKey||e.ctrlKey||e.metaKey)return;
@@ -2280,7 +2332,14 @@ function renderTabs(){
   document.body.setAttribute('data-view',Sync.token?S.view:'signin');
   renderStatus();
 }
-function render(force){
+/* A paper opened from New or the Board is drawn above that view, which is kept as it was: hidden with content-visibility,
+   which keeps its layout and takes it out of the page, so that nothing in it is painted, pressed, focused, read out or
+   found by a search of the page. Going back shows it again instead of building it anew, as long as nothing has asked
+   for a view to be drawn or changed the notes since and the window is as wide. Anything else draws it afresh, as
+   before. `nav`: drawn because the reader went to another place, the only time a view is kept or shown again. */
+var KEEP=!!(window.CSS&&CSS.supports&&CSS.supports('content-visibility','hidden'));      /* a browser without it would show the view */
+function forgetKept(){if(S.kept)S.kept.ok=false;}
+function render(force,nav){
   renderTabs();
   var main=$('main'),a=document.activeElement;
   if(!force&&a&&main.contains(a)&&(a.tagName==='TEXTAREA'||a.tagName==='INPUT')){S.stale=true;return;}
@@ -2288,15 +2347,38 @@ function render(force){
   /* while the paper itself is showing nothing is redrawn under the reader: a PDF being read or sent keeps its place, and the page makes its own small changes */
   if(!force&&S.view==='paper'&&S.shown==='paper/'+S.paper&&S.tab==='pdf'){S.stale=true;return;}
   S.pdfUrls.forEach(function(u){URL.revokeObjectURL(u);});S.pdfUrls=[];
+  var kept=S.kept,deck=S.deck,ownBar=S.ownBar,width=window.innerWidth,wasStale=S.stale||!!S.raf;S.kept=null;      /* a view waiting to be redrawn is not kept as it is */
   S.stale=false;S.deck=null;S.fit=null;S.lv=levels();S.ownBar=false;
   if(!Sync.token){main.replaceChildren(viewSignIn());return;}
-  main.replaceChildren(VIEWFN[S.view]());
+  if(kept&&!(nav&&kept.ok&&kept.width===width&&(S.view==='paper'||S.view===kept.view)))kept=null;
+  if(kept&&S.view===kept.view){
+    Array.prototype.slice.call(main.children).forEach(function(e){if(e!==kept.el)e.remove();});
+    kept.el.style.removeProperty('content-visibility');if(!kept.el.getAttribute('style'))kept.el.removeAttribute('style');
+    S.deck=kept.deck;S.ownBar=kept.ownBar;S.shown=S.view;S.loaded=kept.loaded;
+    document.body.toggleAttribute('data-ownbar',!!S.ownBar);
+    /* drawn while a font was still coming: measured again, as drawing it afresh would */
+    if(!kept.loaded){if(S.deck)S.deck.fix();else if(S.view==='board')fitTitles(kept.el.querySelector('.board'));}
+    if(S.view==='board')fitLead();      /* the window may be taller or shorter */
+    if(kept.el.revive)kept.el.revive();
+    /* Tab starts from the top of the view, as it does after a fresh drawing */
+    main.setAttribute('tabindex','-1');main.focus({preventScroll:true});main.blur();main.removeAttribute('tabindex');
+    return;
+  }
+  var v=VIEWFN[S.view](),old=main.children.length===1?main.firstElementChild:null;
+  if(kept){Array.prototype.slice.call(main.children).forEach(function(e){if(e!==kept.el)e.remove();});main.append(v);S.kept=kept;}      /* one paper after another */
+  else if(nav&&S.view==='paper'&&old&&(S.shown==='new'||S.shown==='board')&&KEEP){
+    if(old.contains(document.activeElement))document.activeElement.blur();      /* as when it was taken away: the focus is nowhere */
+    old.style.contentVisibility='hidden';main.append(v);
+    S.kept={view:S.shown,el:old,ok:!wasStale,width:width,deck:deck,ownBar:ownBar,loaded:S.loaded};
+  }
+  else main.replaceChildren(v);
   S.shown=S.view==='paper'?'paper/'+S.paper:S.view;
   document.body.toggleAttribute('data-ownbar',!!S.ownBar);   /* New carries the buttons in its own top row */
   if(S.deck)S.deck.fix();
   if(S.fit){var fit=S.fit;S.fit=null;fit();}      /* the Board measures its slips now that they are on the page */
+  S.loaded=!!(document.fonts&&document.fonts.status==='loaded');      /* measured in the fonts it is shown in */
 }
-function schedule(){if(S.raf)return;S.raf=requestAnimationFrame(function(){S.raf=0;render(false);});}
+function schedule(){forgetKept();if(S.raf)return;S.raf=requestAnimationFrame(function(){S.raf=0;render(false);});}
 document.addEventListener('focusout',function(){if(S.stale)setTimeout(schedule,0);});
 function route(){
   var k=location.hash.replace('#','');if(k==='ledger')k='settings';
@@ -2311,7 +2393,7 @@ function go(v){if(location.hash==='#'+v)return;location.hash=v;}
 window.addEventListener('hashchange',function(){
   var was=S.view;
   if(S.sheet){flushNote();S.sheet=null;}
-  route();render(true);
+  route();render(true,true);
   /* coming back from a paper, return to where the reader was: the same card on New, the same place on the Board */
   window.scrollTo(0,was==='paper'&&S.view!=='paper'&&S.back&&S.back.view===S.view?S.back.y:0);
 });
@@ -2383,7 +2465,7 @@ var morningCheckedAt=0,morningBusy=false,morningNotice='';
 function showMorningNotice(message){
   if(morningNotice===message)return;
   morningNotice=message;
-  if(S.view==='new')schedule();
+  if(S.view==='new')schedule();else forgetKept();      /* New is drawn afresh with it */
 }
 async function checkMorningFeed(){
   if(!S.ready||!Sync.token||!Sync.repo||document.visibilityState!=='visible'||morningBusy)return;
@@ -2569,7 +2651,7 @@ function logosFromCache(){
     })).then(function(){
       var left={},n=0;idx.forEach(function(x){if(!S.logos[str(x.key)]){left[str(x.key)]=true;n++;}});
       S.logoWait=n?left:null;      /* only a mark this browser no longer holds is still waited for, until the folder has been read */
-      schedule();
+      if(!placeMarks())schedule();
     });
   }).catch(function(){});
 }
@@ -2613,7 +2695,7 @@ function loadLogos(){
       lsSet('rr.logos',JSON.stringify(done.map(function(x){return {key:x.key,sha:x.sha,color:x.color||'',wide:!!x.wide};})));
       S.logoNote=done.length?count(done.length,'journal logo','journal logos')+' shown from the logos folder.'+(skipped?' '+count(skipped,'file was','files were')+' skipped: the name matches no journal, or the file is over 600 KB.':'')
         :'No journal logos yet. Add image files to a logos folder in the repository, each named by the journal’s ISSN, for example 0048-3915.png.';
-      if(redraw||S.view==='settings')schedule();      /* Settings carries the note above */
+      if(S.view==='settings'||redraw&&!placeMarks())schedule();      /* Settings carries the note above */
     });
   }).catch(function(){S.logoNote='The logos folder could not be read.';if(S.logoWait){S.logoWait=null;schedule();}});
 }
