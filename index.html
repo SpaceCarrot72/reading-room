@@ -1024,16 +1024,19 @@ function shortAff(aff){
 }
 /* aff:end */
 /* authors: "Name [Institution], Name" split into people; a level is how many papers on the board carry a + for that author */
+/* A publisher or a university that a record lists among a paper's authors is not one of them ("Journal of Philosophy
+   Inc."). The daily check leaves these out; this keeps one out of an author line that was stored before it did. */
+var NOT_A_PERSON=/\b(inc|ltd|llc|gmbh)\.?$|^(the\s+)?(journal|university)\s+of\b|\buniversity\s+press$/i;
 function people(a){
   return str(a).split(/,\s*(?![^\[]*\])/).map(function(part){
     var m=/^(.*?)\s*(\[[^\]]*\])?\s*$/.exec(part)||[];
     return {name:fixCapsName(str(m[1]).trim()),aff:str(m[2])};
-  }).filter(function(x){return x.name;});
+  }).filter(function(x){return x.name&&!NOT_A_PERSON.test(x.name);});
 }
-/* the author line as it is saved: unchanged unless a name in it was all in capitals */
+/* the author line as it is saved: unchanged unless a name in it was all in capitals, or was no person's */
 function tidyAuthors(a){
   a=str(a);
-  var raw=a.split(/,\s*(?![^\[]*\])/).some(function(part){var n=part.replace(/\s*\[[^\]]*\]\s*$/,'').trim();return n&&fixCapsName(n)!==n;});
+  var raw=a.split(/,\s*(?![^\[]*\])/).some(function(part){var n=part.replace(/\s*\[[^\]]*\]\s*$/,'').trim();return n&&(fixCapsName(n)!==n||NOT_A_PERSON.test(n));});
   return raw?people(a).map(function(x){return x.name+(x.aff?' '+x.aff:'');}).join(', '):a;
 }
 function authorKey(n){
@@ -1122,6 +1125,7 @@ function schoolLeaders(){
   rows.forEach(function(r,i){r.rank=i&&rows[i-1].lv===r.lv?rows[i-1].rank:i+1;});
   return rows;
 }
+var ORGANISATION=/\b(inc|ltd|llc|gmbh|press|publish\w*|journals?|universit\w+|college|institute|department|school|society|association|committee|foundation|editors?|editorial|usa|uk)\b|[,;(]/i;
 function swapIcon(){
   var ns='http://www.w3.org/2000/svg',v=document.createElementNS(ns,'svg'),p=document.createElementNS(ns,'path');
   v.setAttribute('viewBox','0 0 12 12');v.setAttribute('aria-hidden','true');
@@ -1525,7 +1529,13 @@ function lookup(){
     var it=doi?j.message:arr(j.message&&j.message.items)[0];
     if(!it||!arr(it.title)[0]){toast('Crossref found no match. Fill in the fields by hand.');return;}
     S.form.title=str(arr(it.title)[0]);
-    S.form.authors=arr(it.author).map(function(a){return [a.given,a.family].filter(Boolean).join(' ')||str(a.name);}).filter(Boolean).join(', ');
+    /* Crossref gives a person a given or a family name and an organisation a name alone. An organisation beside people is
+       a publisher or an affiliation in the wrong field ("Journal of Philosophy Inc."), and is not an author. */
+    var listed=arr(it.author),named=listed.some(function(a){return a.given||a.family;});
+    S.form.authors=listed.map(function(a){
+      var n=[a.given,a.family].filter(Boolean).join(' ');
+      return n||(named||ORGANISATION.test(str(a.name))?'':str(a.name).trim());
+    }).filter(Boolean).join(', ');
     S.form.venue=str(arr(it['container-title'])[0]);
     S.form.crossrefVenue=S.form.venue;S.form.issns=arr(it.ISSN);
     var dp=it.issued&&arr(it.issued['date-parts'])[0];
