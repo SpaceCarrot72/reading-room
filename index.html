@@ -662,7 +662,8 @@ function offer(msg,acts){
 
 /* storage in this browser */
 function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
-function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+var signingOut=false;      /* set by signOut(): answers that arrive before the page reloads store nothing */
+function lsSet(k,v){if(signingOut&&/^rr\./.test(k))return;try{localStorage.setItem(k,v);}catch(e){}}
 function lsDel(k){try{localStorage.removeItem(k);}catch(e){}}
 function cacheUser(){lsSet('rr.user',JSON.stringify(U));}
 
@@ -711,7 +712,7 @@ function same(a,b){
   return strip(a)===strip(b);
 }
 function pull(){
-  return fetch(ghUrl(),{headers:ghHeaders(false),cache:'no-store'}).then(function(r){
+  return ghKept('user.json',true).then(function(r){
     if(r.status===404){Sync.sha=null;return null;}
     if(!r.ok)throw {status:r.status};
     return r.json().then(function(j){
@@ -751,13 +752,18 @@ function changed(){
   if(Sync.token&&Sync.repo){lsSet('rr.dirty','1');Sync.state='saving';clearTimeout(Sync.timer);Sync.timer=setTimeout(pushNow,1500);}
   schedule();
 }
+/* Resolves to true when the view has to be drawn again: the notes on GitHub are not the ones that were showing, or
+   they had to be merged or sent, or could not be read. start() does the drawing. */
 function initialSync(){
   Sync.state='saving';renderStatus();
   return pull().then(function(remote){
-    if(!remote)return pushNow();
-    if(lsGet('rr.dirty')==='1'){U=merge(U,remote);cacheUser();schedule();return pushNow();}
-    U=remote;cacheUser();Sync.state='synced';schedule();
-  }).catch(function(e){Sync.state='error';Sync.msg=ghMsg(e);schedule();});
+    if(!remote)return pushNow().then(function(){return true;});
+    if(lsGet('rr.dirty')==='1'){U=merge(U,remote);cacheUser();schedule();return pushNow().then(function(){return true;});}
+    var differs=!same(remote,U);
+    if(differs)U=remote;else U.updatedAt=remote.updatedAt;      /* the same notes: the ones the view was drawn from are kept */
+    cacheUser();Sync.state='synced';
+    return differs;
+  }).catch(function(e){Sync.state='error';Sync.msg=ghMsg(e);return true;});
 }
 function connect(repo,token){
   repo=str(repo).trim().replace(/^https?:\/\/github\.com\//,'').replace(/\.git$/,'').replace(/\/+$/,'');
@@ -780,7 +786,8 @@ function signOut(){
     if(Sync.state!=='error')pushNow();
     return;
   }
-  ['rr.sync','rr.dirty','rr.user','rr.data','rr.logos','rr.schoolmarks'].forEach(lsDel);
+  signingOut=true;
+  ['rr.sync','rr.dirty','rr.user','rr.data','rr.logos','rr.schoolmarks','rr.tags'].forEach(lsDel);
   try{if(window.caches){caches.delete('rr-logos');caches.delete('rr-pdfs');}}catch(e){}
   history.replaceState(null,'',location.pathname);
   location.reload();
@@ -842,7 +849,7 @@ function looksLikePdf(file){
     var b=new Uint8Array(buf),t='';for(var i=0;i<b.length;i++)t+=String.fromCharCode(b[i]);
     return t.indexOf('%PDF')>=0;},function(){return false;});
 }
-function pdfCache(){try{return window.caches?caches.open('rr-pdfs').catch(function(){return null;}):Promise.resolve(null);}catch(e){return Promise.resolve(null);}}
+function pdfCache(){try{return window.caches&&!signingOut?caches.open('rr-pdfs').catch(function(){return null;}):Promise.resolve(null);}catch(e){return Promise.resolve(null);}}
 function pdfKey(p){return 'https://pdfs.invalid/'+encodeURIComponent(p.path)+'?at='+encodeURIComponent(str(p.at));}
 function pdfKeep(p,blob){
   return pdfCache().then(function(c){if(c)return c.put(pdfKey(p),new Response(blob,{headers:{'Content-Type':'application/pdf'}}));}).catch(function(){});
@@ -1867,8 +1874,8 @@ function viewBoard(){
   }
   find.addEventListener('input',function(){S.q=find.value;draw();});
   draw();
-  loadPdfIndex().then(function(fresh){if(fresh&&grid.isConnected&&!S.drag)draw();});
-  loadContext().then(function(fresh){if(fresh&&grid.isConnected&&!S.drag)draw();});
+  loadPdfIndex().then(function(fresh){if(fresh&&terms(S.q).length&&grid.isConnected&&!S.drag)draw();});      /* only a search reads the index */
+  loadContext();      /* asked for here so that a paper opens with its piece; nothing on the Board is drawn from it */
   v.append(grid);
   return v;
 }
@@ -2313,7 +2320,8 @@ document.addEventListener('visibilitychange',function(){
   if(document.visibilityState!=='visible'||!Sync.token||Sync.busy||S.sheet)return;
   if(lsGet('rr.dirty')==='1'||Date.now()-Sync.pulled<60000)return;
   pull().then(function(remote){if(remote&&!same(remote,U)){U=remote;cacheUser();schedule();}Sync.state='synced';renderStatus();}).catch(function(){});
-  if(Date.now()-S.dataAt>3*3600000)loadData().then(function(ok){if(ok)schedule();});
+  /* the same data leaves the view as it is; what drawing it again would have asked for again is asked for here */
+  if(Date.now()-S.dataAt>3*3600000)loadData().then(function(got){if(got==='new')schedule();else if(got){loadContext();if(S.view==='board')loadPdfIndex();}});
 });
 window.addEventListener('beforeunload',function(){if(S.sheet)flushNote();});
 
@@ -2322,8 +2330,48 @@ function ghRaw(path){
   return fetch('https://api.github.com/repos/'+Sync.repo+'/contents/'+path,
     {headers:{'Authorization':'Bearer '+Sync.token,'Accept':'application/vnd.github.raw+json','X-GitHub-Api-Version':'2022-11-28'},cache:'no-store'});
 }
+/* A file this browser has read before is asked for with the ETag GitHub gave it then. GitHub answers 304, with no
+   body, when the file has not changed since, and the copy kept here is used: a return visit still asks about every
+   file and downloads only the ones that are new. The tags are in localStorage, so a request leaves without waiting
+   for anything; the copies, each with its tag, are with the marks in the Cache API store, which has no 5 MB limit.
+   A tag is written only once its copy is in, and a copy is used only if it carries the tag GitHub answered to.
+   Sign-out clears both. The browser's own HTTP cache could do the same and could not be cleared, so requests stay
+   `no-store`. A file that comes without an ETag is read in full every time, and kept only if the caller names its own
+   key: the crest sheet, which is shown from its copy at the start of every visit. */
+function keptTag(path,tag){
+  var t=obj(parseStored('rr.tags'));
+  if(tag===undefined)return str(t[path]);
+  if(!lsGet('rr.sync'))return;      /* signed out while the file was on its way */
+  if(tag)t[path]=tag;else delete t[path];
+  lsSet('rr.tags',JSON.stringify(t));
+}
+function keptCopy(key){return logoCache().then(function(c){return c?c.match(key):null;}).catch(function(){return null;});}
+function ghKept(path,json,key,full){
+  var tag=full?'':keptTag(path),hd=ghHeaders(false),own=!!key;
+  key=key||logoKey('kept/'+Sync.repo+'/'+path);
+  if(!json)hd.Accept='application/vnd.github.raw+json';
+  if(tag)hd['If-None-Match']=tag;
+  return fetch(ghFile(path),{headers:hd,cache:'no-store'}).then(function(r){
+    if(r.status===304&&tag)return keptCopy(key).then(function(kept){
+      if(kept&&kept.headers.get('ETag')===tag)return kept;
+      keptTag(path,'');return ghKept(path,json,own?key:null,true);      /* the copy is gone: the file is read in full */
+    });
+    var now=r.ok?str(r.headers.get('ETag')):'';
+    if(tag&&r.ok&&!now)keptTag(path,'');
+    /* a file of its own (the crest sheet) is kept only when the caller has accepted it: keep() */
+    var copy=now||(r.ok&&own)?r.clone():null;
+    function keep(){
+      if(copy)copy.blob().then(function(b){
+        return logoCache().then(function(c){if(c)return c.put(key,new Response(b,{headers:{ETag:now}})).then(function(){if(now)keptTag(path,now);});});
+      }).catch(function(){});
+      copy=null;
+    }
+    if(own)r.keep=keep;else keep();
+    return r;
+  });
+}
 function ghData(name){
-  return ghRaw('data/'+name+'.json').then(function(r){
+  return ghKept('data/'+name+'.json').then(function(r){
     if(r.status===404)return null;
     if(!r.ok)throw {status:r.status};
     return r.text().then(function(t){try{return JSON.parse(t);}catch(e){return null;}});
@@ -2385,16 +2433,20 @@ function applyData(d){
   S.stocklog=arr(d[10]);S.spend=obj(d[11]);S.jscores=obj(obj(d[12]).journals);S.ctxlog=arr(d[13]);S.schools=obj(obj(d[14]).people);S.venues=obj(obj(d[15]).papers);S.dead={};Object.keys(obj(obj(d[16]).people)).forEach(function(n){var k=authorKey(n);if(k)S.dead[k]=true;});S.colours={};Object.keys(obj(obj(d[17]).schools)).forEach(function(n){var c=str(obj(d[17]).schools[n]);if(/^#[0-9a-f]{6}$/i.test(c))S.colours[publicationTitle(n)]=c;});
 }
 function parseStored(k){try{return JSON.parse(lsGet(k)||'null');}catch(e){return null;}}
+var dataText='';      /* the data now applied, as the JSON text kept in rr.data */
+/* Resolves to false when GitHub could not be read, to 'same' when it sent what is already applied, and otherwise to 'new'. */
 function loadData(){
   loadSchoolMarks();
   return Promise.all(DATA.map(function(name){
     if(name!=='logo-catalog')return ghData(name);
     return ghData(name).catch(function(){return arr(parseStored('rr.data'))[9]||null;});
   })).then(function(d){
+    var text=JSON.stringify(d),same=text===dataText&&!S.failed;
     S.dataAt=Date.now();S.failed=false;S.nodata=d[0]==null;
-    applyData(d);
-    if(!S.nodata)lsSet('rr.data',JSON.stringify(d));
-    return true;
+    if(same)return 'same';
+    applyData(d);dataText=text;
+    if(!S.nodata)lsSet('rr.data',text);
+    return 'new';
   },function(e){
     if(S.ready){toast('Could not reach GitHub. Showing the copy saved in this browser.');return false;}
     S.failed=true;S.failMsg=e&&e.status?ghMsg(e):'Could not reach GitHub. Check the connection and reload.';
@@ -2403,37 +2455,38 @@ function loadData(){
 }
 /* Keep the private image out of the size-limited notes and paper cache. Sign-out clears rr-logos. */
 function loadSchoolMarks(){
-  var repo=Sync.repo,key=logoKey('schools/'+repo),fresh=false;
-  logoCache().then(function(cache){
-    /* the copy this browser holds is shown at once; the repository's replaces it when it answers */
-    if(cache)cache.match(key).then(function(r){return r&&r.json();}).then(function(d){if(d&&!fresh&&Sync.repo===repo&&setSchoolMarks(d))schedule();}).catch(function(){});
-    return ghRaw('data/school-marks.json').then(function(response){
-      if(!response.ok)throw Error('Artwork unavailable');
-      var copy=cache?response.clone():null;
-      return response.json().then(function(data){
-        if(Sync.repo!==repo||!setSchoolMarks(data))return;
-        fresh=true;
-        schedule();
-        if(cache)return cache.put(key,copy).catch(function(){});
-      });
-    }).catch(function(){
-      if(cache)return cache.match(key).then(function(r){return r&&r.json();}).then(function(d){
-        if(Sync.repo===repo&&setSchoolMarks(d))schedule();
-      });
+  var repo=Sync.repo,key=logoKey('schools/'+repo),shown='';
+  function use(r,old){
+    return r.text().then(function(text){
+      if(text===shown||(old&&shown)||Sync.repo!==repo)return;
+      var had=JSON.stringify(Array.from(schoolMarks));
+      if(!setSchoolMarks(JSON.parse(text)))return;
+      shown=text;
+      if(r.keep)r.keep();      /* the repository's sheet is kept once it has been accepted */
+      /* the picture reaches the crests already drawn through the stylesheet: the view is drawn again only if a crest has come, gone or moved */
+      if(JSON.stringify(Array.from(schoolMarks))!==had)schedule();
     });
-  }).catch(function(){});
+  }
+  /* the copy this browser holds is shown at once; the repository's replaces it when it answers, unless it is the same */
+  keptCopy(key).then(function(r){if(r)return use(r,true);}).catch(function(){});
+  ghKept('data/school-marks.json',false,key).then(function(r){if(r.ok)return use(r);}).catch(function(){});
 }
 function start(){
   var cached=parseStored('rr.data'),local=parseStored('rr.user');
   S.failed=false;
   if(local)U=normUser(local);
-  if(local&&Array.isArray(cached)&&cached[0]){applyData(cached);S.ready=true;logosFromCache();setSchoolMarks(parseStored('rr.schoolmarks'),true);}
+  if(local&&Array.isArray(cached)&&cached[0]){applyData(cached);dataText=str(lsGet('rr.data'));S.ready=true;logosFromCache();setSchoolMarks(parseStored('rr.schoolmarks'),true);}
+  var data=loadData();      /* asked for before the saved copy is drawn, which takes long enough to matter */
   render(true);
-  return loadData().then(function(ok){
+  return data.then(function(ok){
     if(!ok)return;
     if(!local){U=normUser(S.seed);cacheUser();}
-    render(true);
-    return initialSync().then(function(){S.ready=true;render(true);checkMorningFeed();loadContext().then(function(fresh){if(fresh)schedule();});return loadLogos();});
+    if(ok==='new'&&S.ready)render(true);
+    return initialSync().then(function(differs){
+      var was=S.ready;S.ready=true;
+      /* the first view of a visit that had no saved copy, new notes, and Settings, which says where the sync stands */
+      if(!was||differs||S.view==='settings')render(true);
+      checkMorningFeed();loadContext();return loadLogos();});
   });
 }
 
@@ -2449,7 +2502,7 @@ function logoTargets(){
   });
   return m;
 }
-function logoCache(){try{return window.caches?caches.open('rr-logos').catch(function(){return null;}):Promise.resolve(null);}catch(e){return Promise.resolve(null);}}
+function logoCache(){try{return window.caches&&lsGet('rr.sync')?caches.open('rr-logos').catch(function(){return null;}):Promise.resolve(null);}catch(e){return Promise.resolve(null);}}
 function logoKey(sha){return 'https://logos.invalid/'+encodeURIComponent(sha);}
 function setLogo(key,blob,known,sha){
   if(S.logos[key])URL.revokeObjectURL(S.logos[key]);
@@ -2521,12 +2574,12 @@ function logosFromCache(){
   }).catch(function(){});
 }
 function loadLogos(){
-  return ghRaw('logos').then(function(r){
+  return ghKept('logos').then(function(r){
     if(r.status===404)return [];
     if(!r.ok)throw {status:r.status};
     return r.json();
   }).then(function(list){
-    var targets=logoTargets(),want=[],skipped=0;
+    var targets=logoTargets(),want=[],skipped=0,redraw=false;
     arr(list).forEach(function(f){
       var m=/^(.+)\.([a-z0-9]+)$/i.exec(str(f&&f.name));
       if(!m||f.type!=='file'||!LOGO_TYPES[m[2].toLowerCase()])return;
@@ -2538,6 +2591,7 @@ function loadLogos(){
       return Promise.all(want.map(function(x){
         /* a mark already showing, and unchanged in the repository, is left as it is */
         if(S.logos[x.key]&&S.logoSha[x.key]===x.sha){x.color=S.logoColor[x.key]||'';x.wide=!!S.logoWide[x.key];return Promise.resolve(x);}
+        redraw=true;
         return (c?c.match(logoKey(x.sha)):Promise.resolve(null)).then(function(hit){
           if(hit)return hit.blob();
           return ghRaw('logos/'+encodeURIComponent(x.name)).then(function(r){
@@ -2553,12 +2607,13 @@ function loadLogos(){
     }).then(function(done){
       done=done.filter(Boolean);
       var keep={};done.forEach(function(x){keep[x.key]=1;});
-      Object.keys(S.logos).forEach(function(k){if(!keep[k]){URL.revokeObjectURL(S.logos[k]);delete S.logos[k];delete S.logoColor[k];delete S.logoWide[k];delete S.logoSha[k];delete S.logoKeep[k];}});
+      Object.keys(S.logos).forEach(function(k){if(!keep[k]){redraw=true;URL.revokeObjectURL(S.logos[k]);delete S.logos[k];delete S.logoColor[k];delete S.logoWide[k];delete S.logoSha[k];delete S.logoKeep[k];}});
+      if(S.logoWait)redraw=true;
       S.logoWait=null;      /* every mark the folder holds is in: no place is kept for one that is gone */
       lsSet('rr.logos',JSON.stringify(done.map(function(x){return {key:x.key,sha:x.sha,color:x.color||'',wide:!!x.wide};})));
       S.logoNote=done.length?count(done.length,'journal logo','journal logos')+' shown from the logos folder.'+(skipped?' '+count(skipped,'file was','files were')+' skipped: the name matches no journal, or the file is over 600 KB.':'')
         :'No journal logos yet. Add image files to a logos folder in the repository, each named by the journal’s ISSN, for example 0048-3915.png.';
-      schedule();
+      if(redraw||S.view==='settings')schedule();      /* Settings carries the note above */
     });
   }).catch(function(){S.logoNote='The logos folder could not be read.';if(S.logoWait){S.logoWait=null;schedule();}});
 }
