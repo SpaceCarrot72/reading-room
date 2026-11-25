@@ -451,6 +451,15 @@ body[data-view="board"] .footnav{display:flex}
 .lead .lead-t{flex:none;display:inline-flex;align-items:center;gap:6px;width:auto;border:1px solid var(--rule);border-radius:999px;background:var(--paper);padding:4px 10px 4px 11px;font:500 12.5px/1.3 var(--ui);color:var(--ink);white-space:nowrap;cursor:pointer}
 .lead .lead-t:hover{border-color:var(--ink-soft);background:var(--paper)}
 .lead .lead-t svg{width:12px;height:12px;display:block;color:var(--ink-soft)}
+/* in the one-column layout the leaderboard, when its button is pressed, takes the place of a column and lists down the page */
+@media (max-width:860px){
+  .board .lead[data-open]{display:block;margin:0}
+  .board .lead .lead-t{width:auto;margin:2px 0 12px}
+  .board .lead ol{display:block;margin:0 0 0 -7px;padding:0;overflow:visible}
+  .board .lead button{width:100%;padding:7px 8px 7px 7px;white-space:normal;align-items:flex-start}
+  .board .lead .rk{padding-top:1px;min-width:1.5em}
+  .board .lead .lv{margin-left:auto;margin-top:1px}
+}
 @media (min-width:1280px){
   body[data-view="board"] .wrap{max-width:1400px}
   .board{grid-template-columns:repeat(3,minmax(0,1fr)) 204px}
@@ -1792,11 +1801,15 @@ function viewBoard(){
       rowsBy[c[0]]=all.filter(function(b){return colKey(b)===c[0]&&keep(b)&&by(b);}).sort(first)
         .map(function(b){return [b,boardMatch(b,toks)];}).filter(function(x){return x[1];});
     });
-    /* In the one-column layout one column shows at a time, the one whose button was pressed last; To Read to begin with.
-       A search or filter that finds nothing there shows the first column where it finds something. The stylesheet
-       ignores all this on a wide window, where every column shows. */
-    var picked=lsGet('rr.col'),openCol=picked==='none'?'':COLS.some(function(c){return c[0]===picked;})?picked:COLS[0][0];
-    if(looking&&!(openCol&&rowsBy[openCol].length)){var found=COLS.filter(function(c){return rowsBy[c[0]].length;})[0];if(found)openCol=found[0];}
+    /* In the one-column layout one thing shows at a time, a column or the leaderboard, whichever button was pressed last;
+       To Read to begin with. A search or filter that finds nothing in the open column shows the first column where it
+       finds something. Pressing a name on the leaderboard goes to the first column with their work. The stylesheet
+       ignores all this on a wide window, where every column and the leaderboard show. */
+    var picked=lsGet('rr.col'),filt=[S.ba,S.bj,S.bs].join('|');
+    if(picked==='lead'&&filt!==S.leadFilt&&(S.ba||S.bj||S.bs)){var hit=COLS.filter(function(c){return rowsBy[c[0]].length;})[0];if(hit){picked=hit[0];lsSet('rr.col',picked);}}
+    S.leadFilt=filt;
+    var leadOpen=picked==='lead',openCol=picked==='none'||leadOpen?'':COLS.some(function(c){return c[0]===picked;})?picked:COLS[0][0];
+    if(openCol&&looking&&!rowsBy[openCol].length){var found=COLS.filter(function(c){return rowsBy[c[0]].length;})[0];if(found)openCol=found[0];}
     COLS.forEach(function(c,ci){
       var rows=rowsBy[c[0]];
       shown+=rows.length;
@@ -1835,13 +1848,13 @@ function viewBoard(){
       grid.append(col);
     });
     if(n){
-      /* in the one-column layout the leaderboard is shut until its button is pressed, or while it is filtering the Board */
-      var lead=board(ranked),leadOpen=folded().indexOf('lead:open')>=0||!!S.ba||!!S.bj||!!S.bs;
+      /* in the one-column layout the leaderboard is shown as a column is: pressing its button shows it and shuts the column
+         that was open; pressing it again shuts it, and ends any filter it had set */
+      var lead=board(ranked);
       var lt=h('button',{type:'button','aria-pressed':String(leadOpen)},'Leaderboard');
       lt.addEventListener('click',function(){
-        var f=folded().filter(function(x){return x!=='lead:open';});
-        if(leadOpen){S.ba='';S.bj='';S.bs='';}else f.push('lead:open');
-        lsSet('rr.fold',JSON.stringify(f));draw();
+        if(leadOpen){S.ba='';S.bj='';S.bs='';}
+        lsSet('rr.col',leadOpen?'none':'lead');draw();
       });
       tabs.append(lt);
       if(leadOpen)lead.setAttribute('data-open','');
