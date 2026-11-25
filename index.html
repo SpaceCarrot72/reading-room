@@ -446,7 +446,8 @@ body[data-view="board"] .footnav{display:flex}
 .lead button[aria-pressed="true"] .dead{color:inherit;opacity:.7}
 .lead .sc{display:block;font-weight:400;font-size:12px;color:var(--ink-soft)}
 .lead .sc .school-name{color:inherit}
-/* the switch between authors and journals: it names what the leaderboard is showing */
+.lead .nm .school-name{color:inherit;font-weight:inherit}
+/* the switch between authors, journals and schools: it names what the leaderboard is showing */
 .lead .lead-t{flex:none;display:inline-flex;align-items:center;gap:6px;width:auto;border:1px solid var(--rule);border-radius:999px;background:var(--paper);padding:4px 10px 4px 11px;font:500 12.5px/1.3 var(--ui);color:var(--ink);white-space:nowrap;cursor:pointer}
 .lead .lead-t:hover{border-color:var(--ink-soft);background:var(--paper)}
 .lead .lead-t svg{width:12px;height:12px;display:block;color:var(--ink-soft)}
@@ -1100,6 +1101,27 @@ function journalLeaders(){
   rows.forEach(function(r,i){r.rank=i&&rows[i-1].lv===r.lv?rows[i-1].rank:i+1;});
   return rows;
 }
+/* A school's place on the board: one point for each work there by someone at the school and four more for a starred
+   one, as for an author. A work by two people at one school counts once for it. The list is as long as the authors'. */
+function schoolsOf(b){
+  var out=[];
+  people(obj(b).authors).forEach(function(x){var s=str(obj(S.schools[authorKey(x.name)]).school);if(s&&out.indexOf(s)<0)out.push(s);});
+  return out;
+}
+function schoolLeaders(){
+  var by={},lv={};
+  boardList().forEach(function(b){
+    schoolsOf(b).forEach(function(s){
+      var r=by[s]||(by[s]={key:s,name:s,lv:0,n:0,stars:0});
+      r.lv+=isStar(b)?STAR:1;r.n++;if(isStar(b))r.stars++;
+    });
+  });
+  Object.keys(by).forEach(function(k){lv[k]=by[k].lv;});
+  var rows=Object.keys(by).map(function(k){var r=by[k];r.colour=str(S.colours[publicationTitle(r.name)]);return r;})
+    .sort(function(a,b){return b.lv-a.lv||a.name.localeCompare(b.name);}).slice(0,leadSize(lv));
+  rows.forEach(function(r,i){r.rank=i&&rows[i-1].lv===r.lv?rows[i-1].rank:i+1;});
+  return rows;
+}
 function swapIcon(){
   var ns='http://www.w3.org/2000/svg',v=document.createElementNS(ns,'svg'),p=document.createElementNS(ns,'path');
   v.setAttribute('viewBox','0 0 12 12');v.setAttribute('aria-hidden','true');
@@ -1657,11 +1679,13 @@ function viewBoard(){
   if(n)v.append(h('div',{class:'find',role:'search'},find,fwrap,acts));
   else v.append(h('div',{class:'find'},h('p',{class:'none'},'Nothing on your board yet.'),acts));
   var grid=h('div',{class:'board'});
-  if(!S.lb)S.lb=lsGet('rr.lb')==='journals'?'journals':'authors';
+  var LISTS=['authors','journals','schools'];
+  if(LISTS.indexOf(S.lb)<0)S.lb=LISTS.indexOf(lsGet('rr.lb'))>=0?lsGet('rr.lb'):'authors';
   function board(){
-    var journals=S.lb==='journals',top=journals?journalLeaders():leaders();
-    if(S.ba&&(journals||!top.some(function(r){return r.key===S.ba;})))S.ba='';
+    var journals=S.lb==='journals',schools=S.lb==='schools',top=journals?journalLeaders():schools?schoolLeaders():leaders();
+    if(S.ba&&(journals||schools||!top.some(function(r){return r.key===S.ba;})))S.ba='';
     if(S.bj&&(!journals||!top.some(function(r){return r.key===S.bj;})))S.bj='';
+    if(S.bs&&(!schools||!top.some(function(r){return r.key===S.bs;})))S.bs='';
     var ol=h('ol');
     ol.addEventListener('scroll',function(){S.leadAt=[ol.scrollLeft,ol.scrollTop];},{passive:true});
     if(journals)top.forEach(function(r){
@@ -1673,6 +1697,15 @@ function viewBoard(){
       bt.addEventListener('click',function(){S.bj=on?'':r.key;draw();});
       ol.append(h('li',null,bt));
     });
+    else if(schools)top.forEach(function(r){
+      var on=S.bs===r.key;
+      var bt=h('button',{type:'button','aria-pressed':String(on),'aria-label':r.name+', '+r.lv+(r.lv===1?' point':' points')+'. '+(on?'Show every paper again':'Show only work by people there')},
+        h('span',{class:'rk'},String(r.rank)),
+        h('span',{class:'who'},h('span',{class:'nm'},schoolAffiliation(r.name,'short')),h('span',{class:'sc'},r.n+(r.n===1?' work':' works')+(r.stars?', '+r.stars+' starred':''))),
+        h('span',{class:'lv',style:r.colour&&!on?'background:'+r.colour+';color:'+inkOn(r.colour):null},'+ '+r.lv));      /* in the school's main colour */
+      bt.addEventListener('click',function(){S.bs=on?'':r.key;draw();});
+      ol.append(h('li',null,bt));
+    });
     else top.forEach(function(r){
       var on=S.ba===r.key,cut=r.name.lastIndexOf(' ')+1;      /* the last word of the name and the cross stay together */
       var bt=h('button',{type:'button','aria-pressed':String(on),'aria-label':r.name+(r.dead?', deceased':'')+(r.school?', '+r.school:'')+', '+r.lv+(r.lv===1?' point':' points')+'. '+(on?'Show every paper again':'Show only their papers')},
@@ -1682,16 +1715,17 @@ function viewBoard(){
       bt.addEventListener('click',function(){S.ba=on?'':r.key;draw();});
       ol.append(h('li',null,bt));
     });
-    /* the switch names what is showing; pressing it shows the other */
-    var swap=h('button',{class:'lead-t',type:'button',title:journals?'Showing journals. Press for authors.':'Showing authors. Press for journals.',
-      'aria-label':journals?'The leaderboard is showing journals. Show authors':'The leaderboard is showing authors. Show journals'},journals?'Journals':'Authors',swapIcon());
-    swap.addEventListener('click',function(){S.lb=journals?'authors':'journals';lsSet('rr.lb',S.lb);S.ba='';S.bj='';S.leadAt=null;draw();});
+    /* the switch names what is showing; pressing it shows the next: authors, journals, schools, and round again */
+    var next=LISTS[(LISTS.indexOf(S.lb)+1)%LISTS.length];
+    var swap=h('button',{class:'lead-t',type:'button',title:'Showing '+S.lb+'. Press for '+next+'.',
+      'aria-label':'The leaderboard is showing '+S.lb+'. Show '+next},S.lb.charAt(0).toUpperCase()+S.lb.slice(1),swapIcon());
+    swap.addEventListener('click',function(){S.lb=next;lsSet('rr.lb',S.lb);S.ba='';S.bj='';S.bs='';S.leadAt=null;draw();});
     return h('aside',{class:'lead','aria-label':'Leaderboard'},h('h2',{class:'col-h'},'Leaderboard'),swap,ol);
   }
   function draw(){
     var toks=terms(S.q),shown=0,keep=(FILTERS.filter(function(f){return f[0]===S.bf;})[0]||FILTERS[0])[2],order=[];
-    var by=S.ba?function(b){return people(b.authors).some(function(x){return authorKey(x.name)===S.ba;});}:S.bj?function(b){return journalKeyOf(b)===S.bj;}:function(){return true;};
-    var looking=toks.length||S.bf!=='all'||S.ba||S.bj,shut=looking?[]:folded();      /* a search opens every cluster */
+    var by=S.ba?function(b){return people(b.authors).some(function(x){return authorKey(x.name)===S.ba;});}:S.bj?function(b){return journalKeyOf(b)===S.bj;}:S.bs?function(b){return schoolsOf(b).indexOf(S.bs)>=0;}:function(){return true;};
+    var looking=toks.length||S.bf!=='all'||S.ba||S.bj||S.bs,shut=looking?[]:folded();      /* a search opens every cluster */
     /* starred papers first, then papers by the authors on the leaderboard in its order, then the most recently added */
     var place={};leaders().forEach(function(r){place[r.key]=r.rank;});
     function best(b){
@@ -1754,11 +1788,11 @@ function viewBoard(){
     });
     if(n){
       /* in the one-column layout the leaderboard is shut until its button is pressed, or while it is filtering the Board */
-      var lead=board(),leadOpen=folded().indexOf('lead:open')>=0||!!S.ba||!!S.bj;
+      var lead=board(),leadOpen=folded().indexOf('lead:open')>=0||!!S.ba||!!S.bj||!!S.bs;
       var lt=h('button',{type:'button','aria-pressed':String(leadOpen)},'Leaderboard');
       lt.addEventListener('click',function(){
         var f=folded().filter(function(x){return x!=='lead:open';});
-        if(leadOpen){S.ba='';S.bj='';}else f.push('lead:open');
+        if(leadOpen){S.ba='';S.bj='';S.bs='';}else f.push('lead:open');
         lsSet('rr.fold',JSON.stringify(f));draw();
       });
       tabs.append(lt);
