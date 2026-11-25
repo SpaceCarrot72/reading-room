@@ -1427,14 +1427,20 @@ function viewNew(){
   S.ownBar=true;
   var items=S.papers.filter(function(p){return isNew(p)&&isOpen(p);});
   var run=latestRun();
-  /* the areas are presented in the Board's order of sections: the one with the most Keepers first */
-  var sections=genres(),list=areas().slice().sort(function(a,b){return sections.indexOf(a)-sections.indexOf(b);}),known={},groups=[];
+  /* The reader's areas are presented in the Board's order of sections, the one with the most Keepers first; then any
+     other area that has a paper here, in the same order. An area with nothing to show has no place in the row. */
+  var sections=genres(),list=areas().slice().sort(function(a,b){return sections.indexOf(a)-sections.indexOf(b);}),known={},groups=[],guests=[];
+  function areaOf(p){return str(p.area).trim();}
   list.forEach(function(a){known[a]=1;});
-  list.forEach(function(area,i){
-    var rows=items.filter(function(p){return p.area===area;}).sort(function(a,b){return str(b.run).localeCompare(str(a.run))||byRank(a,b);});
+  items.forEach(function(p){var a=areaOf(p);if(a&&!known[a]&&guests.indexOf(a)<0)guests.push(a);});
+  guests.sort(function(a,b){var i=sections.indexOf(a),j=sections.indexOf(b);return (i<0?1e9:i)-(j<0?1e9:j)||a.localeCompare(b);});
+  list.concat(guests).forEach(function(area){
+    var rows=items.filter(function(p){return areaOf(p)===area;}).sort(function(a,b){return str(b.run).localeCompare(str(a.run))||byRank(a,b);});
+    if(!rows.length)return;
+    var i=groups.length;
     groups.push({name:area,items:rows.map(function(p,j){return {p:p,num:(i+1)+'.'+(j+1)};})});
   });
-  var other=items.filter(function(p){return !known[p.area];}).sort(byRank);
+  var other=items.filter(function(p){return !areaOf(p);}).sort(byRank);
   if(other.length)groups.push({name:'Other areas',items:other.map(function(p){return {p:p,num:''};})});
   if(!items.length)v.append(h('div',{class:'deck-bar'},h('span'),h('div',{class:'deck-nav'},h('nav',{class:'tabs','aria-label':'Places'},places()))),
     h('p',{class:'none',style:'margin-top:40px'},'Nothing waiting.'+(run?' Last checked '+fmtDate(run.at)+'.':'')));
