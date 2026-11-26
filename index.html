@@ -1262,6 +1262,11 @@ function journalLeaders(){
 }
 /* A school's place on the board: one point for each work there by someone at the school and four more for a starred
    one, as for an author. A work by two people at one school counts once for it. The list is as long as the authors'. */
+/* A university's campuses are one school: Scarborough and Mississauga are the University of Toronto, as is the
+   address OpenAlex sometimes runs on to its name. schools.py stores them so; this puts right what was stored before. */
+var CAMPUSES=[[/^(?:the\s+)?university of toronto\b.*$/i,'University of Toronto']];
+function campusOf(s){s=str(s);for(var i=0;i<CAMPUSES.length;i++)if(CAMPUSES[i][0].test(s))return CAMPUSES[i][1];return s;}
+function oneCampus(people){Object.keys(people).forEach(function(k){var r=people[k];if(r&&r.school&&campusOf(r.school)!==r.school)people[k]=Object.assign({},r,{school:campusOf(r.school)});});return people;}
 function schoolsOf(b){
   var out=[];
   people(obj(b).authors).forEach(function(x){var s=str(obj(S.schools[authorKey(x.name)]).school);if(s&&out.indexOf(s)<0)out.push(s);});
@@ -1351,7 +1356,7 @@ function byline(a,cls,mode,tail){
     p.append(x.name);
     var sch=str(obj(S.schools[authorKey(x.name)]).school),dep=str(x.aff).replace(/^\[|\]$/g,'');
     if(mode){
-      var names=sch?[sch]:dep.split(/\s*;\s*/).filter(placeLike);
+      var names=sch?[sch]:dep.split(/\s*;\s*/).filter(placeLike).map(campusOf);
       Array.from(new Set(names)).forEach(function(n,i){
         var label=schoolAffiliation(n,mode);
         if(mode==='mark'&&label.className==='school-mark-label'){p.append(label);return;}
@@ -2796,7 +2801,7 @@ function applyData(d){
   S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.jmap=null;S.profile=d[5];S.seed=d[6];
   S.full=obj(d[7]);S.desklog=arr(d[8]);
   artworkIndex=buildArtworkIndex(d[9]);coverIndex=buildCoverIndex(d[18]);
-  S.stocklog=arr(d[10]);S.spend=obj(d[11]);S.jscores=obj(obj(d[12]).journals);S.ctxlog=arr(d[13]);S.schools=obj(obj(d[14]).people);S.venues=obj(obj(d[15]).papers);S.dead={};Object.keys(obj(obj(d[16]).people)).forEach(function(n){var k=authorKey(n);if(k)S.dead[k]=true;});S.colours={};Object.keys(obj(obj(d[17]).schools)).forEach(function(n){var c=str(obj(d[17]).schools[n]);if(/^#[0-9a-f]{6}$/i.test(c))S.colours[publicationTitle(n)]=c;});
+  S.stocklog=arr(d[10]);S.spend=obj(d[11]);S.jscores=obj(obj(d[12]).journals);S.ctxlog=arr(d[13]);S.schools=oneCampus(obj(obj(d[14]).people));S.venues=obj(obj(d[15]).papers);S.dead={};Object.keys(obj(obj(d[16]).people)).forEach(function(n){var k=authorKey(n);if(k)S.dead[k]=true;});S.colours={};Object.keys(obj(obj(d[17]).schools)).forEach(function(n){var c=str(obj(d[17]).schools[n]);if(/^#[0-9a-f]{6}$/i.test(c))S.colours[publicationTitle(n)]=c;});
 }
 function parseStored(k){try{return JSON.parse(lsGet(k)||'null');}catch(e){return null;}}
 var dataText='';      /* the data now applied, as the JSON text kept in rr.data */
