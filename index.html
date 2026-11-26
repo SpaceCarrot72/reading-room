@@ -374,6 +374,8 @@ body[data-view="board"] .footnav{display:flex}
 .fmenu{position:absolute;top:calc(100% + 6px);left:0;z-index:12;min-width:168px;display:grid;background:var(--sheet);border:1px solid var(--rule);border-radius:12px;padding:5px;box-shadow:0 14px 30px -16px rgba(20,22,27,.45)}
 .fmenu button{appearance:none;position:relative;border:0;background:none;text-align:left;font:500 13.5px/1 var(--ui);padding:9px 12px 9px 30px;border-radius:8px;color:var(--ink);cursor:pointer;white-space:nowrap}
 .fmenu button:hover{background:var(--well)}
+.fgroup{display:grid}
+.fgroup+.fgroup{margin-top:5px;padding-top:5px;border-top:1px solid var(--rule)}
 .fmenu button[aria-checked="true"]::before{content:"";position:absolute;left:12px;top:50%;width:7px;height:7px;margin-top:-3.5px;border-radius:50%;background:var(--ink)}
 .find input{flex:1 1 150px;max-width:420px}
 .pgrid.solo{grid-template-columns:minmax(0,1fr)}
@@ -557,7 +559,7 @@ var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ni
 
 var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoSha:{},logoKeep:{},logoWait:null,logoNote:'',lv:{},pop:{},outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],stocklog:[],spend:{},jscores:{},q:'',pdfIndex:null,pdfIndexAt:0,pdfIndexBusy:false,pdfBusy:{},
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
-  form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},deckIds:[],boardIds:[],paper:null,back:null,tab:null,auto:null,drag:null,schools:{},venues:{},dead:{},colours:{},list:[],shown:'',context:null,contextAt:0,contextBusy:false,ctxSlot:null,ctxlog:[],bf:'all',ba:'',pdfUrls:[]};
+  form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},deckIds:[],boardIds:[],paper:null,back:null,tab:null,auto:null,drag:null,schools:{},venues:{},pages:{},bl:'any',dead:{},colours:{},list:[],shown:'',context:null,contextAt:0,contextBusy:false,ctxSlot:null,ctxlog:[],bf:'all',ba:'',pdfUrls:[]};
 var U=blankUser();
 var schoolMarks=new Map();
 var artworkIndex=buildArtworkIndex([]),artworkBySha=new Map(),coverIndex={ids:{},titles:{}};
@@ -660,6 +662,26 @@ function areas(){
 }
 function threadsText(){return U.threads!=null?U.threads:str(S.profile&&S.profile.threads);}
 function latestRun(){return S.runs.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at));})[0]||null;}
+/* A paper's length: the page range in its citation ("343–377", "pp. 144–161", "S71–S102", "1386-97"), or what the
+   journals check found where the citation gives none (Crossref's printed pages, else the attached PDF's). A book has none. */
+var PAGE_RANGE=/\b([A-Za-z]?)(\d{1,5})\s*[\u2013\u2014-]\s*\1?(\d{1,5})\b/g;
+function citeSpan(c){
+  var m,best=0;PAGE_RANGE.lastIndex=0;
+  while((m=PAGE_RANGE.exec(str(c)))){
+    var a=+m[2],z=m[3];
+    if(z.length<m[2].length)z=m[2].slice(0,m[2].length-z.length)+z;      /* 1386-97 is 1386 to 1397 */
+    z=+z;
+    if(a>=1500&&a<=2100&&z>=1500&&z<=2100&&z-a<30)continue;      /* a span of years */
+    if(z>=a&&z<a+1500)best=z-a+1;
+  }
+  return best;
+}
+function pagesOf(b){
+  if(!b||str(b.form)==='Book')return 0;
+  return citeSpan(b.cite)||(+obj(S.pages[b.id]).pages||0);
+}
+var LENGTHS=[['any','Any length',function(){return true;}],['short','Under 15 pp.',function(n){return n>0&&n<15;}],
+  ['mid','15 to 30 pp.',function(n){return n>=15&&n<=30;}],['long','Over 30 pp.',function(n){return n>30;}]];
 /* What the journals check found is filled in where an entry has nothing of its own; what the reader has is never replaced. */
 function withVenue(o){
   var v=obj(S.venues[o.id]);
@@ -1846,7 +1868,8 @@ function slip(b,ci,hit,journal,cover){
   /* a book's subtitle can be dropped from its slip: fitTitles() does so when the whole title would run to a third line */
   var full=cleanTitle(b.title),cut=str(b.form)==='Book'?full.indexOf(': '):-1,title=h('h3',{class:'slip-title'},full);
   if(cut>2){title.setAttribute('data-full',full);title.setAttribute('data-short',full.slice(0,cut));}
-  var meta=(b.authors||b.year)?byline(b.authors,'slip-meta','mark',str(b.year)):null;
+  var pp=pagesOf(b),tail=[str(b.year),pp?pp+'\u00a0pp.':''].filter(Boolean).join(', ');
+  var meta=(b.authors||tail)?byline(b.authors,'slip-meta','mark',tail):null;
   if(meta)meta.id='authors-'+encodeURIComponent(b.id);
   /* A cover or mark still on its way has its place kept, at its size, so the slip is the same before and after:
      placeArtwork() puts the picture there when it comes. */
@@ -1939,8 +1962,9 @@ function viewBoard(){
   var fwrap=h('div',{class:'fwrap'}),menu=h('div',{class:'fmenu',role:'menu',hidden:true});
   var fbtn=h('button',{class:'tab gear fbtn',type:'button','aria-haspopup':'menu','aria-expanded':'false'},funnelIcon());
   function fname(){
-    var f=FILTERS.filter(function(x){return x[0]===S.bf;})[0]||FILTERS[0];
-    fbtn.setAttribute('aria-label','Filter: '+f[1]);fbtn.title='Filter: '+f[1];fbtn.toggleAttribute('data-on',S.bf!=='all');
+    var f=FILTERS.filter(function(x){return x[0]===S.bf;})[0]||FILTERS[0],l=LENGTHS.filter(function(x){return x[0]===S.bl;})[0]||LENGTHS[0];
+    var said='Filter: '+[S.bf!=='all'||S.bl==='any'?f[1]:'',S.bl!=='any'?l[1]:''].filter(Boolean).join(', ');
+    fbtn.setAttribute('aria-label',said);fbtn.title=said;fbtn.toggleAttribute('data-on',S.bf!=='all'||S.bl!=='any');
   }
   function closeMenu(){menu.hidden=true;fbtn.setAttribute('aria-expanded','false');document.removeEventListener('pointerdown',away,true);document.removeEventListener('keydown',esc,true);}
   function away(ev){if(!fwrap.contains(ev.target))closeMenu();}
@@ -1950,13 +1974,20 @@ function viewBoard(){
     menu.hidden=false;fbtn.setAttribute('aria-expanded','true');
     document.addEventListener('pointerdown',away,true);document.addEventListener('keydown',esc,true);
   });
-  FILTERS.forEach(function(f){
-    var it=h('button',{type:'button',role:'menuitemradio','aria-checked':String(S.bf===f[0])},f[1]);
-    it.addEventListener('click',function(){
-      S.bf=f[0];Array.prototype.forEach.call(menu.children,function(x){x.setAttribute('aria-checked','false');});it.setAttribute('aria-checked','true');
-      fname();closeMenu();draw();});
-    menu.append(it);
-  });
+  /* two groups, each with one choice: what kind of paper, and how long */
+  function group(list,get,set,label){
+    var g=h('div',{class:'fgroup',role:'group','aria-label':label});
+    list.forEach(function(f){
+      var it=h('button',{type:'button',role:'menuitemradio','aria-checked':String(get()===f[0])},f[1]);
+      it.addEventListener('click',function(){
+        set(f[0]);Array.prototype.forEach.call(g.children,function(x){x.setAttribute('aria-checked',String(x===it));});
+        fname();closeMenu();draw();});
+      g.append(it);
+    });
+    return g;
+  }
+  menu.append(group(FILTERS,function(){return S.bf;},function(v){S.bf=v;},'Kind'),
+    group(LENGTHS,function(){return S.bl;},function(v){S.bl=v;},'Length'));
   fname();fwrap.append(fbtn,menu);
   /* the Board carries the way to New and to Settings in its own top row, in line with Add a paper */
   S.ownBar=true;
@@ -2019,9 +2050,10 @@ function viewBoard(){
     var e=slip(b,ci,hit,journal,cover);made.set(key,{e:e,art:art,b:b,ci:ci,hit:hit});return e;
   }
   function draw(){
-    var toks=terms(S.q),shown=0,keep=(FILTERS.filter(function(f){return f[0]===S.bf;})[0]||FILTERS[0])[2],order=[];
+    var kind=(FILTERS.filter(function(f){return f[0]===S.bf;})[0]||FILTERS[0])[2],long=(LENGTHS.filter(function(f){return f[0]===S.bl;})[0]||LENGTHS[0])[2];
+    var toks=terms(S.q),shown=0,keep=function(b){return kind(b)&&long(pagesOf(b));},order=[];
     var by=S.ba?function(b){return people(b.authors).some(function(x){return authorKey(x.name)===S.ba;});}:S.bj?function(b){return journalKeyOf(b)===S.bj;}:S.bs?function(b){return schoolsOf(b).indexOf(S.bs)>=0;}:function(){return true;};
-    var looking=toks.length||S.bf!=='all'||S.ba||S.bj||S.bs,shut=looking?[]:folded();      /* a search opens every cluster */
+    var looking=toks.length||S.bf!=='all'||S.bl!=='any'||S.ba||S.bj||S.bs,shut=looking?[]:folded();      /* a search opens every cluster */
     /* starred papers first, then papers by the authors on the leaderboard in its order, then the most recently added */
     var ranked=leaders(),place={};ranked.forEach(function(r){place[r.key]=r.rank;});      /* the authors' list, found once for the order and the leaderboard */
     function best(b){
@@ -2803,7 +2835,7 @@ function applyData(d){
   S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.jmap=null;S.profile=d[5];S.seed=d[6];
   S.full=obj(d[7]);S.desklog=arr(d[8]);
   artworkIndex=buildArtworkIndex(d[9]);coverIndex=buildCoverIndex(d[18]);
-  S.stocklog=arr(d[10]);S.spend=obj(d[11]);S.jscores=obj(obj(d[12]).journals);S.ctxlog=arr(d[13]);S.schools=oneCampus(obj(obj(d[14]).people));S.venues=obj(obj(d[15]).papers);S.dead={};Object.keys(obj(obj(d[16]).people)).forEach(function(n){var k=authorKey(n);if(k)S.dead[k]=true;});S.colours={};Object.keys(obj(obj(d[17]).schools)).forEach(function(n){var c=str(obj(d[17]).schools[n]);if(/^#[0-9a-f]{6}$/i.test(c))S.colours[publicationTitle(n)]=c;});
+  S.stocklog=arr(d[10]);S.spend=obj(d[11]);S.jscores=obj(obj(d[12]).journals);S.ctxlog=arr(d[13]);S.schools=oneCampus(obj(obj(d[14]).people));S.venues=obj(obj(d[15]).papers);S.pages=obj(obj(d[15]).pages);S.dead={};Object.keys(obj(obj(d[16]).people)).forEach(function(n){var k=authorKey(n);if(k)S.dead[k]=true;});S.colours={};Object.keys(obj(obj(d[17]).schools)).forEach(function(n){var c=str(obj(d[17]).schools[n]);if(/^#[0-9a-f]{6}$/i.test(c))S.colours[publicationTitle(n)]=c;});
 }
 function parseStored(k){try{return JSON.parse(lsGet(k)||'null');}catch(e){return null;}}
 var dataText='';      /* the data now applied, as the JSON text kept in rr.data */
