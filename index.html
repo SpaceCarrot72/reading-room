@@ -113,7 +113,8 @@ a.btn{text-decoration:none;display:inline-block}
 .slip.dragging{opacity:.4}
 .slip-title{font:400 18px/1.24 var(--display);margin:0}
 .slip-meta{margin:7px 0 0;color:var(--ink-soft);font-size:12.5px;line-height:1.4}
-.school-mark{display:inline-block;width:1.45em;height:1.45em;vertical-align:-.34em;background-size:var(--school-artwork-size);background-position:var(--school-position);background-repeat:no-repeat}
+/* the crest sheet and its size are written into a rule of their own (setSchoolMarks) */
+.school-mark{display:inline-block;width:1.45em;height:1.45em;vertical-align:-.34em;background-position:var(--school-position);background-repeat:no-repeat}
 .school-name{color:var(--ink-soft);font-weight:400}
 .school-mark-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .slip-note{margin:11px 0 0;padding:8px 10px;background:var(--mine-wash);border-left:2px solid var(--mine-edge);font-size:13px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:5;overflow:hidden}
@@ -631,9 +632,9 @@ function genres(){
 /* The columns that are clustered by genre. */
 var CLUSTERED={queue:true,done:true};
 function folded(){try{var a=JSON.parse(lsGet('rr.fold')||'[]');return Array.isArray(a)?a:[];}catch(e){return [];}}
-function setGenre(id,g){
+function setGenre(id,g,shown){
   var b=U.board[id];if(!b)return;
-  b.area=str(g);b.updatedAt=now();changed();
+  b.area=str(g);b.updatedAt=now();changed(shown);
 }
 function genreSelect(value,onpick,blank){
   var sel=h('select',{class:'genre','aria-label':'Genre'}),list=genres();
@@ -804,18 +805,18 @@ function boardDoc(p,from){
 function save(p,from){
   U.board[p.id]=boardDoc(p,from);delete U.gone[p.id];S.lv=levels();
   var said=people(p.authors).slice(0,3).map(function(x){return x.name+' is now level '+S.lv[authorKey(x.name)];});
-  changed();
+  changed(true);if(!placeNew())schedule();      /* the notes are saved as before; New is put right in place, or drawn again */
   var msg='Saved to the Board.'+(said.length?' '+said.join('. ')+'.':'');
   if(S.view==='paper'){toast(msg);return;}
   offer(msg,[{label:'Open',fn:function(){openPaper(p.id);}},{label:'Undo',quiet:true,fn:function(){unsave(p.id);}}]);
 }
-function unsave(id){if(!U.board[id])return;delete U.board[id];U.gone[id]=now();S.lv=levels();changed();toast('Taken off the Board');}
+function unsave(id){if(!U.board[id])return;delete U.board[id];U.gone[id]=now();S.lv=levels();changed(true);if(!placeNew())schedule();toast('Taken off the Board');}
 function dismiss(p,flag){
-  U.dismissed[p.id]={v:!!flag,at:now()};changed();
+  U.dismissed[p.id]={v:!!flag,at:now()};changed(true);if(!placeNew())schedule();
   if(flag)offer('Dismissed.',[{label:'Undo',fn:function(){dismiss(p,false);}}]);
   else toast(flag?'Dismissed':'Restored');
 }
-function move(id,col){if(!U.board[id])return;U.board[id].column=col;U.board[id].updatedAt=now();changed();}
+function move(id,col,shown){if(!U.board[id])return;U.board[id].column=col;U.board[id].updatedAt=now();changed(shown);}
 function removeFromBoard(id){delete U.board[id];U.gone[id]=now();changed();toast('Removed from board');}
 
 /* PDFs: kept in pdfs/ in the private repository, attached to a paper on the board */
@@ -1194,7 +1195,7 @@ function lvChip(name){
 /* `remembered` is the list kept from the last visit, without the picture: which schools have a crest and where on the
    sheet. With it a crest's place is kept from the first frame, and nothing moves when the picture arrives. */
 function setSchoolMarks(data,remembered){
-  var d=obj(data),cols=d.columns,rows=d.rows,style=document.documentElement.style;
+  var d=obj(data),cols=d.columns,rows=d.rows;
   if(!Number.isInteger(cols)||cols<1||cols>128||!Number.isInteger(rows)||rows<1||rows>128||
      (!remembered&&!/^data:image\/webp;base64,[a-z\d+/]+=*$/i.test(str(d.image))))return;
   var marks=new Map();
@@ -1209,13 +1210,11 @@ function setSchoolMarks(data,remembered){
   schoolMarks=marks;
   if(remembered)return true;
   lsSet('rr.schoolmarks',JSON.stringify({columns:cols,rows:rows,institutions:arr(d.institutions).map(function(s){return {name:s.name,aliases:s.aliases,index:s.index,source:s.source};})}));
-  style.setProperty('--school-artwork','url("'+d.image+'")');
-  /* The crests take the sheet from a rule of their own, written here, and not from the variable: through a variable the
-     browser read the sheet's 518,000 characters again for every crest it styled, over a second for the Board. An address
-     in a rule is read once. The variable stays on the root, where the page's checks look for the sheet; nothing uses it. */
-  var rule='.school-mark{background-image:url("'+d.image+'")}',own=$('school-artwork');
+  /* The crests take the sheet, and its size, from a rule of their own, written here. Through a variable on the root the
+     browser read the sheet's 518,000 characters again for every crest it styled, and setting the variable made it style
+     every element of the page again: over a second for the Board, and more on a phone. An address in a rule is read once. */
+  var rule='.school-mark{background-image:url("'+d.image+'");background-size:'+cols*100+'% '+rows*100+'%}',own=$('school-artwork');
   if(own.textContent!==rule)own.textContent=rule;
-  style.setProperty('--school-artwork-size',cols*100+'% '+rows*100+'%');
   return true;
 }
 function schoolAffiliation(name,mode){
@@ -1255,7 +1254,7 @@ function byline(a,cls,mode,tail){
   if(tail)p.append(p.childNodes.length?', '+tail:tail);
   return p;
 }
-function togglePlus(id){
+function togglePlus(id,shown){      /* shown: the paper's page shows the change itself */
   var b=U.board[id];if(!b)return;
   var on=!isStar(b);
   b.star=on;delete b.plus;b.updatedAt=now();
@@ -1263,7 +1262,7 @@ function togglePlus(id){
   var said=people(b.authors).slice(0,3).map(function(x){var k=authorKey(x.name);if(on)S.pop[k]=true;return x.name+' is now level '+S.lv[k];});
   toast((on?'Starred. ':'Star removed. ')+(said.length?said.join('. ')+'.':''));
   if(on)setTimeout(function(){S.pop={};},1500);
-  changed();
+  changed(shown);
 }
 function venueKey(v){return str(v).toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,' ').trim().replace(/^the /,'');}
 function initials(v){
@@ -1388,6 +1387,13 @@ function placeArtwork(art){
 /* On New a journal's mark that comes is put on the cards of its journal: their heads and colour are drawn again, and
    nothing else, so that the deck keeps its layout and its place. Drawing all of New again for each mark that came, on
    every visit, laid out every card again. True when it is done; false when New is to be drawn again anyway. */
+/* A mark of the logos folder that comes, changes or goes is put in place on New's cards or the Board's slips. */
+function placeLogos(){
+  if(S.view!=='board')return placeMarks();
+  var v=$('main').firstElementChild;
+  if(S.shown!=='board'||!v||!v.marks||S.raf||S.stale||S.drag||Object.keys(S.pop).length)return false;
+  return v.marks();
+}
 function placeMarks(){
   if(S.view!=='new'||!S.deck||S.raf||S.stale||S.showDismissed||Object.keys(S.pop).length)return false;
   S.deck.marks();return true;
@@ -1463,13 +1469,17 @@ function deck(key,groups,kind){
   }
   var prev=h('button',{class:'navbtn',type:'button','aria-label':'Previous paper',onclick:function(){center(current()-1,true);}},'‹');
   var next=h('button',{class:'navbtn',type:'button','aria-label':'Next paper',onclick:function(){center(current()+1,true);}},'›');
-  var chips=h('div',{class:'deck-chips'}),chipEls=[],start=0;
-  groups.forEach(function(g){
-    var first=start;start+=g.items.length;
-    var c=h('button',{class:'chipbtn',type:'button',disabled:!g.items.length,'aria-pressed':'false',onclick:function(){center(first,false);sync();}},
-      g.name,h('span',{class:'n'},String(g.items.length)));
-    chipEls.push(c);chips.append(c);
-  });
+  var chips=h('div',{class:'deck-chips'}),chipEls=[];
+  function areaRow(groups){      /* the top row: a button for each area, with its count */
+    var start=0;chipEls=[];chips.replaceChildren();
+    groups.forEach(function(g){
+      var first=start;start+=g.items.length;
+      var c=h('button',{class:'chipbtn',type:'button',disabled:!g.items.length,'aria-pressed':'false',onclick:function(){center(first,false);sync();}},
+        g.name,h('span',{class:'n'},String(g.items.length)));
+      chipEls.push(c);chips.append(c);
+    });
+  }
+  areaRow(groups);
   function sync(){
     var i=current();S.deckAt[key]=i;
     counter.textContent=sheets.length?(i+1)+' of '+sheets.length:'';
@@ -1495,16 +1505,40 @@ function deck(key,groups,kind){
       was.querySelector('.paper-head').replaceWith(now.querySelector('.paper-head').cloneNode(true));
       if(now.hasAttribute('style'))was.setAttribute('style',now.getAttribute('style'));else was.removeAttribute('style');
       if(!was.isEqualNode(now)){was.replaceWith(now);sheets[i]=now;fitBylines(now);}      /* anything more has changed: the card is drawn again whole */
+      sigs[i]=sig(x.p);
     });
   }
-  S.deck={move:function(d){center(current()+d,true);},fix:function(){fitBylines(track);center(S.deckAt[key]||0,false);sync();},cur:function(){var x=flat[current()];return x?x.p:null;},marks:marks};
+  /* After a save, a dismissal or an undo the deck is put right in place, as a fresh drawing would show it: a card that has
+     gone is taken out, one that is back is drawn and put in its place, one whose author line has changed (a level rose
+     or fell) is drawn again, the top row is drawn again, and the deck is centred where a fresh drawing centres it. */
+  function sig(p){return look(p)+'|'+people(p.authors).map(function(x){return S.lv[authorKey(x.name)]||0;}).join(',');}
+  var sigs=flat.map(function(x){return sig(x.p);});
+  function update(groups){
+    var had=new Map(),now=[],els=[],made=[];
+    flat.forEach(function(x,i){had.set(x.p.id,{p:x.p,el:sheets[i],sig:sigs[i]});});
+    groups.forEach(function(g,gi){g.items.forEach(function(x){now.push({p:x.p,num:x.num,gi:gi});});});
+    var nsig=now.map(function(x){
+      var s=sig(x.p),o=had.get(x.p.id);
+      if(o&&o.p===x.p&&o.sig===s){had.delete(x.p.id);els.push(o.el);}
+      else{var el=sheet(x.p,x.num,kind);made.push(el);els.push(el);}
+      return s;
+    });
+    had.forEach(function(o){o.el.remove();});
+    var at=track.firstChild;
+    els.forEach(function(el){if(el===at)at=at.nextSibling;else track.insertBefore(el,at);});
+    flat=now;sheets=els;sigs=nsig;looks=flat.map(function(x){return look(x.p);});
+    S.deckIds=flat.map(function(x){return x.p.id;});
+    made.forEach(fitBylines);
+    areaRow(groups);
+    center(S.deckAt[key]||0,false);sync();
+    return true;
+  }
+  S.deck={move:function(d){center(current()+d,true);},fix:function(){fitBylines(track);center(S.deckAt[key]||0,false);sync();},cur:function(){var x=flat[current()];return x?x.p:null;},marks:marks,update:update};
   return h('section',{class:'deck-wrap'},h('div',{class:'deck-bar'},chips,h('div',{class:'deck-nav'},counter,prev,next,h('nav',{class:'tabs','aria-label':'Places'},places()))),track);
 }
-function viewNew(){
-  var v=h('div');if(waiting(v))return v;
-  S.ownBar=true;
+/* What New shows: the papers waiting, in their areas, and those dismissed. */
+function newPapers(){
   var items=S.papers.filter(function(p){return isNew(p)&&isOpen(p);});
-  var run=S.stocklog[S.stocklog.length-1]||latestRun();
   /* The reader's areas are presented in the Board's order of sections, the one with the most Keepers first; then any
      other area that has a paper here, in the same order. An area with nothing to show has no place in the row. */
   var sections=genres(),list=areas().slice().sort(function(a,b){return sections.indexOf(a)-sections.indexOf(b);}),known={},groups=[],guests=[];
@@ -1520,16 +1554,46 @@ function viewNew(){
   });
   var other=items.filter(function(p){return !areaOf(p);}).sort(byRank);
   if(other.length)groups.push({name:'Other areas',items:other.map(function(p){return {p:p,num:''};})});
+  var gone=S.papers.filter(function(p){return isNew(p)&&dismissed(p.id)&&!onBoard(p.id);});
+  return {items:items,groups:groups,gone:gone};
+}
+function dismissedList(gone){
+  if(!gone.length)return [];
+  var out=[h('div',{class:'foot'},h('button',{class:'btn quiet',type:'button',onclick:function(){S.showDismissed=!S.showDismissed;schedule();}},
+    S.showDismissed?'Hide dismissed':'Show '+gone.length+' dismissed'))];
+  if(S.showDismissed){var og=h('ol',{class:'entries'});gone.forEach(function(p){og.append(entry(p,'','new',true));});out.push(og);}
+  return out;
+}
+function viewNew(){
+  var v=h('div');if(waiting(v))return v;
+  S.ownBar=true;
+  var all=newPapers(),items=all.items;
+  var run=S.stocklog[S.stocklog.length-1]||latestRun();
   if(!items.length)v.append(h('div',{class:'deck-bar'},h('span'),h('div',{class:'deck-nav'},h('nav',{class:'tabs','aria-label':'Places'},places()))),
     h('p',{class:'none',style:'margin-top:40px'},morningNotice||('Nothing waiting.'+(run?' Last checked '+fmtDate(run.at)+'.':''))));
-  else v.append(deck('new',groups,'new'));
-  var gone=S.papers.filter(function(p){return isNew(p)&&dismissed(p.id)&&!onBoard(p.id);});
-  if(gone.length){
-    v.append(h('div',{class:'foot'},h('button',{class:'btn quiet',type:'button',onclick:function(){S.showDismissed=!S.showDismissed;schedule();}},
-      S.showDismissed?'Hide dismissed':'Show '+gone.length+' dismissed')));
-    if(S.showDismissed){var og=h('ol',{class:'entries'});gone.forEach(function(p){og.append(entry(p,'','new',true));});v.append(og);}
-  }
+  else v.append(deck('new',all.groups,'new'));
+  dismissedList(all.gone).forEach(function(e){v.append(e);});
+  /* placeNew(): the deck and the dismissed papers under it put right in place */
+  if(S.deck)S.deck.again=function(){
+    var now=newPapers();
+    if(!now.items.length||!S.deck.update(now.groups))return false;      /* nothing left: "Nothing waiting" is drawn */
+    var was=Array.prototype.slice.call(v.children,1),list=dismissedList(now.gone);
+    if(was.length===list.length&&was.every(function(e,i){return e.isEqualNode(list[i]);}))return true;
+    was.forEach(function(e){e.remove();});list.forEach(function(e){v.append(e);});
+    return true;
+  };
   return v;
+}
+/* After a save, a dismissal or an undo on New the deck is put right in place, as a fresh drawing would show it: the card
+   goes or comes back, and the counts, the top row and the dismissed papers follow. Drawing all of New again for it laid
+   out all its cards again: 60 ms for 129 cards, a quarter of a second on a phone. The focus is left where a fresh drawing
+   leaves it. True when it is done; false when New is to be drawn again. */
+function placeNew(){
+  if(S.view!=='new'||S.shown!=='new'||!S.deck||!S.deck.again||S.raf||S.stale||!S.loaded||Object.keys(S.pop).length)return false;
+  var main=$('main'),inside=main.contains(document.activeElement);
+  try{S.lv=levels();renderTabs();if(!S.deck.again())return false;}catch(e){return false;}
+  if(inside){main.setAttribute('tabindex','-1');main.focus({preventScroll:true});main.blur();main.removeAttribute('tabindex');}
+  return true;
 }
 
 function meter(n){
@@ -1649,6 +1713,14 @@ function pdfIcon(){
   pdfIconMade=v;return v.cloneNode(true);
 }
 function colKey(b){return COLS.some(function(c){return c[0]===b.column;})?b.column:'queue';}
+/* The picture at the top of a slip: its cover, its journal's mark, or the place kept for one on its way. */
+function slipArt(b,journal,cover){
+  if(cover.url)return coverImg(cover);
+  if(cover.pending)return h('span',{class:'cover wait','data-art':cover.sha,style:coverHeight(cover)});
+  if(journal.url)return h('img',{class:'jlogo compact',src:journal.url,alt:'',title:str(b.venue)});      /* what jmark() draws, from the journal already found */
+  if(journal.pending)return h('span',{class:'jwait','data-art':journal.sha,'data-venue':str(b.venue)});
+  return null;
+}
 function slip(b,ci,hit,journal,cover){
   journal=journal||journalOf(b.venue,b.issns);cover=cover||coverOf(b);      /* given when they have just been found */
   var jc=cover.color||journal.color;      /* a cover lends the slip its colour, as a journal's mark does */
@@ -1661,14 +1733,10 @@ function slip(b,ci,hit,journal,cover){
   if(meta)meta.id='authors-'+encodeURIComponent(b.id);
   /* A cover or mark still on its way has its place kept, at its size, so the slip is the same before and after:
      placeArtwork() puts the picture there when it comes. */
-  var hasCover=!!cover.url||!!cover.pending,art=null;
+  var hasCover=!!cover.url||!!cover.pending,art=slipArt(b,journal,cover);
   /* The star and the PDF button sit at the top right. This box, floated there, keeps the words beside them clear and
      no others: a title under a journal's mark, and any second line, runs the full width of the slip. */
   var gap=h('span',{class:'slip-gap','aria-hidden':'true'});
-  if(cover.url)art=coverImg(cover);
-  else if(cover.pending)art=h('span',{class:'cover wait','data-art':cover.sha,style:coverHeight(cover)});
-  else if(journal.url)art=h('img',{class:'jlogo compact',src:journal.url,alt:'',title:str(b.venue)});      /* what jmark() draws, from the journal already found */
-  else if(journal.pending)art=h('span',{class:'jwait','data-art':journal.sha,'data-venue':str(b.venue)});
   var e=h('div',{class:(isStar(b)?'slip plussed':'slip')+(hasCover?' covered':''),role:'button',tabindex:'0',draggable:'true','data-id':b.id,'aria-label':'Open '+full,style:jc?'--j:'+jc:null},
     plus,
     hasCover?null:gap,
@@ -1825,11 +1893,12 @@ function viewBoard(){
      put back for the next instead of being built again. It is built afresh when its mark or cover is not as it was, when a
      level has just risen, and while the whole page waits to be drawn again. */
   var made=new Map();
+  function look(journal,cover){return [cover.url,cover.pending,cover.ratio,cover.color,journal.url,journal.pending,journal.sha,journal.color].join('|');}
   function slipOf(b,ci,hit){
     var journal=journalOf(b.venue,b.issns),cover=coverOf(b),key=hit+'|'+b.id,was=made.get(key);
-    var art=[cover.url,cover.pending,cover.ratio,cover.color,journal.url,journal.pending,journal.sha,journal.color].join('|');
+    var art=look(journal,cover);
     if(was&&was.art===art&&!S.stale&&!S.raf&&!Object.keys(S.pop).length&&!was.e.querySelector('.lv.pop'))return was.e;
-    var e=slip(b,ci,hit,journal,cover);made.set(key,{e:e,art:art});return e;
+    var e=slip(b,ci,hit,journal,cover);made.set(key,{e:e,art:art,b:b,ci:ci,hit:hit});return e;
   }
   function draw(){
     var toks=terms(S.q),shown=0,keep=(FILTERS.filter(function(f){return f[0]===S.bf;})[0]||FILTERS[0])[2],order=[];
@@ -1925,6 +1994,40 @@ function viewBoard(){
     loadContext();      /* asked for here so that a paper opens with its piece; nothing on the Board is drawn from it */
   };
   v.revive();
+  /* A journal's mark that comes, changes or goes is put on the slips showing and on the journals' leaderboard: placeLogos().
+     On a return visit the marks this browser keeps came just after the Board was first drawn, and the whole Board was
+     built and laid out again for them. A slip whose picture is not as it was has that picture and its colour put right;
+     one that gains or loses a cover is built again. False when the Board is to be drawn again instead. */
+  v.marks=function(){
+    var rebuilt=[];
+    made.forEach(function(m){
+      if(!grid.contains(m.e))return;
+      var b=m.b,journal=journalOf(b.venue,b.issns),cover=coverOf(b),art=look(journal,cover);
+      if(art===m.art)return;
+      m.art=art;
+      var e=m.e,jc=cover.color||journal.color;
+      if(e.classList.contains('covered')!==(!!cover.url||!!cover.pending)){m.e=slip(b,m.ci,m.hit,journal,cover);e.replaceWith(m.e);rebuilt.push(m.e);return;}
+      var had=e.querySelector(':scope>.cover,:scope>.jlogo,:scope>.jwait'),want=slipArt(b,journal,cover);
+      if(!had!==!want)rebuilt.push(e);      /* a picture that comes or goes changes the title's width: measured again */
+      if(had&&want){if(!had.isEqualNode(want))had.replaceWith(want);}
+      else if(had)had.remove();
+      else if(want)e.querySelector(':scope>.slip-gap').after(want);
+      if(jc)e.setAttribute('style','--j:'+jc);else e.removeAttribute('style');
+    });
+    rebuilt.forEach(fitTitles);
+    var lead=S.lb==='journals'?grid.querySelector('.lead ol'):null;      /* the journals are shown in their marks' colours */
+    if(lead){
+      var was=lead.children,now=board(null).querySelector('ol').children;
+      if(was.length!==now.length)return false;
+      for(var i=0;i<now.length;i++){
+        if(was[i].isEqualNode(now[i]))continue;
+        var a=was[i].querySelector('.lv'),z=now[i].querySelector('.lv');
+        if(z.hasAttribute('style'))a.setAttribute('style',z.getAttribute('style'));else a.removeAttribute('style');
+        if(!was[i].isEqualNode(now[i]))return false;
+      }
+    }
+    return true;
+  };
   v.append(grid);
   return v;
 }
@@ -2198,17 +2301,28 @@ function viewPaper(){
   var ctl=h('div',{class:'pctl'});
   if(b){
     var seg=h('div',{class:'seg',role:'group','aria-label':'Where it is on the Board'});
+    /* The column, the star and the genre are put right on the page as they are pressed, and the page is not drawn again,
+       which took the focus from the control pressed. What they change on it is put right here: the controls, the levels
+       in the author line, and the genres offered, whose order follows the Keepers. */
+    var putRight=function(){
+      var cur=U.board[id];if(!cur){schedule();return;}
+      S.lv=levels();renderTabs();
+      Array.prototype.forEach.call(seg.children,function(x,i){x.setAttribute('aria-pressed',String(colKey(cur)===COLS[i][0]));});
+      star.setAttribute('aria-pressed',String(isStar(cur)));star.textContent=isStar(cur)?'★ Starred':'☆ Star';
+      var nb=byline(p.authors,null,'named');if(!nb.isEqualNode(by)){by.replaceWith(nb);by=nb;}
+      var list=genreSelect(genreOf(cur,id),function(){}),value=list.value;
+      if(list.innerHTML!==pick.innerHTML)pick.replaceChildren.apply(pick,Array.prototype.slice.call(list.childNodes));
+      pick.value=value;
+    };
     COLS.forEach(function(c){
       var bt=h('button',{type:'button','aria-pressed':String(colKey(b)===c[0])},c[1]);
-      bt.addEventListener('click',function(){move(id,c[0]);
-        Array.prototype.forEach.call(seg.children,function(x){x.setAttribute('aria-pressed','false');});bt.setAttribute('aria-pressed','true');});
+      bt.addEventListener('click',function(){move(id,c[0],true);putRight();});
       seg.append(bt);
     });
     var star=h('button',{class:'btn plusbtn',type:'button','aria-pressed':String(isStar(b))},isStar(b)?'★ Starred':'☆ Star');
-    star.addEventListener('click',function(){togglePlus(id);var on=isStar(U.board[id]);
-      star.setAttribute('aria-pressed',String(on));star.textContent=on?'★ Starred':'☆ Star';
-      var nb=byline(p.authors,null,'named');by.replaceWith(nb);by=nb;});
-    ctl.append(seg,genreSelect(genreOf(b,id),function(g){setGenre(id,g);}),star);
+    star.addEventListener('click',function(){togglePlus(id,true);putRight();});
+    var pick=genreSelect(genreOf(b,id),function(g){setGenre(id,g,true);putRight();});
+    ctl.append(seg,pick,star);
   }else{
     ctl.append(h('button',{class:'btn solid',type:'button',onclick:function(){save(p,'paper');render(true);}},'Save to board'),
       dismissed(id)?h('button',{class:'btn quiet',type:'button',onclick:function(){dismiss(p,false);render(true);}},'Restore')
@@ -2246,15 +2360,25 @@ function viewPaper(){
   var bc=h('button',{type:'button',class:'ctxb',onclick:function(){S.auto=null;show('context');}},'In context');
   var bp=h('button',{type:'button',onclick:function(){S.auto=null;show('pdf');}},'The paper');
   var bn=h('button',{type:'button',class:'notesb',onclick:function(){S.auto=null;show('notes');}},'Notes');
+  /* The PDF's block is kept, hidden, while another tab of this paper shows, so that coming back to it is at once and the
+     reader is where he left the PDF; building it again opened the PDF afresh at its first page. It goes, and the address
+     of its copy is given up, when the page is drawn again (render) or the window changes between a viewer and a button. */
+  var pdfBox=null;
+  function showIn(el){      /* the slot shows el; the PDF's block stays in it, hidden, when it is not el */
+    Array.prototype.slice.call(slot.children).forEach(function(e){if(e!==pdfBox&&e!==el)e.remove();});
+    if(pdfBox)pdfBox.hidden=el!==pdfBox;
+    if(el.parentNode!==slot)slot.append(el);
+  }
   function show(t){
     if(!b)t='context';                    /* nothing to switch to until the paper is saved */
     if(t==='notes'&&window.matchMedia('(min-width:901px)').matches)t='context';     /* on a wide screen the notes are already alongside */
     S.tab=t;
     bc.setAttribute('aria-pressed',String(t==='context'));bp.setAttribute('aria-pressed',String(t==='pdf'));bn.setAttribute('aria-pressed',String(t==='notes'));
-    S.pdfUrls.forEach(function(u){URL.revokeObjectURL(u);});S.pdfUrls=[];
-    if(t==='notes'){side.classList.add('inslot');slot.replaceChildren(side);return;}
+    if(t==='notes'){side.classList.add('inslot');showIn(side);return;}
     side.classList.remove('inslot');if(b)grid.append(side);
-    slot.replaceChildren(t==='pdf'?pdfBlock(id,p):contextBlock(id,p));
+    if(t==='pdf'&&pdfBox&&pdfBox.inline!==inlinePdf()){pdfBox.remove();pdfBox=null;}
+    if(t==='pdf'&&!pdfBox){pdfBox=pdfBlock(id,p);pdfBox.inline=inlinePdf();}      /* pdfBlock() gives up the address of the copy shown before */
+    showIn(t==='pdf'?pdfBox:contextBlock(id,p));
     if(S.stale)schedule();
   }
   var sw=h('div',{class:'seg pswitch',role:'group','aria-label':'What to read'},bc,bp,bn);
@@ -2265,9 +2389,9 @@ function viewPaper(){
   show(S.tab||(c&&c.debate?'context':(S.context&&hasPdf(b)?'pdf':'context')));
   S.ctxSlot={redraw:function(how){      /* how: 'early', this browser's copy; 'same', GitHub sent that copy again */
       if(S.view!=='paper'||S.paper!==id||!slot.isConnected)return;
-      if(how==='early'){if(S.tab==='context')slot.replaceChildren(contextBlock(id,p));return;}
+      if(how==='early'){if(S.tab==='context')showIn(contextBlock(id,p));return;}
       if(S.auto===id){S.auto=null;var got=S.context&&S.context[id];if(!(got&&got.debate)&&hasPdf(U.board[id])){show('pdf');return;}}
-      if(S.tab==='context'&&!(how==='same'&&S.context[id]&&S.context[id].debate))slot.replaceChildren(contextBlock(id,p));},
+      if(S.tab==='context'&&!(how==='same'&&S.context[id]&&S.context[id].debate))showIn(contextBlock(id,p));},
     widen:function(){if(S.view==='paper'&&S.paper===id&&S.tab==='notes'&&slot.isConnected)show('notes');}};
   loadContext();
   v.append(grid);
@@ -2651,7 +2775,7 @@ function logosFromCache(){
     })).then(function(){
       var left={},n=0;idx.forEach(function(x){if(!S.logos[str(x.key)]){left[str(x.key)]=true;n++;}});
       S.logoWait=n?left:null;      /* only a mark this browser no longer holds is still waited for, until the folder has been read */
-      if(!placeMarks())schedule();
+      if(!placeLogos())schedule();
     });
   }).catch(function(){});
 }
@@ -2695,7 +2819,7 @@ function loadLogos(){
       lsSet('rr.logos',JSON.stringify(done.map(function(x){return {key:x.key,sha:x.sha,color:x.color||'',wide:!!x.wide};})));
       S.logoNote=done.length?count(done.length,'journal logo','journal logos')+' shown from the logos folder.'+(skipped?' '+count(skipped,'file was','files were')+' skipped: the name matches no journal, or the file is over 600 KB.':'')
         :'No journal logos yet. Add image files to a logos folder in the repository, each named by the journal’s ISSN, for example 0048-3915.png.';
-      if(S.view==='settings'||redraw&&!placeMarks())schedule();      /* Settings carries the note above */
+      if(S.view==='settings'||redraw&&!placeLogos())schedule();      /* Settings carries the note above */
     });
   }).catch(function(){S.logoNote='The logos folder could not be read.';if(S.logoWait){S.logoWait=null;schedule();}});
 }
