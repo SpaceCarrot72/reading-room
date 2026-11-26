@@ -519,6 +519,10 @@ body[data-view="board"] .footnav{display:flex}
 .pside .notes-h{margin:0 0 8px;font:500 13px/1.3 var(--ui);color:var(--ink-soft)}
 .pside .notes{min-height:180px;max-height:calc(100vh - 120px);background:none;border:0;border-radius:0;padding:0;font:400 14.5px/1.6 var(--ui);resize:none;overflow:auto}
 .pside .notes:focus{outline:none}
+.pside .pinbox{display:block;width:100%;min-height:0;margin:0;padding:8px 10px;background:var(--mine-wash);border:0;border-left:2px solid var(--mine-edge);border-radius:0;font:400 13px/1.5 var(--ui);color:var(--ink);resize:none;overflow:hidden}
+.pside .pinbox::placeholder{color:var(--ink-soft)}
+.pside .pinbox:focus{outline:none;box-shadow:0 0 0 1px var(--mine-edge)}
+.pside .nh2{margin-top:24px}
 @media (max-width:900px){
   .pgrid{grid-template-columns:minmax(0,1fr);gap:0}
   .pside{border-left:0;padding-left:0}
@@ -998,7 +1002,7 @@ function terms(q){return fold(q).split(/[^a-z0-9]+/).filter(function(t){return t
 function boardMatch(b,toks){
   /* 0: no match. 1: every word is on the card or in its notes. 2: some words were found only in the PDF. */
   if(!toks.length)return 1;
-  var own=fold([b.title,b.authors,b.venue,b.year,b.cite,b.note,hasPdf(b)?b.pdf.name:''].join(' '));
+  var own=fold([b.title,b.authors,b.venue,b.year,b.cite,b.pin,b.note,hasPdf(b)?b.pdf.name:''].join(' '));
   var entry=hasPdf(b)&&S.pdfIndex?S.pdfIndex[b.pdf.path]:null,words=entry&&entry.words?' '+str(entry.words):'',inPdf=false;
   for(var i=0;i<toks.length;i++){
     if(own.indexOf(toks[i])>=0)continue;
@@ -1839,7 +1843,7 @@ function slip(b,ci,hit,journal,cover){
     hasCover?null:gap,
     art,
     hasCover?h('div',{class:'slip-text'},gap,title,meta):[title,meta],      /* beside a cover the words keep to their own column */
-    str(b.note).trim()?h('p',{class:'slip-note'},str(b.note).trim()):null,
+    str(b.pin).trim()?h('p',{class:'slip-note'},str(b.pin).trim()):null,      /* the line written for the Board; the notes stay on the paper's page */
     hit===2?h('p',{class:'slip-hit'},'Found in the PDF'):null);
   if(meta)e.setAttribute('aria-describedby',meta.id);
   /* a slip is moved to another column by dragging it, or from the paper's own page; an attached PDF opens from the round button beside the star */
@@ -1914,7 +1918,7 @@ function viewBoard(){
   if(S.adding)v.append(addForm());
   var find=h('input',{type:'search',id:'board-find',placeholder:'Search...','aria-label':'Search titles, authors, notes and PDFs',autocomplete:'off',spellcheck:'false'});
   find.value=S.q;
-  var FILTERS=[['all','All',function(){return true;}],['pdf','With a PDF',hasPdf],['notes','With notes',function(b){return !!str(b.note).trim();}],['star','Starred',isStar]];
+  var FILTERS=[['all','All',function(){return true;}],['pdf','With a PDF',hasPdf],['notes','With notes',function(b){return !!(str(b.note).trim()||str(b.pin).trim());}],['star','Starred',isStar]];
   var fwrap=h('div',{class:'fwrap'}),menu=h('div',{class:'fmenu',role:'menu',hidden:true});
   var fbtn=h('button',{class:'tab gear fbtn',type:'button','aria-haspopup':'menu','aria-expanded':'false'},funnelIcon());
   function fname(){
@@ -2442,14 +2446,18 @@ function viewPaper(){
   var side=h('aside',{class:'pside'});
   if(b){
     var ta=h('textarea',{class:'notes',id:'sheet-notes',placeholder:'Objections, uses, page references.'});
-    ta.value=str(b.note);
+    var pinTa=h('textarea',{class:'pinbox',id:'sheet-pin',rows:'2',maxlength:'280',placeholder:'A line to show on its slip.'});
+    ta.value=str(b.note);pinTa.value=str(b.pin);
     var saved=h('span',{class:'saved','aria-live':'polite'},'');
-    S.sheet={id:id,ta:ta,saved:saved,timer:0,last:str(b.note),touched:false};
-    ta.addEventListener('input',function(){S.sheet.touched=true;clearTimeout(S.sheet.timer);S.sheet.timer=setTimeout(flushNote,600);});
-    /* the box grows with what is written in it, up to the height of the window */
-    var grow=function(){ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';};
-    ta.addEventListener('input',grow);requestAnimationFrame(function(){if(ta.isConnected)grow();});
-    side.append(h('div',{class:'notes-h'},h('label',{for:'sheet-notes'},'Notes'),saved),ta);
+    S.sheet={id:id,saved:saved,timer:0,touched:false,boxes:[{key:'note',ta:ta,last:str(b.note)},{key:'pin',ta:pinTa,last:str(b.pin)}]};
+    /* each box grows with what is written in it; the notes up to the height of the window */
+    [ta,pinTa].forEach(function(x){
+      var grow=function(){x.style.height='auto';x.style.height=x.scrollHeight+'px';};
+      x.addEventListener('input',function(){grow();S.sheet.touched=true;clearTimeout(S.sheet.timer);S.sheet.timer=setTimeout(flushNote,600);});
+      requestAnimationFrame(function(){if(x.isConnected)grow();});
+    });
+    side.append(h('div',{class:'notes-h'},h('label',{for:'sheet-pin'},'On the Board')),pinTa,
+      h('div',{class:'notes-h nh2'},h('label',{for:'sheet-notes'},'Notes'),saved),ta);
     /* what is done rarely: the PDF's file, and taking the paper off the board */
     var mwrap=h('div',{class:'fwrap pmore'}),menu=h('div',{class:'fmenu',role:'menu',hidden:true});
     var mbtn=h('button',{class:'tab gear mbtn',type:'button','aria-haspopup':'menu','aria-expanded':'false','aria-label':'More',title:'More'},dotsIcon());
@@ -2530,8 +2538,14 @@ function viewPaper(){
 function flushNote(){
   var sh=S.sheet;if(!sh)return;
   clearTimeout(sh.timer);
-  var val=sh.ta.value;if(val===sh.last||!U.board[sh.id])return;
-  sh.last=val;U.board[sh.id].note=val;U.board[sh.id].updatedAt=now();
+  var b=U.board[sh.id],any=false;if(!b)return;
+  sh.boxes.forEach(function(x){
+    var val=x.ta.value;if(val===x.last)return;
+    x.last=val;any=true;
+    if(x.key==='pin'&&!val.trim())delete b.pin;else b[x.key]=val;
+  });
+  if(!any)return;
+  b.updatedAt=now();
   /* The note is in its box as typed. Drawing the page again for it, as soon as the reader left the box, replaced the
      button he was pressing before it came up, and the press was lost. */
   changed(true);renderStatus();
