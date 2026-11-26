@@ -587,9 +587,19 @@ function fixCapsTitle(t){
     start=false;return out;
   });
 }
-function fixCapsName(n){
+/* Initials run together, in any word of a name but the last: 'Dominic JC Wilkinson', 'Jp Messina'. Two capitals are
+   initials; three only with no vowel ('Mary ANN Smith' keeps her name); two or three letters with no vowel at all are
+   initials set in ordinary case. check.py does the same as papers come in. */
+function fixInitials(n){
+  var w=str(n).split(' ');
+  return w.map(function(x,i){
+    return i<w.length-1&&(/^(?:[A-Z]{2}|[B-DF-HJ-NP-TV-XZ]{3})$/.test(x)||/^[B-DF-HJ-NP-TV-XZ][b-df-hj-np-tv-xz]{1,2}$/.test(x))?x.toUpperCase().split('').join('. ')+'.':x;
+  }).join(' ');
+}
+function fixCapsName(n){return capsName(fixInitials(n));}
+function capsName(n){
   n=str(n);
-  if(n!==n.toUpperCase())return n.split(' ').map(function(w){return /^[A-Z\u00C0-\u00DE'\u2019-]{2,}$/.test(w)&&!/^[IVX]+$/.test(w)?fixCapsName(w):w;}).join(' ');
+  if(n!==n.toUpperCase())return n.split(' ').map(function(w){return /^[A-Z\u00C0-\u00DE'\u2019-]{2,}$/.test(w)&&!/^[IVX]+$/.test(w)?capsName(w):w;}).join(' ');
   if(!/[A-Z\u00C0-\u00DE]{2}/.test(n))return n;
   return n.toLowerCase().replace(/(^|[\s.'\u2019-])([a-z\u00E0-\u00FE])/g,function(m,a,c){return a+c.toUpperCase();})
     .replace(/(^|[\s-])Mc([a-z])/g,function(m,a,c){return a+'Mc'+c.toUpperCase();});
