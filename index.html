@@ -1242,7 +1242,8 @@ function leaders(){
 /* A journal's place on the board: one point for each of its papers there and four more for a starred one, as for an
    author. A book, a chapter or a manuscript has no ISSN and belongs to no journal. */
 function journalKeyOf(b){
-  if(!b||str(b.form)==='Book'||!arr(b.issns).length)return '';
+  if(!b||str(b.form)==='Book'||str(b.form)==='Newspaper essay')return '';
+  if(!arr(b.issns).length&&str(b.form)!=='Journal article')return '';
   var v=str(b.venue).trim();if(!v)return '';
   var row=matchArtwork(v,b.issns);
   return venueKey(row&&row.title?row.title:v);
