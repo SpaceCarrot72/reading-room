@@ -2093,8 +2093,15 @@ function viewLedger(){
   v.append(lede('Settings',bits.join(' ')));
   var grid=h('div',{class:'ledger'}),hist=h('div',{class:'ledger'});
   var b1=h('section',{class:'block'},h('h2',null,'What it looks for'));
-  var chips=h('div',{class:'chips'});areas().forEach(function(a){chips.append(h('span',{class:'chip'},a));});
-  b1.append(chips);
+  /* every field, with its share of New: one point for each of its papers on the board, five for a starred one, and three
+     to start with, as the morning's run counts them (field_shares in scripts/stock.py) */
+  var fields=genres(),pts={},total=0;
+  fields.forEach(function(g){pts[g]=3;});
+  Object.keys(U.board).forEach(function(id){var b=U.board[id],g=b&&genreOf(b,id);if(g&&pts[g]!=null)pts[g]+=isStar(b)?5:1;});
+  fields.forEach(function(g){total+=pts[g];});
+  var chips=h('div',{class:'chips'});
+  fields.forEach(function(g){var pc=Math.round(100*pts[g]/total);chips.append(h('span',{class:'chip'},g+' ',h('span',{class:'n'},(pc<1?'<1':pc)+'%')));});
+  b1.append(chips,h('p',{class:'hint',style:'margin:10px 0 18px'},'Every field is looked for on the same terms. The number is its share of New, which follows your board: one point for each of its papers there, five for a starred one, and three to start with. Each morning the mix is drawn at random around these shares, so one day leans to one field and the next to another.'));
   var ta=h('textarea',{class:'threads',id:'profile-threads'});
   var current=threadsText();
   ta.value=S.threads==null?current:S.threads;
@@ -2110,7 +2117,8 @@ function viewLedger(){
   grid.append(h('div',{class:'stack'},b1,syncBlock()));
 
   var list=arr(S.journals&&S.journals.list);
-  var b2=h('section',{class:'block'},h('h2',null,count(list.length,'journal','journals')+' watched'));
+  var b2=h('section',{class:'block'},h('h2',null,count(list.length,'journal','journals')+' watched this week'),
+    h('p',{class:'hint',style:'margin:0 0 12px'},'The watched journals are drawn again every Monday, from these and the wider list together. Their seats are shared among the fields by the shares above, and each goes to the journal that does best for its field: drawn from its record of papers kept, and raised or lowered by what you made of its papers. A journal hardly tried can draw high; a journal that loses its seat goes back to the wider list with its record.'));
   var groups=[];
   list.forEach(function(j){var g=str(j.group)||'Journals',x=groups.filter(function(y){return y.name===g;})[0];
     if(!x){x={name:g,items:[]};groups.push(x);}x.items.push(j);});
@@ -2124,14 +2132,14 @@ function viewLedger(){
   if(wider.length){
     var wl=h('ul',{class:'jlist'});
     wider.forEach(function(j){wl.append(h('li',null,h('span',{class:'jname'},jmark(j.name,false,arr(j.issns).length?j.issns:[j.issn]),h('span',null,str(j.name))),jtail(j)));});
-    b2.append(h('details',{class:'wider'},h('summary',null,count(wider.length,'more journal feeds','more journals feed')+' the stock. They are not checked every week.'),wl));
+    b2.append(h('details',{class:'wider'},h('summary',null,count(wider.length,'more journal feeds','more journals feed')+' the stock. A refill visits them after the watched journals, and any of them can win a seat on a Monday.'),wl));
   }
   if(Object.keys(S.jscores).length)b2.append(h('p',{class:'hint',style:'margin-top:16px'},'The small number beside a journal is its score: roughly papers kept per hundred judged, raised by what you save from it and lowered by what you dismiss. It steers where the stock looks and which papers reach New first. It is not shown on cards.'));
   grid.append(b2);
 
   var runs=S.runs.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at))||str(b.id).localeCompare(str(a.id));});
   var b3=h('section',{class:'block wide'},h('h2',null,'Runs'));
-  b3.append(h('p',{class:'area-sub'},'A run goes every morning. The weekly check happens on Mondays, or the next morning if a Monday is missed. ',
+  b3.append(h('p',{class:'area-sub'},'A run goes every morning at 10:17 UTC, 5:17 in Toronto in winter. If GitHub has not started it and no feed is out, this page asks for it while it is open after that time. The weekly check, and the draw of the watched journals, happen on Mondays, or the next morning if a Monday is missed. ',
     h('a',{href:'https://github.com/'+Sync.repo+'/actions/workflows/weekly-check.yml',target:'_blank',rel:'noopener'},'Open it on GitHub'),' to run it now or read its log.'));
   if(!runs.length)b3.append(h('p',{class:'none'},'No runs recorded.'));
   else{
@@ -2153,7 +2161,7 @@ function viewLedger(){
   }
   var slog=S.stocklog.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at));}),sl=slog[0];
   var b5=h('section',{class:'block wide'},h('h2',null,'Stock'),
-    h('p',{class:'area-sub'},sl?count(Number(sl.stock)||0,'paper is','papers are')+' judged and waiting. New holds '+(Number(sl.open)||0)+' open cards of at most 100; it is topped up on Mondays and on any morning it falls below 75. Each refill takes one more page of back issues from every watched journal, then the wider journal list; before those, authors on your board and what your board cites.'
+    h('p',{class:'area-sub'},sl?count(Number(sl.stock)||0,'paper is','papers are')+' judged and waiting. New holds '+(Number(sl.open)||0)+' open cards of at most 100; it is topped up on Mondays and on any morning it falls below 75, with that morning’s mix of fields. Each refill takes one more page of back issues from every watched journal, then the wider journal list; before those, authors on your board and what your board cites.'
       :'Nothing is in stock yet. The first morning run starts filling it from back issues, the wider journal list, authors on your board and what your board cites.'));
   if(slog.length){
     var tb5=h('tbody');
