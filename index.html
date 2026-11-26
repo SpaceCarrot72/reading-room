@@ -1231,6 +1231,7 @@ function schoolAffiliation(name,mode){
    independent scholar, or a whole address run together ('Department of Philosophy University of Rochester Rochester NY'). */
 function placeLike(t){
   t=str(t).trim();
+  if(/^(the\s+)?(university of california|university of london|state university of new york|university of texas)( system)?(,?\s*(usa|us|united states|uk|united kingdom))?$/i.test(t))return false;      /* a university system is no one's school */
   return !!t&&t.length<=48&&!/\d/.test(t)&&!/^(department|dept\.?|faculty|school\s+(of|for)|division|program|cent(re|er)|institut[e]?\s+(of|for|f\u00fcr)\s+philosoph|dipartimento|d[\u00e9e]partement|philosophy\b|independent)/i.test(t);
 }
 function byline(a,cls,mode,tail){
