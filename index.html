@@ -1028,6 +1028,49 @@ function citeLine(p){
 function bare(a){return str(a).replace(/\s*\[[^\]]*\]/g,'');}
 /* aff:start  Institutions are shown in their short everyday form: "Purdue", "Edinburgh", "UCLA". */
 var AFF_KNOWN=[
+  /* names two schools share, as college football tells them apart */
+  [/^university of miami$/i,'Miami'],
+  [/^miami university(?: of ohio)?$/i,'Miami (OH)'],
+  [/^university of york$/i,'York'],
+  [/^york university$/i,'York (Toronto)'],
+  [/^boston university$/i,'BU'],
+  [/^boston college$/i,'Boston College'],
+  [/^queen['\u2019]s university belfast$/i,'Queen\u2019s Belfast'],
+  [/^queen['\u2019]s university(?: at kingston)?$/i,'Queen\u2019s'],
+  [/^western university$/i,'Western'],
+  [/^northeastern university$/i,'Northeastern'],
+  [/^washington university in st\.? louis$/i,'WashU'],
+  [/^saint louis university$/i,'SLU'],
+  [/^lincoln university\W+pennsylvania$/i,'Lincoln (PA)'],
+  [/^indiana university of pennsylvania$/i,'IUP'],
+  [/^king['\u2019]s college london$/i,'KCL'],
+  [/^university college dublin$/i,'UCD'],
+  [/^(?:the )?hebrew university of jerusalem$/i,'Hebrew University'],
+  [/^central european university$/i,'CEU'],
+  [/^australian catholic university$/i,'ACU'],
+  [/^beijing normal university$/i,'Beijing Normal'],
+  [/^new york university abu dhabi$/i,'NYU Abu Dhabi'],
+  [/^vrije universiteit amsterdam$/i,'VU Amsterdam'],
+  [/^ben[- ]gurion university of the negev$/i,'Ben-Gurion'],
+  [/^national and kapodistrian university of athens$/i,'Athens'],
+  [/^adam mickiewicz university in pozna\u0144$/i,'Pozna\u0144'],
+  [/^christian-albrechts-universit\u00e4t zu kiel$/i,'Kiel'],
+  [/^ludwig-maximilians?-universit(?:y|\u00e4t)(?: munich| m\u00fcnchen)?$/i,'LMU Munich'],
+  [/^humboldt university of berlin$/i,'HU Berlin'],
+  [/^philipps university of marburg$/i,'Marburg'],
+  [/^heinrich heine university d\u00fcsseldorf$/i,'D\u00fcsseldorf'],
+  [/^goethe university frankfurt$/i,'Frankfurt'],
+  [/^erasmus university rotterdam$/i,'Erasmus Rotterdam'],
+  [/^college of william (?:&|and) mary$/i,'William & Mary'],
+  [/^university at (albany|buffalo)\b.*$/i,'$1'],
+  [/^state university of new york at (.+)$/i,'SUNY $1'],
+  [/^institute for futures studies\b.*$/i,'Institute for Futures Studies'],
+  [/^birkbeck\b.*$/i,'Birkbeck'],
+  [/^(?:the )?hang seng university of hong kong$/i,'Hang Seng'],
+  [/^law universitat pompeu fabra$/i,'Pompeu Fabra'],
+  [/^lse law school$/i,'LSE'],
+  /* a state's flagship goes by the state's name */
+  [/^university of (wisconsin|nebraska|michigan|colorado|minnesota|hawai\u02bbi|hawaii|massachusetts|illinois)[,\s\u2013-]+(?:at\s+)?(?:madison|lincoln|ann arbor|boulder|twin cities|m\u0101noa|manoa|amherst|urbana-champaign)$/i,'$1'],
   [/^university of california,? (?:at )?los angeles$/i,'UCLA'],
   [/^university of california,? (?:at )?(.+)$/i,'UC $1'],
   [/^university of southern california$/i,'USC'],
@@ -1053,10 +1096,12 @@ var AFF_VAGUE=/^(open|national|central|technical|catholic|american|european|norm
 var AFF_SHARED=/^(york|boston|miami|newcastle|northeastern|western|lincoln|trinity|victoria|queen's|st\.? ?louis)$/i;
 function shortPlace(place){
   var t=str(place).trim().replace(/^the\s+/i,''),i,m,out='';
+  t=t.replace(/^(.*\b(\S+)\b.*?)\s+\2\s+[A-Z][a-z]+$/,'$1');      /* an address run on: 'Uppsala University Uppsala Sweden' */
   for(i=0;i<AFF_KNOWN.length;i++)if(AFF_KNOWN[i][0].test(t))return t.replace(AFF_KNOWN[i][0],AFF_KNOWN[i][1]);
   if((m=/^(?:university|universit[àa]|universit[ée]|universit[aä]t|universidad|universidade|universiteit)\s+(?:of|degli studi di|di|de|del|della|do|da|zu|van)\s+(?:the\s+)?(.+)$/i.exec(t)))out=m[1];
   else if((m=/^universit(?:[aä]t|[ée])\s+(.+)$/i.exec(t)))out=m[1];
   else if((m=/^(.+?)\s+(?:university|universit[aä]t|universitet|universiteit)$/i.exec(t))&&!/\b(of|for|and)\b/i.test(m[1]))out=m[1];
+  else if((m=/^(.+?)\s+college$/i.exec(t))&&!/\b(of|for|and|university|king['\u2019]s|imperial)\b/i.test(m[1]))out=m[1];      /* 'Dartmouth College' */
   if(!out)return t;
   if(AFF_SHARED.test(out)||AFF_VAGUE.test(out.split(/\s+/).pop()))return t;
   return out;
