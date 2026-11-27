@@ -1331,7 +1331,7 @@ function levels(){
 }
 /* The ten authors with the most points, each under the fullest form of their name on the board. */
 function leaders(){
-  var lv=levels(),name={};
+  var lv=levels(),name={},sp=schoolPoints();
   Object.keys(U.board).forEach(function(id){
     people(obj(U.board[id]).authors).forEach(function(x){
       var k=authorKey(x.name),was=name[k],n=x.name;
@@ -1340,8 +1340,8 @@ function leaders(){
     });
   });
   var rows=Object.keys(lv).map(function(k){return {key:k,name:name[k]||k,lv:lv[k],school:str(obj(S.schools[k]).school),dead:!!S.dead[k]};})
-    .map(function(r){r.colour=str(S.colours[publicationTitle(r.school)]);return r;})
-    .sort(function(a,b){return b.lv-a.lv||a.name.localeCompare(b.name);}).slice(0,leadSize(lv));
+    .map(function(r){r.colour=str(S.colours[publicationTitle(r.school)]);r.sp=r.school?sp[r.school]||0:0;return r;})
+    .sort(function(a,b){return b.lv-a.lv||b.sp-a.sp||a.name.localeCompare(b.name);}).slice(0,leadSize(lv));      /* a tie goes to the author whose school has more points, then the alphabet */
   rows.forEach(function(r,i){r.rank=i&&rows[i-1].lv===r.lv?rows[i-1].rank:i+1;});      /* equal points share a place */
   return rows;
 }
@@ -1378,6 +1378,12 @@ function schoolsOf(b){
   var out=[];
   people(obj(b).authors).forEach(function(x){var s=str(obj(S.schools[authorKey(x.name)]).school);if(s&&out.indexOf(s)<0)out.push(s);});
   return out;
+}
+/* every school's points, as on the schools' list: one for each paper by its people, five for a starred one */
+function schoolPoints(){
+  var lv={};
+  boardList().forEach(function(b){schoolsOf(b).forEach(function(s){lv[s]=(lv[s]||0)+(isStar(b)?STAR:1);});});
+  return lv;
 }
 function schoolLeaders(){
   var by={},lv={};
