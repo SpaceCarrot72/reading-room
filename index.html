@@ -2860,13 +2860,16 @@ function ghData(name){
    stock is refilled if it is low, within its share of the budget, and New is filled from it. The button says what
    that should cost: nothing when the stock has enough judged papers, else about what the last refills cost. */
 var REFILL_KEY='rr.refill',REFILL_WAIT=45*60000,STOCK_LOW=75;
-function stockLeftThisWeek(){      /* budget.left(today,'stock'), from data/spend.json */
-  var sp=obj(S.spend),B=sp.budget==null?50:+sp.budget,day=+sp.day||26,share=obj(sp.shares).stock==null?0.55:+obj(sp.shares).stock;
+/* budget.left(today,'stock'), from data/spend.json: the stock's share is released a week at a time only when spend.json
+   names it under "weekly" (an older file with no "weekly" means both shares were) */
+function stockWeekly(){var w=obj(S.spend).weekly;return Array.isArray(w)?w.indexOf('stock')>=0:true;}
+function stockLeftThisWeek(){
+  var sp=obj(S.spend),B=sp.budget==null?85:+sp.budget,day=+sp.day||26,share=obj(sp.shares).stock==null?0.55:+obj(sp.shares).stock;
   if(!(B>0))return Infinity;
   var t=new Date(),y=t.getUTCFullYear(),m=t.getUTCMonth(),d=t.getUTCDate();
   var start=new Date(Date.UTC(y,d<day?m-1:m,day)),sy=start.getUTCFullYear(),sm=start.getUTCMonth();
   var end=new Date(Date.UTC(sy,sm+1,Math.min(day,new Date(Date.UTC(sy,sm+2,0)).getUTCDate())));
-  var days=Math.round((end-start)/864e5),weeks=Math.floor((Date.UTC(y,m,d)-start)/864e5/7)+1,rel=Math.min(1,7*weeks/days);
+  var days=Math.round((end-start)/864e5),weeks=Math.floor((Date.UTC(y,m,d)-start)/864e5/7)+1,rel=stockWeekly()?Math.min(1,7*weeks/days):1;
   var s0=start.toISOString().slice(0,10),e0=end.toISOString().slice(0,10),all=0,mine=0;
   arr(sp.log).forEach(function(e){var a=str(e&&e.at);if(a>=s0&&a<e0){all+=+e.usd||0;if(e.part==='stock')mine+=+e.usd||0;}});
   return Math.min(B-all,share*B*rel-mine);
@@ -2885,11 +2888,11 @@ function refillPending(){
 function refillOffer(){
   if(!Sync.token)return null;
   var pl=refillPlan(),label;
-  if(!pl.judge&&!pl.inStock)return h('p',{class:'refill-note'},'The stock is empty and this week’s share of the budget for it is spent. New fills again when the next week’s share comes in.');
+  if(!pl.judge&&!pl.inStock)return h('p',{class:'refill-note'},stockWeekly()?'The stock is empty and this week’s share of the budget for it is spent. New fills again when the next week’s share comes in.':'The stock is empty and this month’s share of the budget for it is spent. New fills again when the next credit month begins.');
   label=pl.judge?'Refill New · about $'+pl.cost.toFixed(2):'Refill New · no charge';
   var btn=h('button',{class:'btn solid refill',type:'button'},label);
   btn.addEventListener('click',function(){requestRefill(btn,label);});
-  var why=pl.judge?'Judges new papers for the stock, then fills New from it. $'+Math.max(0,pl.left).toFixed(2)+' is left of this week’s share for the stock. The desk does not run.'
+  var why=pl.judge?'Judges new papers for the stock, then fills New from it. $'+Math.max(0,pl.left).toFixed(2)+' is left of '+(stockWeekly()?'this week’s':'this month’s')+' share for the stock. The desk does not run.'
     :pl.inStock>=STOCK_LOW?'Fills New from the '+pl.inStock+' papers already judged.'
     :'This week’s share of the budget for the stock is spent, so New gets the '+pl.inStock+' papers already judged.';
   return h('div',{class:'refill-box'},btn,h('p',{class:'refill-note'},why));
