@@ -794,7 +794,20 @@ function genreSelect(value,onpick,blank){
 function dismissed(id){var d=U.dismissed[id];return !!(d&&d.v);}
 function now(){return new Date().toISOString();}
 function byRank(a,b){return (a.rank||999)-(b.rank||999);}
-function isOpen(p){return !dismissed(p.id)&&!onBoard(p.id);}
+/* A paper on the board under another id is not offered again: "1% Skepticism" saved with a PhilPapers link came
+   back on New under its DOI. Its title and first author's surname are what tell (twin_key in check.py). */
+function twinKey(x){
+  var first=people(x&&x.authors)[0],sur=first?str(first.name).trim().split(/\s+/).pop():'';
+  var n=function(t){return str(t).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();};
+  return n(cleanTitle(x&&x.title))+'|'+n(sur);
+}
+var twinMemo={stamp:'',keys:null};
+function savedTwin(p){
+  var stamp=Object.keys(U.board).length+'|'+str(U.updatedAt);
+  if(twinMemo.stamp!==stamp||!twinMemo.keys){var k={};boardList().forEach(function(b){k[twinKey(b)]=1;});twinMemo={stamp:stamp,keys:k};}
+  var key=twinKey(p);return key.charAt(0)!=='|'&&!!twinMemo.keys[key];
+}
+function isOpen(p){return !dismissed(p.id)&&!onBoard(p.id)&&!savedTwin(p);}
 function isNew(p){return p.lane==='new'||p.lane==='reserve'||p.lane==='classic';}   /* the last two are how older data marked what is now simply New */
 function later(x,y){return str(x)>str(y);}
 
