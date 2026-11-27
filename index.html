@@ -1899,9 +1899,10 @@ function slip(b,ci,hit,journal,cover){
   var count=pageInfo(b),year=str(b.year),meta=(b.authors||year||count)?byline(b.authors,'slip-meta','mark',year):null;
   if(meta){
     if(count){
-      var unit=({pdf:'PDF pages',manuscript:'manuscript pp.',excerpt:'excerpt pp.'})[count.kind]||'pp.';
+      var unit=({pdf:'PDF pages',excerpt:'excerpt pp.'})[count.kind]||'pp.';
       var book=count.kind==='book';
       var range=book?'Main numbered pages '+count.range:count.range;
+      if(count.kind==='manuscript')range='Manuscript pages '+count.range;
       var prelims=book&&str(count.preliminaries).trim()?'Roman-numbered preliminaries '+count.preliminaries:'';
       var evidence=[range,prelims,count.note,count.source].filter(Boolean).join(' · ');
       if(meta.childNodes.length)meta.append(', ');
