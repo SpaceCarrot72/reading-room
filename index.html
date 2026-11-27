@@ -559,7 +559,7 @@ var TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ni
 
 var S={ready:false,failed:false,failMsg:'',nodata:false,dataAt:0,seed:null,logos:{},logoColor:{},logoWide:{},logoSha:{},logoKeep:{},logoWait:null,logoNote:'',lv:{},pop:{},outArmed:false,papers:[],desk:[],issues:[],runs:[],journals:null,profile:null,full:{},desklog:[],stocklog:[],spend:{},jscores:{},q:'',pdfIndex:null,pdfIndexAt:0,pdfIndexBusy:false,pdfBusy:{},
   view:'new',issue:null,showDismissed:false,adding:false,filling:false,
-  form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},deckIds:[],boardIds:[],paper:null,back:null,tab:null,auto:null,drag:null,schools:{},venues:{},pages:{},bl:'any',dead:{},colours:{},list:[],shown:'',context:null,contextAt:0,contextBusy:false,ctxSlot:null,ctxlog:[],bf:'all',ba:'',pdfUrls:[]};
+  form:blankForm(),threads:null,raf:0,stale:false,sheet:null,deck:null,deckAt:{},deckIds:[],boardIds:[],paper:null,back:null,tab:null,auto:null,drag:null,schools:{},venues:{},pages:{},pageOverrides:{},reviewedPages:{},bl:'any',dead:{},colours:{},list:[],shown:'',context:null,contextAt:0,contextBusy:false,ctxSlot:null,ctxlog:[],bf:'all',ba:'',pdfUrls:[]};
 var U=blankUser();
 var schoolMarks=new Map();
 var artworkIndex=buildArtworkIndex([]),artworkBySha=new Map(),coverIndex={ids:{},titles:{}};
@@ -662,24 +662,52 @@ function areas(){
 }
 function threadsText(){return U.threads!=null?U.threads:str(S.profile&&S.profile.threads);}
 function latestRun(){return S.runs.slice().sort(function(a,b){return str(b.at).localeCompare(str(a.at));})[0]||null;}
-/* A paper's length: the page range in its citation ("343–377", "pp. 144–161", "S71–S102", "1386-97"), or what the
-   journals check found where the citation gives none (Crossref's printed pages, else the attached PDF's). A book has none. */
-var PAGE_RANGE=/\b([A-Za-z]?)(\d{1,5})\s*[\u2013\u2014-]\s*\1?(\d{1,5})\b/g;
-function citeSpan(c){
-  var m,best=0;PAGE_RANGE.lastIndex=0;
+/* Keep this citation grammar in sync with cite_span() in venues.py. */
+var PAGE_RANGE=/(^\s*|\bpp?\.?\s+|\bpages?\s+|\b[0-9]{1,5}(?:\s*\([^()]*\))?\s*[:,]\s*)(([A-Za-z]?)([1-9][0-9]{0,4})\s*[\u2013\u2014-]\s*([A-Za-z]?)([0-9]{1,5}))(?=\s*(?:$|[;,]|\(\s*(?:(?:online|print)\s+)?[12][0-9]{3}\b))/gi;
+function citeRange(c){
+  var m;PAGE_RANGE.lastIndex=0;
   while((m=PAGE_RANGE.exec(str(c)))){
-    var a=+m[2],z=m[3];
-    if(z.length<m[2].length)z=m[2].slice(0,m[2].length-z.length)+z;      /* 1386-97 is 1386 to 1397 */
+    var a=+m[4],z=m[6];
+    if(m[5]&&m[5].toLowerCase()!==m[3].toLowerCase())continue;
+    if(!m[1].trim()&&!m[3]&&a>=1500&&a<=2100&&!str(c).slice(PAGE_RANGE.lastIndex).trimStart().startsWith('('))continue;
+    if(z.length<m[4].length)z=m[4].slice(0,m[4].length-z.length)+z;      /* 1386-97 is 1386 to 1397 */
     z=+z;
-    if(a>=1500&&a<=2100&&z>=1500&&z<=2100&&z-a<30)continue;      /* a span of years */
-    if(z>=a&&z<a+1500)best=z-a+1;
+    if(z>=a&&z<a+1500)return {kind:'published',pages:z-a+1,range:m[2],source:'Board citation'};
   }
-  return best;
+  return null;
 }
-function pagesOf(b){
-  if(!b||str(b.form)==='Book')return 0;
-  return citeSpan(b.cite)||(+obj(S.pages[b.id]).pages||0);
+function samePagePdf(b,saved){
+  return hasPdf(b)&&/^pdfs\/[^/\\]+\.pdf$/i.test(b.pdf.path)&&typeof b.pdf.at==='string'&&b.pdf.at&&
+    Number.isInteger(b.pdf.size)&&b.pdf.size>0&&b.pdf.path===saved.path&&b.pdf.at===saved.at&&b.pdf.size===saved.size;
 }
+function verifiedPageInfo(b,o){
+  o=obj(o);
+  var attached=samePagePdf(b,obj(o.pdf));
+  if(typeof o.source==='string'&&o.source.trim()&&(!('pdf' in o)||attached)){
+    if(o.kind==='withhold')return o;
+    var fits=str(b.form)==='Book'?o.kind==='book':
+      o.kind==='published'||(attached&&(o.kind==='manuscript'||o.kind==='excerpt'));
+    if(fits&&Number.isInteger(o.pages)&&o.pages>0&&typeof o.range==='string'&&o.range.trim())return o;
+  }
+  return null;
+}
+function pageInfo(b){
+  if(!b)return null;
+  var verified=verifiedPageInfo(b,S.pageOverrides[b.id])||verifiedPageInfo(b,S.reviewedPages[b.id]);
+  if(verified)return verified.kind==='withhold'?null:verified;
+  if(str(b.form)==='Book')return null;
+  var raw=onBoard(b.id)?U.board[b.id]:b,range=citeRange(raw.cite);
+  if(range)return range;
+  var count=obj(S.pages[b.id]);
+  if(!Number.isInteger(count.pages)||count.pages<1)return null;
+  var doi=/doi\.org\/(10\.[^\s?#]+)/i.exec(str(raw.url));
+  if(count.via==='crossref'&&doi&&doi[1].toLowerCase()===str(count.asked).toLowerCase())
+    return {kind:'published',pages:count.pages,range:count.range,source:'Crossref'};
+  if(count.via==='pdf'&&samePagePdf(b,obj(count.pdf)))
+    return {kind:'pdf',pages:count.pages,source:'Total pages in the attached PDF'};
+  return null;
+}
+function pagesOf(b){var p=pageInfo(b);return p?p.pages:0;}
 var LENGTHS=[['any','Any length',function(){return true;}],['short','Under 15 pp.',function(n){return n>0&&n<15;}],
   ['mid','15 to 30 pp.',function(n){return n>=15&&n<=30;}],['long','Over 30 pp.',function(n){return n>30;}]];
 /* What the journals check found is filled in where an entry has nothing of its own; what the reader has is never replaced. */
@@ -1868,9 +1896,19 @@ function slip(b,ci,hit,journal,cover){
   /* a book's subtitle can be dropped from its slip: fitTitles() does so when the whole title would run to a third line */
   var full=cleanTitle(b.title),cut=str(b.form)==='Book'?full.indexOf(': '):-1,title=h('h3',{class:'slip-title'},full);
   if(cut>2){title.setAttribute('data-full',full);title.setAttribute('data-short',full.slice(0,cut));}
-  var pp=pagesOf(b),tail=[str(b.year),pp?pp+'\u00a0pp.':''].filter(Boolean).join(', ');
-  var meta=(b.authors||tail)?byline(b.authors,'slip-meta','mark',tail):null;
-  if(meta)meta.id='authors-'+encodeURIComponent(b.id);
+  var count=pageInfo(b),year=str(b.year),meta=(b.authors||year||count)?byline(b.authors,'slip-meta','mark',year):null;
+  if(meta){
+    if(count){
+      var unit=({pdf:'PDF pages',manuscript:'manuscript pp.',excerpt:'excerpt pp.'})[count.kind]||'pp.';
+      var book=count.kind==='book';
+      var range=book?'Main numbered pages '+count.range:count.range;
+      var prelims=book&&str(count.preliminaries).trim()?'Roman-numbered preliminaries '+count.preliminaries:'';
+      var evidence=[range,prelims,count.note,count.source].filter(Boolean).join(' · ');
+      if(meta.childNodes.length)meta.append(', ');
+      meta.append(h('span',{title:evidence},count.pages+'\u00a0'+unit));
+    }
+    meta.id='authors-'+encodeURIComponent(b.id);
+  }
   /* A cover or mark still on its way has its place kept, at its size, so the slip is the same before and after:
      placeArtwork() puts the picture there when it comes. */
   var hasCover=!!cover.url||!!cover.pending,art=slipArt(b,journal,cover);
@@ -2835,7 +2873,7 @@ function applyData(d){
   S.papers=arr(d[0]);S.desk=arr(d[1]);S.issues=arr(d[2]);S.runs=arr(d[3]);S.journals=d[4];S.jmap=null;S.profile=d[5];S.seed=d[6];
   S.full=obj(d[7]);S.desklog=arr(d[8]);
   artworkIndex=buildArtworkIndex(d[9]);coverIndex=buildCoverIndex(d[18]);
-  S.stocklog=arr(d[10]);S.spend=obj(d[11]);S.jscores=obj(obj(d[12]).journals);S.ctxlog=arr(d[13]);S.schools=oneCampus(obj(obj(d[14]).people));S.venues=obj(obj(d[15]).papers);S.pages=obj(obj(d[15]).pages);S.dead={};Object.keys(obj(obj(d[16]).people)).forEach(function(n){var k=authorKey(n);if(k)S.dead[k]=true;});S.colours={};Object.keys(obj(obj(d[17]).schools)).forEach(function(n){var c=str(obj(d[17]).schools[n]);if(/^#[0-9a-f]{6}$/i.test(c))S.colours[publicationTitle(n)]=c;});
+  S.stocklog=arr(d[10]);S.spend=obj(d[11]);S.jscores=obj(obj(d[12]).journals);S.ctxlog=arr(d[13]);S.schools=oneCampus(obj(obj(d[14]).people));S.venues=obj(obj(d[15]).papers);S.pages=obj(obj(d[15]).pages);S.pageOverrides=obj(obj(d[15]).pageOverrides);S.reviewedPages=obj(obj(d[15]).reviewedPages);S.dead={};Object.keys(obj(obj(d[16]).people)).forEach(function(n){var k=authorKey(n);if(k)S.dead[k]=true;});S.colours={};Object.keys(obj(obj(d[17]).schools)).forEach(function(n){var c=str(obj(d[17]).schools[n]);if(/^#[0-9a-f]{6}$/i.test(c))S.colours[publicationTitle(n)]=c;});
 }
 function parseStored(k){try{return JSON.parse(lsGet(k)||'null');}catch(e){return null;}}
 var dataText='';      /* the data now applied, as the JSON text kept in rr.data */
