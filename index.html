@@ -1116,6 +1116,10 @@ function pdfRow(id,after,shown){
 /* searching the board, and inside its PDFs through the word index the repository builds */
 function fold(v){var t=str(v);try{t=t.normalize('NFKD');}catch(e){}return t.replace(/[\u0300-\u036f]/g,'').toLowerCase();}
 function terms(q){return fold(q).split(/[^a-z0-9]+/).filter(function(t){return t;});}
+/* The words the Board searches for. Until one of them has three letters there is no search: one or two letters keep
+   nearly every paper (a search for "ep" kept 674 of 713), so the Board stays as it was and is not drawn again. Once there
+   is such a word, every word typed counts, short ones too ("kant ai"). */
+function searchTerms(q){var t=terms(q);return t.some(function(x){return x.length>=3;})?t:[];}
 /* What a search looks through for one paper, folded once and kept until the paper or the PDF index changes: folding
    every paper's text on every keystroke was most of a search's own work. */
 var hayMemo=new Map();
@@ -2124,7 +2128,7 @@ function viewBoard(){
   }
   function draw(){
     var kind=(FILTERS.filter(function(f){return f[0]===S.bf;})[0]||FILTERS[0])[2],long=lengthKeep;
-    var toks=terms(S.q),shown=0,keep=function(b){return kind(b)&&long(pagesOf(b));},order=[];
+    var toks=searchTerms(S.q),shown=0;S.drawnQ=toks.join(' ');var keep=function(b){return kind(b)&&long(pagesOf(b));},order=[];
     var by=S.ba?function(b){return people(b.authors).some(function(x){return authorKey(x.name)===S.ba;});}:S.bj?function(b){return journalKeyOf(b)===S.bj;}:S.bs?function(b){return schoolsOf(b).indexOf(S.bs)>=0;}:function(){return true;};
     var looking=toks.length||S.bf!=='all'||lengthCap()!=='any'||S.ba||S.bj||S.bs,shut=looking?[]:folded();      /* a search opens every cluster */
     /* starred papers first, then papers by the authors on the leaderboard in its order, then the most recently added */
@@ -2225,12 +2229,13 @@ function viewBoard(){
   var lastRanked=null,lastLead=null,due=0,whole=0,drawnAt=0,took=0,EVERY=250;
   function redraw(){
     due=0;if(!grid.isConnected)return;
-    drawnAt=performance.now();S.qOnly=true;S.partial=!!terms(S.q).length;draw();S.partial=false;      /* an emptied search box is not typing: it is drawn whole at once */
+    drawnAt=performance.now();S.qOnly=true;S.partial=!!searchTerms(S.q).length;draw();S.partial=false;      /* an emptied search box is not typing: it is drawn whole at once */
     took=performance.now()-drawnAt;
     clearTimeout(whole);whole=S.cut?setTimeout(function(){whole=0;if(grid.isConnected&&!due){S.qOnly=true;draw();}},400):0;
   }
   find.addEventListener('input',function(){
     S.q=find.value;
+    if(!due&&searchTerms(S.q).join(' ')===S.drawnQ)return;      /* nothing to search for that is not already shown */
     clearTimeout(whole);whole=0;
     if(due)return;      /* a drawing is already set for the end of this interval, and it will read S.q then */
     due=setTimeout(redraw,Math.max(0,Math.max(EVERY,2*took)-(performance.now()-drawnAt)));
@@ -2238,7 +2243,7 @@ function viewBoard(){
   draw();
   v.revive=function(){      /* also when the Board is shown again as it was left: render() */
     /* only a search reads the index; a Board kept under a paper is drawn afresh when the reader is back */
-    loadPdfIndex().then(function(fresh){if(fresh&&terms(S.q).length&&grid.isConnected&&!S.drag){if(S.kept&&S.kept.el===v)forgetKept();else draw();}});
+    loadPdfIndex().then(function(fresh){if(fresh&&searchTerms(S.q).length&&grid.isConnected&&!S.drag){if(S.kept&&S.kept.el===v)forgetKept();else draw();}});
     loadContext();      /* asked for here so that a paper opens with its piece; nothing on the Board is drawn from it */
   };
   v.revive();
