@@ -375,6 +375,9 @@ body[data-view="board"] .footnav{display:flex}
 .fmenu button{appearance:none;position:relative;border:0;background:none;text-align:left;font:500 13.5px/1 var(--ui);padding:9px 12px 9px 30px;border-radius:8px;color:var(--ink);cursor:pointer;white-space:nowrap}
 .fmenu button:hover{background:var(--well)}
 .fgroup{display:grid}
+.refill-box{margin-top:18px;display:flex;flex-direction:column;align-items:flex-start;gap:8px;max-width:34rem}
+.refill-box .refill{font-size:14px;padding:11px 18px}
+.refill-note{margin:0;font-size:13px;line-height:1.5;color:var(--ink-soft)}
 .fgroup+.fgroup{margin-top:5px;padding-top:5px;border-top:1px solid var(--rule)}
 .fmenu button[aria-checked="true"]::before{content:"";position:absolute;left:12px;top:50%;width:7px;height:7px;margin-top:-3.5px;border-radius:50%;background:var(--ink)}
 .find input{flex:1 1 150px;max-width:420px}
@@ -1769,7 +1772,8 @@ function viewNew(){
   var all=newPapers(),items=all.items;
   var run=S.stocklog[S.stocklog.length-1]||latestRun();
   if(!items.length)v.append(h('div',{class:'deck-bar'},h('span'),h('div',{class:'deck-nav'},h('nav',{class:'tabs','aria-label':'Places'},places()))),
-    h('p',{class:'none',style:'margin-top:40px'},morningNotice||('Nothing waiting.'+(run?' Last checked '+fmtDate(run.at)+'.':''))));
+    h('p',{class:'none',style:'margin-top:40px'},morningNotice||(refillPending()?'Refilling New. The papers will appear here in a few minutes.':'Nothing waiting.'+(run?' Last checked '+fmtDate(run.at)+'.':''))),
+    morningNotice||refillPending()?null:refillOffer());
   else v.append(deck('new',all.groups,'new'));
   dismissedList(all.gone).forEach(function(e){v.append(e);});
   /* placeNew(): the deck and the dismissed papers under it put right in place */
@@ -2871,6 +2875,80 @@ function ghData(name){
     return r.text().then(function(t){try{return JSON.parse(t);}catch(e){return null;}});
   });
 }
+
+/* Refill New. When New has been cleared, today's run can be started again without the desk (refill.yml): the
+   stock is refilled if it is low, within its share of the budget, and New is filled from it. The button says what
+   that should cost: nothing when the stock has enough judged papers, else about what the last refills cost. */
+var REFILL_KEY='rr.refill',REFILL_WAIT=45*60000,STOCK_LOW=75;
+function stockLeftThisWeek(){      /* budget.left(today,'stock'), from data/spend.json */
+  var sp=obj(S.spend),B=sp.budget==null?50:+sp.budget,day=+sp.day||26,share=obj(sp.shares).stock==null?0.55:+obj(sp.shares).stock;
+  if(!(B>0))return Infinity;
+  var t=new Date(),y=t.getUTCFullYear(),m=t.getUTCMonth(),d=t.getUTCDate();
+  var start=new Date(Date.UTC(y,d<day?m-1:m,day)),sy=start.getUTCFullYear(),sm=start.getUTCMonth();
+  var end=new Date(Date.UTC(sy,sm+1,Math.min(day,new Date(Date.UTC(sy,sm+2,0)).getUTCDate())));
+  var days=Math.round((end-start)/864e5),weeks=Math.floor((Date.UTC(y,m,d)-start)/864e5/7)+1,rel=Math.min(1,7*weeks/days);
+  var s0=start.toISOString().slice(0,10),e0=end.toISOString().slice(0,10),all=0,mine=0;
+  arr(sp.log).forEach(function(e){var a=str(e&&e.at);if(a>=s0&&a<e0){all+=+e.usd||0;if(e.part==='stock')mine+=+e.usd||0;}});
+  return Math.min(B-all,share*B*rel-mine);
+}
+function refillPlan(){
+  var last=S.stocklog[S.stocklog.length-1]||{},inStock=+last.stock||0,low=inStock<STOCK_LOW,left=stockLeftThisWeek();
+  var costs=S.stocklog.filter(function(r){return +r.usd>0;}).slice(-5).map(function(r){return +r.usd;});
+  var avg=costs.length?costs.reduce(function(a,b){return a+b;},0)/costs.length:2.5;
+  return {inStock:inStock,judge:low&&left>0,cost:low&&left>0?avg:0,left:left};
+}
+function refillPending(){
+  var r=parseStored(REFILL_KEY);if(!r)return false;
+  if(Date.now()-(+r.at||0)>REFILL_WAIT){lsSet(REFILL_KEY,'');return false;}
+  return true;
+}
+function refillOffer(){
+  if(!Sync.token)return null;
+  var pl=refillPlan(),label;
+  if(!pl.judge&&!pl.inStock)return h('p',{class:'refill-note'},'The stock is empty and this week’s share of the budget for it is spent. New fills again when the next week’s share comes in.');
+  label=pl.judge?'Refill New · about $'+pl.cost.toFixed(2):'Refill New · no charge';
+  var btn=h('button',{class:'btn solid refill',type:'button'},label);
+  btn.addEventListener('click',function(){requestRefill(btn,label);});
+  var why=pl.judge?'Judges new papers for the stock, then fills New from it. $'+Math.max(0,pl.left).toFixed(2)+' is left of this week’s share for the stock. The desk does not run.'
+    :pl.inStock>=STOCK_LOW?'Fills New from the '+pl.inStock+' papers already judged.'
+    :'This week’s share of the budget for the stock is spent, so New gets the '+pl.inStock+' papers already judged.';
+  return h('div',{class:'refill-box'},btn,h('p',{class:'refill-note'},why));
+}
+async function requestRefill(btn,label){
+  btn.disabled=true;btn.textContent='Asking';
+  try{
+    var url=ghFile('records/refill-request.json'),sha=null;
+    var r=await fetch(url,{headers:ghHeaders(false),cache:'no-store'});
+    if(r.ok)sha=(await r.json()).sha;else if(r.status!==404)throw Error('read');
+    var body={message:'Refill New',content:enc(JSON.stringify({requestedAt:new Date().toISOString()})+'\n')};if(sha)body.sha=sha;
+    var w=await fetch(url,{method:'PUT',headers:ghHeaders(true),body:JSON.stringify(body)});
+    if(!w.ok)throw Error('write');
+    lsSet(REFILL_KEY,JSON.stringify({at:Date.now(),n:S.stocklog.length,last:JSON.stringify(S.stocklog[S.stocklog.length-1]||null)}));
+    schedule();
+  }catch(e){btn.disabled=false;btn.textContent=label;toast('The refill could not be asked for. Try again in a minute.');}
+}
+var refillBusy=false;
+async function checkRefill(){
+  if(refillBusy||!Sync.token||!S.ready||document.visibilityState!=='visible')return;
+  var r=parseStored(REFILL_KEY);if(!r)return;
+  if(Date.now()-(+r.at||0)>REFILL_WAIT){lsSet(REFILL_KEY,'');toast('The refill has not come back. The run may have stopped; it is on the private repository’s Actions page.');schedule();return;}
+  refillBusy=true;var repo=Sync.repo;
+  try{
+    var log=await ghData('stock-log');
+    if(!Array.isArray(log)||Sync.repo!==repo)return;
+    if(log.length===r.n&&JSON.stringify(log[log.length-1]||null)===r.last)return;      /* the run has not finished */
+    var papers=await ghData('papers');
+    if(!Array.isArray(papers)||Sync.repo!==repo)return;
+    S.papers=papers;S.stocklog=log;
+    var cached=parseStored('rr.data');
+    if(Array.isArray(cached)){cached[0]=papers;cached[10]=log;lsSet('rr.data',JSON.stringify(cached));}
+    lsSet(REFILL_KEY,'');
+    var got=+(log[log.length-1]||{}).released||0;
+    toast(got?'New is refilled: '+got+' papers.':'The run found nothing to add to New.');
+    schedule();
+  }catch(e){}finally{refillBusy=false;}
+}
+window.setInterval(checkRefill,45000);
 
 /* A signed-in reader can wake the private workflow if the daily timer was missed. */
 var morningCheckedAt=0,morningBusy=false,morningNotice='';
