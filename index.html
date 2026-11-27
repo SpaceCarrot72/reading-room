@@ -40,7 +40,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .wrap{max-width:1180px;margin:0 auto;padding:0 var(--gutter) 96px}
 
 /* masthead */
-.mast{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 28px;padding:16px 0 0}
+.mast{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 28px;padding:15px 0 0}
 .tabs{display:flex;gap:2px;overflow-x:auto;margin:0 -6px;padding:3px 6px}
 .tab{appearance:none;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);font:500 14px/1 var(--ui);padding:9px 14px;border-radius:999px;cursor:pointer;white-space:nowrap}
 .tab:hover{border-color:var(--ink)}
@@ -188,7 +188,7 @@ a.btn{text-decoration:none;display:inline-block}
 .footnav{display:none;flex-wrap:wrap;align-items:center;gap:10px 24px;margin-top:56px;padding-top:16px;border-top:1px solid var(--rule)}
 body[data-ownbar] .mast{display:none}
 body[data-view="new"] .footnav{display:flex}
-body[data-view="new"] #main{padding-top:22px}
+body[data-view="new"] #main{padding-top:18px}      /* the top row level with the Board's and the paper's */
 .deck-wrap{margin-top:0}
 .lede+.deck-wrap{margin-top:32px}
 .deck-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px}
@@ -290,8 +290,7 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 .plus{font-size:15px}
 
 /* the paper's own page */
-body[data-view="paper"] .wrap{max-width:1320px}
-body[data-view="paper"] #main{padding-top:14px}
+body[data-view="paper"] #main{padding-top:13px}
 .pbar{display:flex;align-items:center;gap:8px;min-height:44px}
 .pbar .backbtn{margin-right:auto}
 .backbtn .bk-short{display:none}
@@ -467,7 +466,7 @@ body[data-view="board"] .footnav{display:flex}
   .board .lead .lv{margin-left:auto;margin-top:1px}
 }
 @media (min-width:1280px){
-  body[data-view="board"] .wrap{max-width:1400px}
+  .wrap{max-width:1400px}      /* one frame for every view, so New, the gear and the way back stay put between them */
   .board{grid-template-columns:repeat(3,minmax(0,1fr)) 204px}
   .lead{grid-column:auto;order:0;align-self:start;position:sticky;top:0;margin:0;display:flex;flex-direction:column;align-items:stretch;gap:0}      /* the whole list shows; see fitLead */
   .lead .col-h{position:static;flex:none;width:auto;height:44px;overflow:visible;clip-path:none;margin-bottom:6px}
@@ -539,8 +538,7 @@ body[data-view="board"] .footnav{display:flex}
   .find .fwrap{flex:none}
   .find .fmenu{left:auto;right:0}
   .find-acts{gap:6px;flex:none}
-  .find-acts .tab{padding:9px 11px}
-  .find-acts .tab.gear{padding:7px 4px}
+  .find-acts .tab:not(.gear){padding:9px 11px}
   /* the columns and the leaderboard in one line, which scrolls if it must */
   .col-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:5px;margin:0 calc(-1*var(--gutter));padding:0 var(--gutter)}
   .col-tabs::-webkit-scrollbar{display:none}
