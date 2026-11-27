@@ -749,6 +749,7 @@ function pageInfo(b){
 function pagesOf(b){var p=pageInfo(b);return p?p.pages:0;}
 /* The length filter is a slider: at most 5, 15, 25 … 55 pages, counted inclusively, or All at its far end. A paper
    whose length isn't known is shown only at All. S.bl is the cap, or 'any'. */
+var PARTIAL=30;      /* slips a column draws while a search is being typed (viewBoard) */
 var LENGTH_STOPS=[5,15,25,35,45,55];
 function lengthCap(){return LENGTH_STOPS.indexOf(S.bl)>=0?S.bl:'any';}
 function lengthSaid(){var c=lengthCap();return c==='any'?'All':'Up to '+c+'\u00a0pp.';}
@@ -1115,11 +1116,23 @@ function pdfRow(id,after,shown){
 /* searching the board, and inside its PDFs through the word index the repository builds */
 function fold(v){var t=str(v);try{t=t.normalize('NFKD');}catch(e){}return t.replace(/[\u0300-\u036f]/g,'').toLowerCase();}
 function terms(q){return fold(q).split(/[^a-z0-9]+/).filter(function(t){return t;});}
+/* What a search looks through for one paper, folded once and kept until the paper or the PDF index changes: folding
+   every paper's text on every keystroke was most of a search's own work. */
+var hayMemo=new Map();
+function boardHay(b){
+  var pdf=hasPdf(b)?b.pdf:null,sig=[b.updatedAt,b.title,b.authors,b.venue,b.year,b.cite,b.pin,b.note,pdf?pdf.path+'|'+pdf.name:'',S.pdfIndexAt||0].join('\u0001');
+  var m=hayMemo.get(b.id);
+  if(!m||m.sig!==sig){
+    var entry=pdf&&S.pdfIndex?S.pdfIndex[pdf.path]:null;
+    m={sig:sig,own:fold([b.title,b.authors,b.venue,b.year,b.cite,b.pin,b.note,pdf?pdf.name:''].join(' ')),words:entry&&entry.words?' '+str(entry.words):''};
+    hayMemo.set(b.id,m);
+  }
+  return m;
+}
 function boardMatch(b,toks){
   /* 0: no match. 1: every word is on the card or in its notes. 2: some words were found only in the PDF. */
   if(!toks.length)return 1;
-  var own=fold([b.title,b.authors,b.venue,b.year,b.cite,b.pin,b.note,hasPdf(b)?b.pdf.name:''].join(' '));
-  var entry=hasPdf(b)&&S.pdfIndex?S.pdfIndex[b.pdf.path]:null,words=entry&&entry.words?' '+str(entry.words):'',inPdf=false;
+  var hay=boardHay(b),own=hay.own,words=hay.words,inPdf=false;
   for(var i=0;i<toks.length;i++){
     if(own.indexOf(toks[i])>=0)continue;
     if(words&&toks[i].length<3)continue;      /* the index holds words of three letters or more */
@@ -1945,12 +1958,16 @@ function slip(b,ci,hit,journal,cover){
   e.addEventListener('dragend',endDrag);
   return e;
 }
-function fitTitles(root){
+function fitTitles(root,again){
   if(!root)return;
+  /* A slip kept from the last drawing was fitted then, and stays fitted while the window keeps its width: only new slips
+     are measured, unless the window has changed (again). */
+  var at=String(window.innerWidth);
   /* every title is made whole, then all are measured, then the long ones are cut: one layout for them all, where measuring
      each after the last was cut took one layout of the Board for each */
-  var ts=Array.prototype.slice.call(root.querySelectorAll('.slip-title[data-short]'));
-  ts.forEach(function(t){var whole=t.getAttribute('data-full');if(t.textContent!==whole)t.textContent=whole;});
+  var ts=Array.prototype.slice.call(root.querySelectorAll('.slip-title[data-short]')).filter(function(t){return again||t.getAttribute('data-fit')!==at;});
+  if(!ts.length)return;
+  ts.forEach(function(t){var whole=t.getAttribute('data-full');if(t.textContent!==whole)t.textContent=whole;t.setAttribute('data-fit',at);});
   var long=ts.map(function(t){var line=parseFloat(getComputedStyle(t).lineHeight)||22;return t.getBoundingClientRect().height>line*2.5;});
   ts.forEach(function(t,i){
     if(long[i]){t.textContent=t.getAttribute('data-short');t.title=t.getAttribute('data-full');}
@@ -1967,7 +1984,7 @@ function fitBylines(root){
 }
 window.addEventListener('resize',function(){      /* a wider or narrower column changes how many lines a title takes */
   if(S.view!=='board'||S.fitting)return;
-  S.fitting=requestAnimationFrame(function(){S.fitting=0;fitTitles(document.querySelector('.board'));fitLead();});
+  S.fitting=requestAnimationFrame(function(){S.fitting=0;fitTitles(document.querySelector('.board'),true);fitLead();});
 });
 /* On a wide window the leaderboard is a column that stays in sight, shown whole, with no scroll bar of its own. One
    taller than the window scrolls with the page until its foot is in sight, and stays there: its top is set that far
@@ -2111,7 +2128,8 @@ function viewBoard(){
     var by=S.ba?function(b){return people(b.authors).some(function(x){return authorKey(x.name)===S.ba;});}:S.bj?function(b){return journalKeyOf(b)===S.bj;}:S.bs?function(b){return schoolsOf(b).indexOf(S.bs)>=0;}:function(){return true;};
     var looking=toks.length||S.bf!=='all'||lengthCap()!=='any'||S.ba||S.bj||S.bs,shut=looking?[]:folded();      /* a search opens every cluster */
     /* starred papers first, then papers by the authors on the leaderboard in its order, then the most recently added */
-    var ranked=leaders(),place={};ranked.forEach(function(r){place[r.key]=r.rank;});      /* the authors' list, found once for the order and the leaderboard */
+    var qOnly=S.qOnly&&lastRanked;S.qOnly=false;      /* only the search changed: the leaderboard and its order are as they were */
+    var ranked=qOnly?lastRanked:leaders(),place={};lastRanked=ranked;ranked.forEach(function(r){place[r.key]=r.rank;});      /* the authors' list, found once for the order and the leaderboard */
     function best(b){
       if(b.best==null){b.best=99;people(b.authors).forEach(function(x){var r=place[authorKey(x.name)];if(r&&r<b.best)b.best=r;});}
       return b.best;
@@ -2137,9 +2155,14 @@ function viewBoard(){
     S.leadFilt=filt;
     var leadOpen=picked==='lead',openCol=picked==='none'||leadOpen?'':COLS.some(function(c){return c[0]===picked;})?picked:COLS[0][0];
     if(openCol&&looking&&!rowsBy[openCol].length){var found=COLS.filter(function(c){return rowsBy[c[0]].length;})[0];if(found)openCol=found[0];}
+    S.cut=false;
     COLS.forEach(function(c,ci){
       var rows=rowsBy[c[0]];
       shown+=rows.length;
+      /* while the reader is typing a search only the first slips of each column are drawn (S.partial); the counts are the
+         whole column's, and the rest is drawn when the typing stops */
+      var room=S.partial?PARTIAL:Infinity;
+      function put(x,into){if(room<=0){S.cut=true;return;}room--;order.push(x[0].id);into.append(slipOf(x[0],ci,x[1]));}
       var shutCol=c[0]!==openCol;
       var tab=h('button',{type:'button','aria-pressed':String(!shutCol)},c[1],h('span',{class:'n'},String(rows.length)));
       tab.addEventListener('click',function(){lsSet('rr.col',shutCol||looking?c[0]:'none');draw();});      /* pressing the open one shuts it */
@@ -2160,11 +2183,11 @@ function viewBoard(){
             lsSet('rr.fold',JSON.stringify(f));draw();
           });
           var grp=h('div',{class:'grp','data-genre':g},head);
-          if(open)mine.forEach(function(x){order.push(x[0].id);grp.append(slipOf(x[0],ci,x[1]));});
+          if(open)mine.forEach(function(x){put(x,grp);});
           else mine.forEach(function(x){if(!coverOf(x[0]).sha)journalOf(x[0].venue,x[0].issns);});      /* a shut section's marks and covers are asked for now, so that it opens complete */
           col.append(grp);
         });
-      }else rows.forEach(function(x){order.push(x[0].id);col.append(slipOf(x[0],ci,x[1]));});
+      }else rows.forEach(function(x){put(x,col);});
       col.addEventListener('dragenter',function(ev){if(S.drag)ev.preventDefault();});
       col.addEventListener('dragover',function(ev){if(!S.drag)return;ev.preventDefault();ev.dataTransfer.dropEffect='move';col.classList.add('over');});
       col.addEventListener('dragleave',function(ev){if(!col.contains(ev.relatedTarget))col.classList.remove('over');});
@@ -2177,7 +2200,7 @@ function viewBoard(){
     if(n){
       /* in the one-column layout the leaderboard is shown as a column is: pressing its button shows it and shuts the column
          that was open; pressing it again shuts it, and ends any filter it had set */
-      var lead=board(ranked);
+      var lead=qOnly&&lastLead?lastLead:board(ranked);lastLead=lead;
       var lt=h('button',{type:'button','aria-pressed':String(leadOpen),'aria-label':'Leaderboard'},h('span',{class:'lt-long'},'Leaderboard'),h('span',{class:'lt-short','aria-hidden':'true'},podiumIcon()));
       lt.addEventListener('click',function(){
         if(leadOpen){S.ba='';S.bj='';S.bs='';}
@@ -2192,7 +2215,26 @@ function viewBoard(){
     /* measured once the slips are on the page: at once if they are, and otherwise by render() as soon as it has put them there, before anything is painted */
     if(grid.isConnected){fitTitles(grid);fitLead(at);}else S.fit=function(){fitTitles(grid);fitLead(at);};
   }
-  find.addEventListener('input',function(){S.q=find.value;draw();});
+  /* The Board is drawn again at most every 250 ms while the reader types, and once more after the last key. 250 ms is a
+     key at about 48 words a minute: a slow typist sees the results follow each letter, a fast one sees them every few
+     letters. Where a drawing is slow the next waits at least twice as long as that one took, so the page is never busy
+     drawing more than a third of the time and the keys do not queue behind it.
+     While the typing goes on each column draws only its first PARTIAL slips, more than a window holds: a drawing costs
+     about the same for every slip in it, and a search of one or two letters keeps hundreds. When the keys have been
+     still for 400 ms the whole of each column is drawn. */
+  var lastRanked=null,lastLead=null,due=0,whole=0,drawnAt=0,took=0,EVERY=250;
+  function redraw(){
+    due=0;if(!grid.isConnected)return;
+    drawnAt=performance.now();S.qOnly=true;S.partial=!!terms(S.q).length;draw();S.partial=false;      /* an emptied search box is not typing: it is drawn whole at once */
+    took=performance.now()-drawnAt;
+    clearTimeout(whole);whole=S.cut?setTimeout(function(){whole=0;if(grid.isConnected&&!due){S.qOnly=true;draw();}},400):0;
+  }
+  find.addEventListener('input',function(){
+    S.q=find.value;
+    clearTimeout(whole);whole=0;
+    if(due)return;      /* a drawing is already set for the end of this interval, and it will read S.q then */
+    due=setTimeout(redraw,Math.max(0,Math.max(EVERY,2*took)-(performance.now()-drawnAt)));
+  });
   draw();
   v.revive=function(){      /* also when the Board is shown again as it was left: render() */
     /* only a search reads the index; a Board kept under a paper is drawn afresh when the reader is back */
