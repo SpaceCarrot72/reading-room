@@ -363,7 +363,6 @@ body[data-view="paper"] #main{padding-top:14px}
 .col{position:relative}
 .find-acts{display:flex;align-items:center;gap:8px;margin-left:auto}
 .find-acts .tabs{margin:0;padding:0;overflow:visible}
-.find-acts .addbtn{font:500 14px/1 var(--ui);padding:9px 14px}      /* the same size as the buttons beside it */
 body[data-view="board"] #main{padding-top:0}
 body[data-view="board"] .find{margin-top:16px}
 body[data-view="board"] .footnav{display:flex}
@@ -529,20 +528,17 @@ body[data-view="board"] .footnav{display:flex}
 .pside .pinbox:focus{outline:none;box-shadow:0 0 0 1px var(--mine-edge)}
 .pside .nh2{margin-top:24px}
 .pside .pinbox{min-height:calc(3em + 16px)}
-.add-plus,.lt-short,.narrow-only{display:none}
+.lt-short,.narrow-only{display:none}
 .pbar .pmore{margin-left:2px}
 .pmore .fmenu a{display:block;font:500 13.5px/1 var(--ui);padding:10px 12px;border-radius:8px;color:var(--ink);text-decoration:none}
 .pmore .fmenu a:hover{background:var(--well)}
 @media (max-width:600px){
-  /* the Board's top: the search, the filter, a plus for adding, New and the gear, in one row */
+  /* the Board's top: the search, the filter, New and the gear, in one row */
   .find{flex-wrap:nowrap;gap:6px}
   .find input{flex:1 1 auto;min-width:0;max-width:none;padding:9px 14px}
   .find .fwrap{flex:none}
   .find .fmenu{left:auto;right:0}
   .find-acts{gap:6px;flex:none}
-  .find-acts .addbtn{width:38px;height:38px;padding:0;display:inline-grid;place-items:center}
-  .find-acts .add-word{display:none}
-  .find-acts .add-plus{display:inline;font:400 22px/1 var(--ui);margin-top:-2px}
   .find-acts .tab{padding:9px 11px}
   .find-acts .tab.gear{padding:7px 4px}
   /* the columns and the leaderboard in one line, which scrolls if it must */
@@ -1848,62 +1844,6 @@ function viewDesk(){
   return v;
 }
 
-function field(id,label,key,multi){
-  var input=multi?h('textarea',{id:id}):h('input',{id:id,type:'text',autocomplete:'off'});
-  input.value=S.form[key];
-  input.addEventListener('input',function(){S.form[key]=input.value;});
-  return h('div',{class:'field'},h('label',{for:id},label),input);
-}
-function addForm(){
-  var f=h('form',{class:'form',onsubmit:function(e){e.preventDefault();addPaper();}});
-  f.append(field('add-cite','Paste a citation or DOI','cite',true),
-    h('div',{class:'acts'},
-      h('button',{class:'btn',type:'button',disabled:S.filling,onclick:lookup},S.filling?'Asking Crossref':'Look it up on Crossref'),
-      h('p',{class:'hint'},'Fills the fields from the closest Crossref record. Check the result before adding.')),
-    field('add-title','Title','title'),
-    h('div',{class:'grid2'},field('add-authors','Authors','authors'),field('add-venue','Journal or book','venue')),
-    h('div',{class:'grid2'},field('add-year','Year','year'),field('add-url','Link or DOI','url')),
-    h('div',{class:'field'},h('label',null,'Genre'),genreSelect(S.form.area,function(g){S.form.area=g;},true)),
-    h('div',{class:'acts'},h('button',{class:'btn solid',type:'submit'},'Add to board'),
-      h('button',{class:'btn quiet',type:'button',onclick:function(){S.adding=false;S.form=blankForm();render(true);}},'Cancel')));
-  return f;
-}
-function lookup(){
-  var q=S.form.cite.trim();
-  if(!q){toast('Paste a citation or DOI first.');return;}
-  if(S.filling)return;
-  S.filling=true;render(true);
-  var m=/10\.\d{4,9}\/[^\s"<>]+/.exec(q),doi=m?m[0].replace(/[.,;)\]]+$/,''):'';
-  var url=doi?'https://api.crossref.org/works/'+encodeURIComponent(doi)
-    :'https://api.crossref.org/works?rows=1&select=DOI,title,author,container-title,ISSN,issued&query.bibliographic='+encodeURIComponent(q.slice(0,400));
-  fetch(url).then(function(r){if(!r.ok)throw 0;return r.json();}).then(function(j){
-    var it=doi?j.message:arr(j.message&&j.message.items)[0];
-    if(!it||!arr(it.title)[0]){toast('Crossref found no match. Fill in the fields by hand.');return;}
-    S.form.title=str(arr(it.title)[0]);
-    /* Crossref gives a person a given or a family name and an organisation a name alone. An organisation beside people is
-       a publisher or an affiliation in the wrong field ("Journal of Philosophy Inc."), and is not an author. */
-    var listed=arr(it.author),named=listed.some(function(a){return a.given||a.family;});
-    S.form.authors=listed.map(function(a){
-      var n=[a.given,a.family].filter(Boolean).join(' ');
-      return n||(named||ORGANISATION.test(str(a.name))?'':str(a.name).trim());
-    }).filter(Boolean).join(', ');
-    S.form.venue=str(arr(it['container-title'])[0]);
-    S.form.crossrefVenue=S.form.venue;S.form.issns=arr(it.ISSN);
-    var dp=it.issued&&arr(it.issued['date-parts'])[0];
-    S.form.year=dp&&dp[0]?String(dp[0]):'';
-    S.form.url=it.DOI?'https://doi.org/'+it.DOI:'';
-    toast('Filled from Crossref. Check it before adding.');
-  }).catch(function(){toast('Could not reach Crossref. Fill in the fields by hand.');})
-  .then(function(){S.filling=false;render(true);});
-}
-function addPaper(){
-  var f=S.form;
-  if(!f.title.trim()){toast('Give the paper a title.');return;}
-  var id='m-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-  U.board[id]={title:f.title.trim(),authors:f.authors.trim(),venue:f.venue.trim(),issns:publicationTitle(f.venue)===publicationTitle(f.crossrefVenue)?arr(f.issns):[],cite:'',year:f.year.trim(),
-    url:safeUrl(f.url),column:'queue',note:'',order:Date.now(),addedAt:now(),updatedAt:now(),from:'manual',area:str(f.area)};
-  S.form=blankForm();S.adding=false;changed();toast('Added to board');render(true);
-}
 /* the letters PDF, drawn so that they are the same in every typeface and at every minimum type size */
 var pdfIconMade=null;      /* drawn once; every button that shows it has a copy */
 function pdfIcon(){
@@ -2029,9 +1969,6 @@ document.addEventListener('dragover',function(ev){
 function viewBoard(){
   var v=h('div');if(waiting(v))return v;
   var all=boardList(),n=all.length;
-  var addBtn=S.adding?null:h('button',{class:'btn addbtn',type:'button','aria-label':'Add a paper',title:'Add a paper',onclick:function(){S.adding=true;render(true);}},
-    h('span',{class:'add-plus','aria-hidden':'true'},'+'),h('span',{class:'add-word'},'Add a paper'));
-  if(S.adding)v.append(addForm());
   var find=h('input',{type:'search',id:'board-find',placeholder:'Search...','aria-label':'Search titles, authors, notes and PDFs',autocomplete:'off',spellcheck:'false'});
   find.value=S.q;
   var FILTERS=[['all','All',function(){return true;}],['pdf','With a PDF',hasPdf],['notes','With notes',function(b){return !!(str(b.note).trim()||str(b.pin).trim());}],['star','Starred',isStar]];
@@ -2065,9 +2002,9 @@ function viewBoard(){
   menu.append(group(FILTERS,function(){return S.bf;},function(v){S.bf=v;},'Kind'),
     group(LENGTHS,function(){return S.bl;},function(v){S.bl=v;},'Length'));
   fname();fwrap.append(fbtn,menu);
-  /* the Board carries the way to New and to Settings in its own top row, in line with Add a paper */
+  /* the Board carries the way to New and to Settings in its own top row, in line with its search */
   S.ownBar=true;
-  var acts=h('div',{class:'find-acts'},addBtn,h('nav',{class:'tabs','aria-label':'Places'},places()));
+  var acts=h('div',{class:'find-acts'},h('nav',{class:'tabs','aria-label':'Places'},places()));
   if(n)v.append(h('div',{class:'find',role:'search'},find,fwrap,acts));
   else v.append(h('div',{class:'find'},h('p',{class:'none'},'Nothing on your board yet.'),acts));
   var grid=h('div',{class:'board'});
