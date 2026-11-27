@@ -266,7 +266,7 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 .slip.plussed .jlogo{mix-blend-mode:multiply}      /* a mark drawn on white takes the slip's ground */
 .slip.plussed .pdfdot{background:transparent}
 .find{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:26px}
-.find input{flex:0 1 420px;min-width:0;appearance:none;font:400 15px/1.3 var(--ui);background:var(--well);border:1px solid var(--rule);border-radius:999px;padding:9px 16px;color:var(--ink)}
+.find input[type=search]{flex:0 1 420px;min-width:0;appearance:none;font:400 15px/1.3 var(--ui);background:var(--well);border:1px solid var(--rule);border-radius:999px;padding:9px 16px;color:var(--ink)}
 .find input::placeholder{color:var(--ink-soft)}
 .pdfrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-top:18px;padding:12px 14px;background:var(--well);border-radius:8px}
 .pdfrow[hidden]{display:none}
@@ -274,7 +274,7 @@ body[data-view="signin"] .mast,body[data-view="signin"] .footnav{display:none}
 .pdfname b{display:block;font-weight:500;color:var(--ink)}
 .pdfmsg{flex-basis:100%;margin:2px 0 0;font:400 13px/1.4 var(--ui);color:var(--ink)}
 .slip-hit{margin:8px 0 0;font:500 12px/1.3 var(--ui);color:var(--desk)}
-@media (max-width:480px){.find input{flex-basis:100%}}
+@media (max-width:480px){.find input[type=search]{flex-basis:100%}}
 .plusbtn[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
 .entry .gloss{border-left-color:var(--j,var(--desk));color:var(--j,var(--desk))}
 .entry .ticks i{background:var(--j,var(--desk))}
@@ -377,8 +377,18 @@ body[data-view="board"] .footnav{display:flex}
 .refill-box .refill{font-size:14px;padding:11px 18px}
 .refill-note{margin:0;font-size:13px;line-height:1.5;color:var(--ink-soft)}
 .fgroup+.fgroup{margin-top:5px;padding-top:5px;border-top:1px solid var(--rule)}
+.flen{padding:8px 12px 6px;gap:6px;min-width:200px}
+.flen-h{display:flex;justify-content:space-between;align-items:baseline;font:500 13.5px/1 var(--ui);color:var(--ink)}
+.flen-v{font-variant-numeric:tabular-nums;color:var(--ink-soft)}
+.flen-r{-webkit-appearance:none;appearance:none;width:100%;height:22px;margin:2px 0 0;padding:0;background:none;border:0;cursor:pointer}
+.flen-r::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:var(--rule)}
+.flen-r::-moz-range-track{height:4px;border-radius:2px;background:var(--rule)}
+.flen-r::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-7px;border-radius:50%;background:var(--ink);border:2px solid var(--sheet);box-shadow:0 0 0 1px var(--ink)}
+.flen-r::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--ink);border:2px solid var(--sheet);box-shadow:0 0 0 1px var(--ink)}
+.flen-r:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:4px}
+.flen-ends{display:flex;justify-content:space-between;font:500 11.5px/1 var(--ui);color:var(--ink-soft)}
 .fmenu button[aria-checked="true"]::before{content:"";position:absolute;left:12px;top:50%;width:7px;height:7px;margin-top:-3.5px;border-radius:50%;background:var(--ink)}
-.find input{flex:1 1 150px;max-width:420px}
+.find input[type=search]{flex:1 1 150px;max-width:420px}
 .pgrid.solo{grid-template-columns:minmax(0,1fr)}
 
 /* To Read is clustered by genre: each cluster has a heading that stays in sight while its slips scroll, and folds */
@@ -534,7 +544,7 @@ body[data-view="board"] .footnav{display:flex}
 @media (max-width:600px){
   /* the Board's top: the search, the filter, New and the gear, in one row */
   .find{flex-wrap:nowrap;gap:6px}
-  .find input{flex:1 1 auto;min-width:0;max-width:none;padding:9px 14px}
+  .find input[type=search]{flex:1 1 auto;min-width:0;max-width:none;padding:9px 14px}
   .find .fwrap{flex:none}
   .find .fmenu{left:auto;right:0}
   .find-acts{gap:6px;flex:none}
@@ -737,8 +747,12 @@ function pageInfo(b){
   return null;
 }
 function pagesOf(b){var p=pageInfo(b);return p?p.pages:0;}
-var LENGTHS=[['any','Any length',function(){return true;}],['short','Under 15 pp.',function(n){return n>0&&n<15;}],
-  ['mid','15 to 30 pp.',function(n){return n>=15&&n<=30;}],['long','Over 30 pp.',function(n){return n>30;}]];
+/* The length filter is a slider: at most 5, 15, 25 … 55 pages, counted inclusively, or All at its far end. A paper
+   whose length isn't known is shown only at All. S.bl is the cap, or 'any'. */
+var LENGTH_STOPS=[5,15,25,35,45,55];
+function lengthCap(){return LENGTH_STOPS.indexOf(S.bl)>=0?S.bl:'any';}
+function lengthSaid(){var c=lengthCap();return c==='any'?'All':'Up to '+c+'\u00a0pp.';}
+function lengthKeep(n){var c=lengthCap();return c==='any'||(n>0&&n<=c);}
 /* What the journals check found is filled in where an entry has nothing of its own; what the reader has is never replaced. */
 function withVenue(o){
   var v=obj(S.venues[o.id]);
@@ -1986,9 +2000,9 @@ function viewBoard(){
   var fwrap=h('div',{class:'fwrap'}),menu=h('div',{class:'fmenu',role:'menu',hidden:true});
   var fbtn=h('button',{class:'tab gear fbtn',type:'button','aria-haspopup':'menu','aria-expanded':'false'},funnelIcon());
   function fname(){
-    var f=FILTERS.filter(function(x){return x[0]===S.bf;})[0]||FILTERS[0],l=LENGTHS.filter(function(x){return x[0]===S.bl;})[0]||LENGTHS[0];
-    var said='Filter: '+[S.bf!=='all'||S.bl==='any'?f[1]:'',S.bl!=='any'?l[1]:''].filter(Boolean).join(', ');
-    fbtn.setAttribute('aria-label',said);fbtn.title=said;fbtn.toggleAttribute('data-on',S.bf!=='all'||S.bl!=='any');
+    var f=FILTERS.filter(function(x){return x[0]===S.bf;})[0]||FILTERS[0],capped=lengthCap()!=='any';
+    var said='Filter: '+[S.bf!=='all'||!capped?f[1]:'',capped?lengthSaid():''].filter(Boolean).join(', ');
+    fbtn.setAttribute('aria-label',said);fbtn.title=said;fbtn.toggleAttribute('data-on',S.bf!=='all'||capped);
   }
   function closeMenu(){menu.hidden=true;fbtn.setAttribute('aria-expanded','false');document.removeEventListener('pointerdown',away,true);document.removeEventListener('keydown',esc,true);}
   function away(ev){if(!fwrap.contains(ev.target))closeMenu();}
@@ -2010,8 +2024,20 @@ function viewBoard(){
     });
     return g;
   }
-  menu.append(group(FILTERS,function(){return S.bf;},function(v){S.bf=v;},'Kind'),
-    group(LENGTHS,function(){return S.bl;},function(v){S.bl=v;},'Length'));
+  /* the length: a slider that narrows the Board as it moves, and leaves the menu open */
+  function lengthSlider(){
+    var top=LENGTH_STOPS.length,at=LENGTH_STOPS.indexOf(lengthCap());if(at<0)at=top;
+    var out=h('output',{class:'flen-v',id:'flen-v'},lengthSaid());
+    var r=h('input',{type:'range',class:'flen-r',id:'flen-r',min:'0',max:String(top),step:'1',value:String(at),'aria-label':'Length','aria-valuetext':lengthSaid()});
+    r.addEventListener('input',function(){
+      var i=+r.value;S.bl=i>=top?'any':LENGTH_STOPS[i];
+      out.textContent=lengthSaid();r.setAttribute('aria-valuetext',lengthSaid());fname();draw();
+    });
+    var ends=h('div',{class:'flen-ends','aria-hidden':'true'},h('span',null,LENGTH_STOPS[0]+'\u00a0pp.'),h('span',null,'All'));
+    return h('div',{class:'fgroup flen',role:'group','aria-label':'Length'},
+      h('div',{class:'flen-h'},h('label',{for:'flen-r'},'Length'),out),r,ends);
+  }
+  menu.append(group(FILTERS,function(){return S.bf;},function(v){S.bf=v;},'Kind'),lengthSlider());
   fname();fwrap.append(fbtn,menu);
   /* the Board carries the way to New and to Settings in its own top row, in line with its search */
   S.ownBar=true;
@@ -2074,10 +2100,10 @@ function viewBoard(){
     var e=slip(b,ci,hit,journal,cover);made.set(key,{e:e,art:art,b:b,ci:ci,hit:hit});return e;
   }
   function draw(){
-    var kind=(FILTERS.filter(function(f){return f[0]===S.bf;})[0]||FILTERS[0])[2],long=(LENGTHS.filter(function(f){return f[0]===S.bl;})[0]||LENGTHS[0])[2];
+    var kind=(FILTERS.filter(function(f){return f[0]===S.bf;})[0]||FILTERS[0])[2],long=lengthKeep;
     var toks=terms(S.q),shown=0,keep=function(b){return kind(b)&&long(pagesOf(b));},order=[];
     var by=S.ba?function(b){return people(b.authors).some(function(x){return authorKey(x.name)===S.ba;});}:S.bj?function(b){return journalKeyOf(b)===S.bj;}:S.bs?function(b){return schoolsOf(b).indexOf(S.bs)>=0;}:function(){return true;};
-    var looking=toks.length||S.bf!=='all'||S.bl!=='any'||S.ba||S.bj||S.bs,shut=looking?[]:folded();      /* a search opens every cluster */
+    var looking=toks.length||S.bf!=='all'||lengthCap()!=='any'||S.ba||S.bj||S.bs,shut=looking?[]:folded();      /* a search opens every cluster */
     /* starred papers first, then papers by the authors on the leaderboard in its order, then the most recently added */
     var ranked=leaders(),place={};ranked.forEach(function(r){place[r.key]=r.rank;});      /* the authors' list, found once for the order and the leaderboard */
     function best(b){
