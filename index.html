@@ -525,6 +525,38 @@ body[data-view="board"] .footnav{display:flex}
 .pside .pinbox::placeholder{color:var(--ink-soft)}
 .pside .pinbox:focus{outline:none;box-shadow:0 0 0 1px var(--mine-edge)}
 .pside .nh2{margin-top:24px}
+.pside .pinbox{min-height:calc(3em + 16px)}
+.add-plus,.lt-short,.narrow-only{display:none}
+.pbar .pmore{margin-left:2px}
+.pmore .fmenu a{display:block;font:500 13.5px/1 var(--ui);padding:10px 12px;border-radius:8px;color:var(--ink);text-decoration:none}
+.pmore .fmenu a:hover{background:var(--well)}
+@media (max-width:600px){
+  /* the Board's top: the search, the filter, a plus for adding, New and the gear, in one row */
+  .find{flex-wrap:nowrap;gap:6px}
+  .find input{flex:1 1 auto;min-width:0;max-width:none;padding:9px 14px}
+  .find .fwrap{flex:none}
+  .find .fmenu{left:auto;right:0}
+  .find-acts{gap:6px;flex:none}
+  .find-acts .addbtn{width:38px;height:38px;padding:0;display:inline-grid;place-items:center}
+  .find-acts .add-word{display:none}
+  .find-acts .add-plus{display:inline;font:400 22px/1 var(--ui);margin-top:-2px}
+  .find-acts .tab{padding:9px 11px}
+  .find-acts .tab.gear{padding:7px 4px}
+  /* the columns and the leaderboard in one line, which scrolls if it must */
+  .col-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:5px;margin:0 calc(-1*var(--gutter));padding:0 var(--gutter)}
+  .col-tabs::-webkit-scrollbar{display:none}
+  .col-tabs button{flex:none;padding:6px 10px;font-size:13px;gap:5px}
+  .col-tabs .lt-long{display:none}
+  .col-tabs .lt-short{display:inline-grid;place-items:center}
+  .col-tabs .lt-short svg{width:17px;height:17px;display:block;fill:currentColor}
+  .col-tabs button:last-child{padding:6px 10px;align-items:center}
+  /* the paper's page: the controls in one row, the links in the menu */
+  .pctl.has-menu .plinks{display:none}
+  .pmore .fmenu .narrow-only{display:block}
+  .pctl .star-word{display:none}
+  .pctl .plusbtn{font-size:17px;padding:4px 6px}
+  .pctl{gap:4px 10px}
+}
 @media (max-width:900px){
   .pgrid{grid-template-columns:minmax(0,1fr);gap:0}
   .pside{border-left:0;padding-left:0}
@@ -1993,7 +2025,8 @@ document.addEventListener('dragover',function(ev){
 function viewBoard(){
   var v=h('div');if(waiting(v))return v;
   var all=boardList(),n=all.length;
-  var addBtn=S.adding?null:h('button',{class:'btn addbtn',type:'button',onclick:function(){S.adding=true;render(true);}},'Add a paper');
+  var addBtn=S.adding?null:h('button',{class:'btn addbtn',type:'button','aria-label':'Add a paper',title:'Add a paper',onclick:function(){S.adding=true;render(true);}},
+    h('span',{class:'add-plus','aria-hidden':'true'},'+'),h('span',{class:'add-word'},'Add a paper'));
   if(S.adding)v.append(addForm());
   var find=h('input',{type:'search',id:'board-find',placeholder:'Search...','aria-label':'Search titles, authors, notes and PDFs',autocomplete:'off',spellcheck:'false'});
   find.value=S.q;
@@ -2161,7 +2194,7 @@ function viewBoard(){
       /* in the one-column layout the leaderboard is shown as a column is: pressing its button shows it and shuts the column
          that was open; pressing it again shuts it, and ends any filter it had set */
       var lead=board(ranked);
-      var lt=h('button',{type:'button','aria-pressed':String(leadOpen)},'Leaderboard');
+      var lt=h('button',{type:'button','aria-pressed':String(leadOpen),'aria-label':'Leaderboard'},h('span',{class:'lt-long'},'Leaderboard'),h('span',{class:'lt-short','aria-hidden':'true'},podiumIcon()));
       lt.addEventListener('click',function(){
         if(leadOpen){S.ba='';S.bj='';S.bs='';}
         lsSet('rr.col',leadOpen?'none':'lead');draw();
@@ -2506,7 +2539,7 @@ function viewPaper(){
       var cur=U.board[id];if(!cur){schedule();return;}
       S.lv=levels();renderTabs();
       seg.value=colKey(cur);
-      star.setAttribute('aria-pressed',String(isStar(cur)));star.textContent=isStar(cur)?'★ Starred':'☆ Star';
+      star.setAttribute('aria-pressed',String(isStar(cur)));starText(star,cur);
       var nb=byline(p.authors,null,'named');if(!nb.isEqualNode(by)){by.replaceWith(nb);by=nb;}
       var list=genreSelect(genreOf(cur,id),function(){}),value=list.value;
       if(list.innerHTML!==pick.innerHTML)pick.replaceChildren.apply(pick,Array.prototype.slice.call(list.childNodes));
@@ -2515,7 +2548,7 @@ function viewPaper(){
     COLS.forEach(function(c){seg.append(h('option',{value:c[0]},c[1]));});
     seg.value=colKey(b);
     seg.addEventListener('change',function(){move(id,seg.value,true);putRight();});
-    var star=h('button',{class:'btn plusbtn',type:'button','aria-pressed':String(isStar(b))},isStar(b)?'★ Starred':'☆ Star');
+    var star=h('button',{class:'btn plusbtn',type:'button','aria-pressed':String(isStar(b))});starText(star,b);
     star.addEventListener('click',function(){togglePlus(id,true);putRight();});
     var pick=genreSelect(genreOf(b,id),function(g){setGenre(id,g,true);putRight();});
     pick.classList.add('pmenu');
@@ -2539,11 +2572,14 @@ function viewPaper(){
     var saved=h('span',{class:'saved','aria-live':'polite'},'');
     S.sheet={id:id,saved:saved,timer:0,touched:false,boxes:[{key:'note',ta:ta,last:str(b.note)},{key:'pin',ta:pinTa,last:str(b.pin)}]};
     /* each box grows with what is written in it; the notes up to the height of the window */
-    [ta,pinTa].forEach(function(x){
-      var grow=function(){x.style.height='auto';x.style.height=x.scrollHeight+'px';};
+    var grows=[ta,pinTa].map(function(x){
+      /* a hidden box measures nothing: it keeps its height from the sheet until it is in sight */
+      var grow=function(){if(!x.isConnected||!x.offsetParent)return;x.style.height='auto';x.style.height=x.scrollHeight+'px';};
       x.addEventListener('input',function(){grow();S.sheet.touched=true;clearTimeout(S.sheet.timer);S.sheet.timer=setTimeout(flushNote,600);});
-      requestAnimationFrame(function(){if(x.isConnected)grow();});
+      requestAnimationFrame(grow);
+      return grow;
     });
+    S.sheet.grow=function(){grows.forEach(function(g){g();});};
     side.append(h('div',{class:'notes-h'},h('label',{for:'sheet-pin'},'On the Board')),pinTa,
       h('div',{class:'notes-h nh2'},h('label',{for:'sheet-notes'},'Notes'),saved),ta);
     /* what is done rarely: the PDF's file, and taking the paper off the board */
@@ -2556,6 +2592,9 @@ function viewPaper(){
     var forPdf=function(fn){closeM();show('pdf');fn(pdfBox.row);};
     var fillM=function(){
       var cur=U.board[id];menu.replaceChildren();if(!cur)return;
+      /* the publisher's page and any open copy, which a phone keeps here rather than in the row of controls */
+      Array.prototype.forEach.call(links.querySelectorAll('a'),function(a){
+        menu.append(h('a',{class:'narrow-only',role:'menuitem',href:a.href,target:'_blank',rel:'noopener',onclick:closeM},a.textContent));});
       if(hasPdf(cur))menu.append(item('Open the PDF in its own tab',function(){closeM();openPdf(id);}),
         item('Replace the PDF',function(){forPdf(function(r){r.pick();});}),
         item('Remove the PDF',function(it){if(!it.armed){it.armed=true;it.textContent='Press again to remove the PDF';return;}forPdf(function(r){r.drop();});},'warn'));
@@ -2575,7 +2614,8 @@ function viewPaper(){
       fillM();menu.hidden=false;mbtn.setAttribute('aria-expanded','true');
       document.addEventListener('pointerdown',awayM,true);document.addEventListener('keydown',escM,true);
     });
-    mwrap.append(mbtn,menu);ctl.append(mwrap);
+    mwrap.append(mbtn,menu);bar.insertBefore(mwrap,bar.lastChild);      /* in the top row, before the gear */
+    ctl.classList.add('has-menu');      /* a phone finds the links in the menu */
   }else{
     S.sheet=null;
     side.hidden=true;
@@ -2600,7 +2640,7 @@ function viewPaper(){
     if(t==='notes'&&window.matchMedia('(min-width:901px)').matches)t='context';     /* on a wide screen the notes are already alongside */
     S.tab=t;
     bc.setAttribute('aria-pressed',String(t==='context'));bp.setAttribute('aria-pressed',String(t==='pdf'));bn.setAttribute('aria-pressed',String(t==='notes'));
-    if(t==='notes'){side.classList.add('inslot');showIn(side);return;}
+    if(t==='notes'){side.classList.add('inslot');showIn(side);if(S.sheet&&S.sheet.grow)S.sheet.grow();return;}
     side.classList.remove('inslot');if(b)grid.append(side);
     if(t==='pdf'&&pdfBox&&pdfBox.inline!==inlinePdf()){pdfBox.remove();pdfBox=null;}
     if(t==='pdf'&&!pdfBox){pdfBox=pdfBlock(id,p);pdfBox.inline=inlinePdf();}      /* pdfBlock() gives up the address of the copy shown before */
@@ -2661,6 +2701,16 @@ function renderStatus(){
   var text=S.ready&&Sync.state==='error'?'Notes not synced':'';
   $('status').textContent=text;$('status2').textContent=text;$('footnav').hidden=!text;
   if(S.sheet)S.sheet.saved.textContent=Sync.state==='error'?'Not synced':'';
+}
+function starText(el,b){      /* the star and its word; a phone shows the star alone, and says the word to a screen reader */
+  var on=isStar(b);el.setAttribute('aria-label',on?'Starred':'Star');
+  el.replaceChildren(on?'\u2605':'\u2606',h('span',{class:'star-word','aria-hidden':'true'},on?' Starred':' Star'));
+}
+function podiumIcon(){      /* the leaderboard's button on a phone: three steps of a podium */
+  var NS='http://www.w3.org/2000/svg',svg=document.createElementNS(NS,'svg');
+  svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');
+  [[2,11,6,9],[9,6,6,14],[16,14,6,6]].forEach(function(r){var e=document.createElementNS(NS,'rect');e.setAttribute('x',r[0]);e.setAttribute('y',r[1]);e.setAttribute('width',r[2]);e.setAttribute('height',r[3]);e.setAttribute('rx','1');svg.append(e);});
+  return svg;
 }
 function dotsIcon(){
   var NS='http://www.w3.org/2000/svg',svg=document.createElementNS(NS,'svg');
